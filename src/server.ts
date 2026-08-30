@@ -15,6 +15,7 @@ import { healthRoutes, serviceIndex } from './api/routes/health.js';
 import { pageRoutes } from './api/routes/pages.js';
 import { publicCatalogRoutes } from './api/routes/public-catalog.js';
 import { hookRoutes } from './api/routes/hooks.js';
+import { liveAccessRoutes } from './api/routes/live-access.js';
 import { meRoutes } from './api/routes/me.js';
 import { paymentRoutes } from './api/routes/payments.js';
 import { payoutRoutes } from './api/routes/payouts.js';
@@ -52,6 +53,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(async (instance) => pageRoutes(instance, serviceIndex));
   await app.register(meRoutes);
   await app.register(authRoutes);
+  await app.register(liveAccessRoutes);
   await app.register(catalogRoutes);
   await app.register(providerAccountRoutes);
   await app.register(paymentRoutes);

@@ -58,6 +58,17 @@ async function serve(reply: FastifyReply, name: string, request: FastifyRequest)
   }
 }
 
+async function docsMarkdown(reply: FastifyReply) {
+  try {
+    const md = await readFile(join(process.cwd(), 'docs', 'INTEGRATION.md'), 'utf8');
+    return reply.type('text/markdown; charset=utf-8').send(md);
+  } catch {
+    return reply.status(404).send({
+      error: { code: 'not_found', message: 'Documentation indisponible.' },
+    });
+  }
+}
+
 /** L'appelant est-il un navigateur qui attend une page, ou un client d'API ? */
 function wantsHtml(request: FastifyRequest): boolean {
   const accept = request.headers.accept ?? '';
@@ -118,16 +129,22 @@ export async function pageRoutes(app: FastifyInstance, serviceIndex: () => Servi
    * navigateur que dans son editeur. Convertir en HTML introduirait une chaine
    * de build pour un gain nul.
    */
-  app.get('/docs', async (_request, reply) => {
-    try {
-      const md = await readFile(join(process.cwd(), 'docs', 'INTEGRATION.md'), 'utf8');
-      return reply.type('text/markdown; charset=utf-8').send(md);
-    } catch {
-      return reply.status(404).send({
-        error: { code: 'not_found', message: 'Documentation indisponible.' },
-      });
-    }
+  /**
+   * La SOURCE reste le Markdown du depot : elle est donc toujours a jour, et un
+   * integrateur la lit aussi bien dans son editeur que dans un navigateur.
+   *
+   * Ce qui change ici, c'est la restitution. Un navigateur recoit une page qui
+   * met le Markdown en forme cote client ; `curl` recoit le fichier brut. Le
+   * rendu se fait dans le navigateur, et non au serveur, precisement pour ne
+   * pas introduire de chaine de build : la page va chercher /docs.md et le met
+   * en page elle-meme.
+   */
+  app.get('/docs', async (request, reply) => {
+    if (wantsHtml(request)) return serve(reply, 'docs.html', request);
+    return docsMarkdown(reply);
   });
+
+  app.get('/docs.md', async (_request, reply) => docsMarkdown(reply));
 
   /**
    * Page de paiement hebergee. Publique par nature : le client final n'a pas de
@@ -139,6 +156,17 @@ export async function pageRoutes(app: FastifyInstance, serviceIndex: () => Servi
   app.get('/login', async (request, reply) => serve(reply, 'login.html', request));
   app.get('/register', async (request, reply) => serve(reply, 'register.html', request));
   app.get('/app', async (request, reply) => serve(reply, 'app.html', request));
+
+  /**
+   * Administration de la plateforme.
+   *
+   * La page est servie a tout le monde : elle ne contient aucune donnee, elle
+   * les demande a l'API. C'est /v1/admin/* qui verifie l'autorite, et la page
+   * redirige vers /login si l'API la refuse. Servir la coquille sans controle
+   * evite de dupliquer la regle d'acces a deux endroits qui finiraient par
+   * diverger.
+   */
+  app.get('/admin', async (request, reply) => serve(reply, 'admin.html', request));
 
   /**
    * Console d'exploitation : refusee par defaut en production, car elle invite

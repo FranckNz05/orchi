@@ -11,6 +11,7 @@ import {
   revokeSession,
   switchEnvironment,
 } from '../../modules/auth.js';
+import { assertLiveAllowed } from '../../modules/live-access.js';
 
 const registerBody = z.object({
   name: z.string().min(2).max(120),
@@ -117,15 +118,34 @@ export async function authRoutes(app: FastifyInstance) {
     ]);
 
     return {
-      user: { name: ctx.userName, email: ctx.userEmail },
-      merchant: { id: ctx.merchantId, name: ctx.merchantName, country: ctx.merchantCountry },
+      user: {
+        name: ctx.userName,
+        email: ctx.userEmail,
+        // Le tableau de bord affiche le lien vers /admin a partir de ce champ.
+        // Il ne conditionne AUCUN droit : l'autorite est verifiee a chaque appel
+        // de /v1/admin/*. Un champ cote client ne protege rien, il n'informe.
+        platform_admin: ctx.platformAdmin,
+      },
+      merchant: {
+        id: ctx.merchantId,
+        name: ctx.merchantName,
+        country: ctx.merchantCountry,
+        kyb_status: ctx.merchantKybStatus,
+        can_go_live: ctx.merchantKybStatus === 'VERIFIED',
+      },
       environment: ctx.environment,
       counts: { payments, payouts },
       public_base_url: env.PUBLIC_BASE_URL,
     };
   });
 
-  /** Bascule test / live du tableau de bord. */
+  /**
+   * Bascule test / live du tableau de bord.
+   *
+   * Le passage en `live` est refuse tant que le marchand n'est pas verifie.
+   * L'etat est relu en base a cet instant plutot que lu dans la session : une
+   * suspension prononcee il y a une minute doit deja s'appliquer.
+   */
   app.post('/auth/environment', { preHandler: app.authenticate }, async (request) => {
     const ctx = request.auth!;
     if (ctx.via !== 'session') throw errors.unauthenticated('Session de navigateur requise.');
@@ -133,6 +153,8 @@ export async function authRoutes(app: FastifyInstance) {
     const { environment } = z
       .object({ environment: z.enum(['test', 'live']) })
       .parse(request.body);
+
+    if (environment === 'live') await assertLiveAllowed(ctx.merchantId);
 
     await switchEnvironment(ctx.sessionId!, environment);
     return { environment };
@@ -165,6 +187,10 @@ export async function authRoutes(app: FastifyInstance) {
     const { ID_PREFIX, newId } = await import('../../core/ids.js');
 
     const environment = body.environment ?? ctx.environment;
+    // Seconde et derniere porte vers l'environnement reel. Une cle `live`
+    // emise ici serait utilisable sans limite de duree : la verifier au moment
+    // de l'emission est ce qui rend le controle effectif.
+    if (environment === 'live') await assertLiveAllowed(ctx.merchantId);
     const key = generateApiKey(environment);
 
     await prisma.apiKey.create({

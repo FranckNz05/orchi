@@ -90,6 +90,22 @@ export const errors = {
       details: { required_scope: scope },
     }),
 
+  /**
+   * Refus d'acces a l'administration de la plateforme.
+   *
+   * Distinct de `forbidden` : ce n'est pas un scope manquant sur une cle, c'est
+   * une autorite que ce compte n'a pas. Reutiliser le message des scopes
+   * parlerait de « cette cle API » a quelqu'un connecte dans son navigateur.
+   */
+  notAdmin: () =>
+    new AppError({
+      type: 'permission_error',
+      code: 'admin_required',
+      message: "Cette page est reservee aux administrateurs de la plateforme.",
+      httpStatus: 403,
+      retriable: false,
+    }),
+
   merchantInactive: (status: string) =>
     new AppError({
       type: 'permission_error',

@@ -22,6 +22,10 @@ export interface AuthContext {
   merchantId: string;
   merchantName: string;
   merchantCountry: string;
+  /** UNVERIFIED | PENDING | VERIFIED | REJECTED. Voir modules/live-access.ts. */
+  merchantKybStatus: string;
+  /** Autorite sur la plateforme, jamais accordee a une cle API. */
+  platformAdmin: boolean;
   /** Present uniquement pour une authentification par cle API. */
   apiKeyId?: string;
   /** Present uniquement pour une session de navigateur. */
@@ -112,6 +116,11 @@ export const auth = fp(async (app: FastifyInstance) => {
         merchantId: record.merchantId,
         merchantName: record.merchant.name,
         merchantCountry: record.merchant.country,
+        merchantKybStatus: record.merchant.kybStatus,
+        // Une cle API n'est jamais administratrice, meme si elle appartient au
+        // marchand de la plateforme : l'administration se fait avec une
+        // session de navigateur, jamais avec un secret copiable.
+        platformAdmin: false,
         apiKeyId: record.id,
         environment: record.environment === 'live' ? 'live' : 'test',
         scopes: record.scopes.split(',').map((s) => s.trim()).filter(Boolean),
@@ -137,6 +146,8 @@ export const auth = fp(async (app: FastifyInstance) => {
       merchantId: session.merchantId,
       merchantName: session.merchantName,
       merchantCountry: session.merchantCountry,
+      merchantKybStatus: session.merchantKybStatus,
+      platformAdmin: session.platformAdmin,
       sessionId: session.sessionId,
       userName: session.userName,
       userEmail: session.userEmail,
@@ -155,11 +166,26 @@ export const auth = fp(async (app: FastifyInstance) => {
       if (!ctx.scopes.includes(scope) && !ctx.scopes.includes('*')) throw errors.forbidden(scope);
     };
   });
+
+  /**
+   * Acces a l'administration de la plateforme.
+   *
+   * Exige une SESSION de navigateur : une cle API, meme celle du marchand de la
+   * plateforme, ne donne jamais ce droit. Une cle se copie, se colle dans un
+   * script et finit dans un depot ; verifier un marchand doit rester un geste
+   * qu'une personne identifiee pose derriere son ecran.
+   */
+  app.decorate('requireAdmin', (async (request) => {
+    const ctx = request.auth;
+    if (!ctx) throw errors.unauthenticated();
+    if (ctx.via !== 'session' || !ctx.platformAdmin) throw errors.notAdmin();
+  }) as preHandlerHookHandler);
 });
 
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: preHandlerHookHandler;
     requireScope: (scope: string) => preHandlerHookHandler;
+    requireAdmin: preHandlerHookHandler;
   }
 }

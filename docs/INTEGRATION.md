@@ -4,8 +4,8 @@ Guide d'intégration de l'API Orchi : encaisser (*pay-in*) et décaisser (*payou
 en Afrique à travers une interface unique, quel que soit l'agrégateur.
 
 > **État actuel.** Webhooks entrants et sortants, balayeur et réconciliation
-> sont en place. Seul le simulateur est activé côté agrégateurs. Les adaptateurs FedaPay et
-> CinetPay sont écrits mais **non validés** contre un compte sandbox réel — voir
+> sont en place. Seul le simulateur est activé côté agrégateurs. Les adaptateurs de nos
+> premiers partenaires sont écrits mais **non validés** contre un compte sandbox réel — voir
 > [Agrégateurs disponibles](#agrégateurs-disponibles). Vous pouvez développer et
 > tester intégralement votre intégration dès aujourd'hui.
 
@@ -13,7 +13,7 @@ en Afrique à travers une interface unique, quel que soit l'agrégateur.
 
 ## 1. Le principe : Orchi ne détient pas vos fonds
 
-Vous ouvrez vos propres comptes chez les agrégateurs (FedaPay, CinetPay…) et
+Vous ouvrez vos propres comptes chez les agrégateurs partenaires et
 vous confiez vos clés à Orchi, qui les conserve **chiffrées**. Orchi route,
 réconcilie, et prélève sa commission sur chaque transaction réussie.
 
@@ -661,11 +661,11 @@ curl -H "Authorization: Bearer sk_test_..." \
 | `fedapay` | BJ, TG, CI, SN, NE | pay-in + payout | Écrit d'après la doc publique — **non validé en sandbox réel** |
 | `cinetpay` | CI, BJ, TG, ML, BF, NE, SN, GW, GN, CM, CD | pay-in + payout | Écrit d'après la doc publique — **non validé en sandbox réel** |
 
-**GeniusPay** couvre CI, SN, ML, BF, BJ, TG, NE, GW, GH, NG, SL, CM, GA, CG, CF,
+Notre partenaire d’Afrique de l’Ouest couvre CI, SN, ML, BF, BJ, TG, NE, GW, GH, NG, SL, CM, GA, CG, CF,
 CD, KE, RW, UG, ZM, ZA. Son API de décaissement n'étant pas publiée, aucun
 virement sortant n'y est routé — `supports()` renvoie `false` pour les payouts.
 
-Deux pays (Tchad, Guinée équatoriale) figurent au catalogue avec GeniusPay
+Deux pays (Tchad, Guinée équatoriale) figurent au catalogue avec ce partenaire
 d'après le document de cadrage mais **sont absents de sa documentation
 publique** : `GET /v1/coverage` les renvoie avec `connected: false`, et le
 routeur les ignore.

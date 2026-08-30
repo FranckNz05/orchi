@@ -9,54 +9,63 @@
 <style>
   /* ------------------------------------------------------------------ hero */
   /* Le globe est place DERRIERE le titre, pas a cote : le regard va au message,
-     le decor donne le contexte geographique sans se disputer l'attention. */
-  header.hero {
-    position: relative; padding: 96px 0 60px; text-align: center;
-    display: grid; place-items: center;
-  }
+     le decor donne le contexte geographique sans se disputer l'attention.
+
+     `header.hero` est en flux normal (pas en grille) : un enfant en
+     `position: absolute` dans un conteneur `display:grid; place-items:center`
+     herite de `justify-self: center` et se retrecit au lieu de s'etendre — le
+     globe s'en trouvait comprime sur un tiers de la largeur. */
+  header.hero { position: relative; padding: 92px 0 56px; text-align: center; }
+
   .globe-wrap {
-    position: absolute; inset: -40px 0 auto 0; height: 620px;
+    position: absolute; top: -130px; left: 50%;
+    width: min(1180px, 150%); height: 820px;
+    transform: translateX(-50%);
     z-index: 0; pointer-events: none;
-    mask-image: radial-gradient(ellipse 62% 62% at 50% 42%, #000 35%, transparent 78%);
-    opacity: .85;
+    mask-image: radial-gradient(ellipse 60% 58% at 50% 46%, #000 42%, transparent 76%);
+    opacity: .95;
   }
   #globe { width: 100%; height: 100%; display: block; }
-  .hero-inner { position: relative; z-index: 1; max-width: 860px; }
+  .hero-inner { position: relative; z-index: 1; max-width: 880px; }
+
 
   h1 {
-    font-size: clamp(36px, 5.8vw, 66px); line-height: 1.05; letter-spacing: -0.04em;
-    margin: 24px auto 0; max-width: 16ch; font-weight: 700;
+    font-size: clamp(38px, 6.2vw, 74px); line-height: 1.03; letter-spacing: -0.045em;
+    margin: 26px auto 0; max-width: 15ch; font-weight: 700;
+    text-shadow: 0 2px 18px rgba(5, 7, 10, .95), 0 0 46px rgba(5, 7, 10, .8);
   }
   /* Mot-cle surligne : un bloc plein tranche mieux qu'un degrade de texte sur
      un fond deja charge. */
   h1 .mark-in {
     background: linear-gradient(135deg, var(--accent), #23b98c);
-    color: var(--accent-ink); padding: 0 .18em; border-radius: 10px;
-    box-shadow: 0 8px 30px rgba(53,214,164,.28);
+    color: var(--accent-ink); padding: 0 .18em; border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(53,214,164,.35);
     display: inline-block;
   }
-  .lede { font-size: clamp(16.5px, 1.7vw, 19px); color: var(--muted); max-width: 56ch; margin: 24px auto 0; }
-  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; align-items: center; justify-content: center; }
-  .cta small { color: var(--muted); font-size: 13.5px; }
-
-  .badges {
-    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 30px;
+  .lede {
+    font-size: clamp(16.5px, 1.7vw, 19.5px); color: #a7b5c4; max-width: 56ch;
+    margin: 26px auto 0;
+    text-shadow: 0 1px 12px rgba(5,7,10,.98), 0 0 30px rgba(5,7,10,.85);
   }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; align-items: center; justify-content: center; }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 30px; }
   .badges span {
     font-size: 12.5px; color: var(--muted); font-family: var(--mono);
     border: 1px solid var(--border); border-radius: 999px; padding: 5px 13px;
-    background: rgba(16,21,28,.6);
+    background: rgba(16,21,28,.72); backdrop-filter: blur(6px);
   }
   .badges span b { color: var(--accent); font-weight: 600; }
 
   .figures {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1px; background: var(--border); border: 1px solid var(--border);
-    border-radius: var(--radius); overflow: hidden; margin-top: 52px;
+    border-radius: var(--radius); overflow: hidden; margin-top: 54px;
+    position: relative; z-index: 1;
   }
-  .figure { background: var(--surface); padding: 20px 22px; }
+  .figure { background: rgba(16,21,28,.86); padding: 22px; backdrop-filter: blur(8px); }
   .figure .v {
-    font-size: 31px; font-weight: 700; letter-spacing: -0.04em;
+    font-size: 33px; font-weight: 700; letter-spacing: -0.045em;
     font-variant-numeric: tabular-nums;
     background: linear-gradient(140deg, var(--ink), var(--muted));
     -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -64,9 +73,9 @@
   .figure .k { color: var(--muted); font-size: 13px; margin-top: 2px; }
 
   /* -------------------------------------------------------------- sections */
-  section { padding: 76px 0; position: relative; }
+  section { padding: 84px 0; position: relative; }
   section + section { border-top: 1px solid var(--border); }
-  h2 { font-size: clamp(27px, 3.3vw, 38px); letter-spacing: -0.03em; margin: 0 0 14px; font-weight: 700; max-width: 20ch; }
+  h2 { font-size: clamp(28px, 3.5vw, 42px); letter-spacing: -0.035em; margin: 0 0 14px; font-weight: 700; max-width: 20ch; }
   .sub { color: var(--muted); max-width: 66ch; margin: 0 0 38px; font-size: 16.5px; }
 
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 18px; }
@@ -81,6 +90,55 @@
   .split { display: grid; grid-template-columns: 1fr 1.05fr; gap: 34px; align-items: start; }
   @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
 
+  /* ------------------------------------------------ demonstration routage */
+  /* Tout le schema est en SVG a viewBox fixe : les fils restent alignes sur les
+     boites a n'importe quelle largeur, ce qu'un melange de DOM et de SVG ne
+     garantit pas. */
+  .rd { background: linear-gradient(180deg, var(--surface), var(--bg-2));
+        border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .rd .stage { padding: 14px 10px 4px; }
+  .rd svg { width: 100%; height: auto; display: block; }
+
+  .rd .wire { fill: none; stroke: var(--border-lit); stroke-width: 1.5; }
+  .rd .wire.hot { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 6px rgba(53,214,164,.6)); }
+
+  .rd .box { fill: #0a0e13; stroke: var(--border); stroke-width: 1.5; transition: stroke .3s, fill .3s; }
+  .rd .nm { fill: var(--ink); font: 600 15px -apple-system, "Segoe UI", sans-serif; }
+  .rd .sb { fill: var(--muted); font: 12.5px var(--mono); }
+  .rd .st { font: 600 11.5px var(--mono); text-anchor: end; fill: var(--muted); transition: fill .3s; }
+  .rd .track { fill: #1a222c; }
+  .rd .fill { fill: var(--accent); transition: width .7s cubic-bezier(.2,.7,.3,1); }
+
+  .rd .node.try  .box { stroke: var(--accent-2); fill: rgba(74,168,255,.07); }
+  .rd .node.try  .st  { fill: var(--accent-2); }
+  .rd .node.fail .box { stroke: var(--danger); fill: rgba(255,138,122,.07); }
+  .rd .node.fail .st  { fill: var(--danger); }
+  .rd .node.unk  .box { stroke: var(--warn); fill: rgba(240,192,99,.08); }
+  .rd .node.unk  .st  { fill: var(--warn); }
+  .rd .node.ok   .box { stroke: var(--accent); fill: rgba(53,214,164,.09); }
+  .rd .node.ok   .st  { fill: var(--accent); }
+
+  .rd .core-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: .45;
+                   stroke-dasharray: 5 9; transform-origin: 430px 180px; animation: spin 9s linear infinite; }
+  .rd .core-ring.b { stroke: var(--accent-2); animation-duration: 14s; animation-direction: reverse; opacity: .3; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .rd .packet { filter: drop-shadow(0 0 7px rgba(53,214,164,.95)); }
+
+  .rd .log {
+    display: flex; align-items: center; gap: 12px;
+    border-top: 1px solid var(--border); padding: 15px 22px;
+    font-family: var(--mono); font-size: 13.5px; background: #05070a;
+  }
+  .rd .log .idx { color: var(--accent); font-weight: 700; flex: 0 0 auto; }
+  .rd .log .msg { color: var(--ink); }
+  .rd .log .msg.warn { color: var(--warn); }
+  .rd .log .msg.bad { color: var(--danger); }
+  .rd .log .msg.good { color: var(--accent); }
+  .rd .log .replay { margin-left: auto; }
+
+  .rd .fallback { padding: 4px 22px 20px; }
+  .rd .fallback li { color: var(--muted); font-size: 14.5px; margin-bottom: 5px; }
+
   /* ------------------------------------------------------------------ pays */
   .region-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
   .region-tabs button {
@@ -88,7 +146,7 @@
     border: 1px solid var(--border); background: var(--surface); color: var(--muted);
     cursor: pointer; transition: all .16s;
   }
-  .region-tabs button:hover { border-color: var(--border-lit); color: var(--ink); }
+  .region-tabs button:hover { border-color: var(--border-lit); color: var(--ink); transform: translateY(-1px); }
   .region-tabs button[aria-pressed="true"] {
     background: var(--accent-soft); border-color: rgba(53,214,164,.35);
     color: var(--accent); font-weight: 600;
@@ -96,9 +154,16 @@
   .countries { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 10px; }
   .country {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 12px 14px; transition: border-color .16s, transform .16s;
+    border-radius: 12px; padding: 12px 14px;
+    transition: border-color .16s, transform .16s, box-shadow .16s;
+    animation: pop .34s cubic-bezier(.2,.8,.3,1) both;
+    animation-delay: var(--d, 0s);
   }
-  .country:hover { border-color: var(--border-lit); transform: translateY(-2px); }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+  .country:hover {
+    border-color: rgba(53,214,164,.4); transform: translateY(-3px);
+    box-shadow: 0 10px 26px rgba(0,0,0,.45);
+  }
   .country .n { font-weight: 600; font-size: 14.5px; display: flex; gap: 8px; align-items: center; }
   .country .n code { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
   .country .m { color: var(--muted); font-size: 12.5px; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
@@ -114,6 +179,8 @@
   table.pricing th, table.pricing td { padding: 15px 22px; text-align: left; border-bottom: 1px solid var(--border); }
   table.pricing th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
   table.pricing tr:last-child td { border-bottom: 0; }
+  table.pricing tbody tr { transition: background .15s; }
+  table.pricing tbody tr:hover { background: rgba(53,214,164,.04); }
   table.pricing td.num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
 
   /* ------------------------------------------------------------ simulateur */
@@ -128,7 +195,7 @@
     border: 1px solid var(--border); background: #05070a; color: var(--ink);
     font-variant-numeric: tabular-nums;
   }
-  .sim input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  .sim input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .receipt {
     background: #05070a; border: 1px solid var(--border); border-radius: var(--radius);
     padding: 22px 24px; font-family: var(--mono); font-size: 14px;
@@ -155,13 +222,18 @@
 </head>
 <body>
 
-<div class="backdrop" aria-hidden="true"></div>
+<div class="backdrop" aria-hidden="true">
+  <div class="aurora"><i></i><i></i><i></i></div>
+  <div class="beam"></div>
+</div>
+<div class="progress" id="progress" aria-hidden="true"></div>
 
-<nav class="top">
+<nav class="top" id="nav">
   <div class="wrap">
     <a class="logo" href="/"><span class="mark"></span> Orchi</a>
     <div class="links">
-      <a href="#comment" class="hide-sm">Comment ça marche</a>
+      <a href="#routage" class="hide-sm">Le routage</a>
+      <a href="#comment" class="hide-sm">Intégration</a>
       <a href="#pays" class="hide-sm">Pays</a>
       <a href="#tarifs" class="hide-sm">Tarifs</a>
       <a href="/login">Connexion</a>
@@ -175,7 +247,7 @@
 
   <div class="wrap hero-inner">
     <span class="eyebrow"><span class="live-dot"></span><span id="eyebrow">chargement du catalogue…</span></span>
-    <h1>Une seule API pour encaisser <span class="mark-in">et décaisser</span> en Afrique</h1>
+    <h1 class="words">Une seule API pour encaisser <span class="mark-in">et décaisser</span> en Afrique</h1>
     <p class="lede">
       Mobile money, carte, virement. Orchi masque la fragmentation des
       agrégateurs régionaux derrière une interface unique — et bascule
@@ -183,7 +255,7 @@
     </p>
     <div class="cta">
       <a href="/register" class="btn solid lg">Obtenir ma clé API</a>
-      <a href="#comment" class="btn lg">Comment ça marche</a>
+      <a href="#routage" class="btn lg">Voir le routage en action</a>
     </div>
     <div class="badges">
       <span><b>5 %</b> tout compris</span>
@@ -193,7 +265,7 @@
     </div>
   </div>
 
-  <div class="wrap" style="width:100%">
+  <div class="wrap" style="width:100%;position:relative;z-index:1">
     <div class="figures" id="figures">
       <div class="figure"><div class="v">—</div><div class="k">pays au catalogue</div></div>
       <div class="figure"><div class="v">—</div><div class="k">agrégateurs référencés</div></div>
@@ -202,6 +274,12 @@
     </div>
   </div>
 </header>
+
+<!-- Bandeau defilant : alimente par le catalogue reel, pas par une liste ecrite
+     a la main qui se perimerait au premier pays ajoute. -->
+<div class="marquee" style="padding:8px 0 30px" aria-hidden="true">
+  <div class="track" id="marquee"></div>
+</div>
 
 <section>
   <div class="wrap">
@@ -212,22 +290,119 @@
       et au Kenya intègre trois fois, réconcilie trois fois, et tombe trois fois.
     </p>
     <div class="cards">
-      <div class="card lit reveal">
+      <div class="card lit glow tilt reveal">
         <h3>Une API, tous les canaux</h3>
         <p>Le même appel encaisse par mobile money au Bénin, par carte en Égypte
         et par virement instantané en Afrique du Sud. Les différences vivent dans
         nos adaptateurs, pas dans votre code.</p>
       </div>
-      <div class="card lit reveal">
+      <div class="card lit glow tilt reveal">
         <h3>Bascule automatique</h3>
         <p>Chaque agrégateur est noté en continu sur sa fiabilité, son coût et sa
         latence. Celui qui dégrade cesse de recevoir du trafic — sans que vous
         ayez à intervenir.</p>
       </div>
-      <div class="card lit reveal">
+      <div class="card lit glow tilt reveal">
         <h3>Vos fonds ne transitent pas</h3>
         <p>Vous gardez vos propres comptes agrégateurs. Orchi route et réconcilie,
         mais ne détient jamais votre argent. Vous restez le marchand de référence.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="routage">
+  <div class="wrap">
+    <h2 class="reveal">Ce qui se passe quand un agrégateur tombe</h2>
+    <p class="sub reveal">
+      Le scénario ci-dessous est celui que la plupart des intégrations ratent : un
+      agrégateur qui ne répond <em>pas</em> n'est pas un agrégateur qui a
+      <em>échoué</em>. Rejouer le paiement sans le savoir, c'est débiter le client
+      deux fois.
+    </p>
+    <p class="sub reveal" style="margin-top:-24px;font-size:14.5px">
+      Nos partenaires sont désignés ici par des lettres. Leur identité est
+      communiquée à l'ouverture du compte : c'est le routage qui a de la
+      valeur, pas l'annuaire.
+    </p>
+
+    <div class="rd reveal" id="rd">
+      <div class="stage">
+        <svg viewBox="0 0 900 360" role="img" aria-label="Schéma du routage d'un paiement avec bascule">
+          <!-- fils -->
+          <path class="wire" id="w-in" d="M200,180 L376,180" />
+          <path class="wire" id="w-0" d="M484,180 C548,180 566,73 620,73" />
+          <path class="wire" id="w-1" d="M484,180 L620,180" />
+          <path class="wire" id="w-2" d="M484,180 C548,180 566,287 620,287" />
+
+          <!-- source -->
+          <g transform="translate(20,141)">
+            <rect class="box" width="180" height="78" rx="14" />
+            <text class="nm" x="18" y="31">Paiement</text>
+            <text class="sb" x="18" y="53">15 000 XOF · BJ</text>
+          </g>
+
+          <!-- routeur -->
+          <circle class="core-ring" cx="430" cy="180" r="52" />
+          <circle class="core-ring b" cx="430" cy="180" r="42" />
+          <circle cx="430" cy="180" r="33" fill="#0a0e13" stroke="#2b3746" stroke-width="1.5" />
+          <text x="430" y="176" text-anchor="middle" class="nm" style="font-size:13px">Routeur</text>
+          <text x="430" y="192" text-anchor="middle" class="sb" style="font-size:10.5px" id="rd-phase">veille</text>
+
+          <!-- agregateurs -->
+          <g class="node" id="n0" transform="translate(620,34)">
+            <rect class="box" width="260" height="78" rx="14" />
+            <text class="nm" x="18" y="30">Agrégateur A</text>
+            <text class="sb" x="18" y="50">score <tspan id="s0">—</tspan></text>
+            <rect class="track" x="18" y="58" width="180" height="4" rx="2" />
+            <rect class="fill" id="f0" x="18" y="58" width="0" height="4" rx="2" />
+            <text class="st" id="t0" x="242" y="30">en attente</text>
+          </g>
+          <g class="node" id="n1" transform="translate(620,141)">
+            <rect class="box" width="260" height="78" rx="14" />
+            <text class="nm" x="18" y="30">Agrégateur B</text>
+            <text class="sb" x="18" y="50">score <tspan id="s1">—</tspan></text>
+            <rect class="track" x="18" y="58" width="180" height="4" rx="2" />
+            <rect class="fill" id="f1" x="18" y="58" width="0" height="4" rx="2" />
+            <text class="st" id="t1" x="242" y="30">en attente</text>
+          </g>
+          <g class="node" id="n2" transform="translate(620,248)">
+            <rect class="box" width="260" height="78" rx="14" />
+            <text class="nm" x="18" y="30">Agrégateur C</text>
+            <text class="sb" x="18" y="50">score <tspan id="s2">—</tspan></text>
+            <rect class="track" x="18" y="58" width="180" height="4" rx="2" />
+            <rect class="fill" id="f2" x="18" y="58" width="0" height="4" rx="2" />
+            <text class="st" id="t2" x="242" y="30">en attente</text>
+          </g>
+
+          <circle class="packet" id="packet" r="5" fill="#fff" opacity="0" />
+        </svg>
+      </div>
+      <div class="log">
+        <span class="idx" id="rd-step">01</span>
+        <span class="msg" id="rd-msg">Préparation…</span>
+        <button class="btn replay" id="rd-replay" type="button" hidden>Rejouer</button>
+      </div>
+    </div>
+
+    <div class="cards reveal" style="margin-top:18px">
+      <div class="card lit glow">
+        <h3>Le score est explicable</h3>
+        <p>Santé 45 %, coût 25 %, latence 20 %, votre préférence 10 %. Chaque
+        décision est enregistrée et consultable — vous pouvez toujours savoir
+        pourquoi tel agrégateur a été retenu.</p>
+      </div>
+      <div class="card lit glow">
+        <h3>Le disjoncteur est local</h3>
+        <p>Il s'ouvre par couple pays–canal, jamais globalement. Une panne du
+        mobile money au Bénin ne coupe pas les cartes en Égypte. Et il ne s'ouvre
+        jamais sur un refus client : ce n'est pas une panne.</p>
+      </div>
+      <div class="card lit glow">
+        <h3>L'état inconnu bloque tout</h3>
+        <p>Tant qu'une transaction n'est pas tranchée, aucun réessai ni aucune
+        bascule n'est autorisé. C'est ce qui garantit qu'un délai dépassé ne se
+        transforme jamais en double débit.</p>
       </div>
     </div>
   </div>
@@ -239,42 +414,24 @@
     <p class="sub reveal">Un environnement de test complet vous permet de tout intégrer avant même d'avoir signé chez un agrégateur.</p>
     <div class="split">
       <div class="cards" style="grid-template-columns:1fr">
-        <div class="card step reveal">
+        <div class="card step glow reveal">
           <div class="n">01</div>
-          <div><h3>Connectez vos comptes</h3><p>Vous apportez vos clés FedaPay, CinetPay ou autres. Elles sont chiffrées et ne ressortent jamais de la plateforme.</p></div>
+          <div><h3>Connectez vos comptes</h3><p>Vous apportez vos propres clés d’agrégateur — la liste des partenaires vous est communiquée à l’ouverture du compte. Elles sont chiffrées et ne ressortent jamais de la plateforme.</p></div>
         </div>
-        <div class="card step reveal">
+        <div class="card step glow reveal">
           <div class="n">02</div>
           <div><h3>Appelez une seule API</h3><p>Un montant, un pays, un client. Orchi choisit l'agrégateur et vous renvoie l'action à faire exécuter par votre client.</p></div>
         </div>
-        <div class="card step reveal">
+        <div class="card step glow reveal">
           <div class="n">03</div>
           <div><h3>Recevez les événements</h3><p>Webhooks signés, réessais automatiques, et un balayeur qui reprend tout ce qui traîne. Aucune transaction ne dépend d'une notification perdue.</p></div>
         </div>
       </div>
       <div class="reveal">
-<pre><span class="c"># Encaisser 15 000 FCFA au Bénin</span>
-curl -X POST https://api.orchi.africa/v1/payments \
-  -H <span class="s">"Authorization: Bearer sk_live_..."</span> \
-  -H <span class="s">"Idempotency-Key: cmd-4821-a"</span> \
-  -d '{
-    <span class="k">"reference"</span>: <span class="s">"cmd-4821"</span>,
-    <span class="k">"amount"</span>: 15000,
-    <span class="k">"currency"</span>: <span class="s">"XOF"</span>,
-    <span class="k">"country"</span>: <span class="s">"BJ"</span>,
-    <span class="k">"channel"</span>: <span class="s">"mobile_money"</span>,
-    <span class="k">"customer"</span>: { <span class="k">"phone"</span>: <span class="s">"+22997000000"</span> }
-  }'
-
-<span class="c"># La réponse ne dit jamais « payé » :
-# elle renvoie l'action à faire exécuter.</span>
-{
-  <span class="k">"status"</span>: <span class="s">"PROCESSING"</span>,
-  <span class="k">"action"</span>: {
-    <span class="k">"type"</span>: <span class="s">"ussd_push"</span>,
-    <span class="k">"instructions"</span>: <span class="s">"Le client valide sur son téléphone."</span>
-  }
-}</pre>
+        <div class="term">
+          <div class="bar"><i></i><i></i><i></i><span>orchi — bash</span></div>
+          <pre id="typed"></pre>
+        </div>
         <p class="sub" style="margin:18px 0 0;font-size:14.5px">
           Un paiement mobile money est asynchrone par nature. Une API qui prétend
           le contraire vous ment — et vous fera perdre de l'argent en
@@ -301,7 +458,7 @@ curl -X POST https://api.orchi.africa/v1/payments \
 
 <section id="tarifs">
   <div class="wrap">
-    <h2 class="reveal"><span id="total-rate">5 %</span> au total. Toujours.</h2>
+    <h2 class="reveal"><span id="total-rate" class="grad">5 %</span> au total. Toujours.</h2>
     <p class="sub reveal">
       Pas d'abonnement, pas de frais fixe, pas de facture en fin de mois. Un taux
       unique prélevé sur chaque transaction réussie — et la part d'Orchi n'est
@@ -353,7 +510,7 @@ curl -X POST https://api.orchi.africa/v1/payments \
         webhooks, réconciliation. Ce qui ne l'est pas encore :
       </p>
       <ul>
-        <li>Les adaptateurs FedaPay et CinetPay sont écrits d'après leur documentation publique, mais <strong>pas encore validés contre un compte sandbox réel</strong> — ils sont donc désactivés.</li>
+        <li>Les adaptateurs de nos trois premiers partenaires sont écrits d’après leur documentation, mais <strong>pas encore validés contre un compte sandbox réel</strong> — ils sont donc désactivés.</li>
         <li>Les 54 pays sont <strong>documentés</strong>, pas branchés. L'API le dit elle-même, pays par pays.</li>
         <li>L'import des fichiers de settlement, pour le rapprochement à trois voies, reste à faire.</li>
       </ul>
@@ -381,7 +538,7 @@ curl -X POST https://api.orchi.africa/v1/payments \
   <div class="wrap">
     <a class="logo" href="/"><span class="mark"></span> Orchi</a>
     <span>Orchestrateur de paiement pan-africain</span>
-    <span style="margin-left:auto"><a href="/login">Connexion</a> · <a href="/register">Créer un compte</a> · <a href="/console">Console</a></span>
+    <span style="margin-left:auto"><a href="/login">Connexion</a> · <a href="/register">Créer un compte</a> · <a href="/docs">Documentation</a></span>
   </div>
 </footer>
 
@@ -395,19 +552,104 @@ curl -X POST https://api.orchi.africa/v1/payments \
     NORTH: 'Afrique du Nord', SOUTHERN: 'Afrique australe', ISLANDS: 'Îles',
   };
   const esc = (v) => String(v ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+  const $ = (id) => document.getElementById(id);
 
   let catalog = null;
   let region = 'ALL';
 
-  /* Apparition au defilement. Sans IntersectionObserver, tout reste visible. */
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ------------------------------------------------------------- Titre --- */
+  /**
+   * Chaque mot est enveloppe pour pouvoir remonter separement. Le surlignage
+   * `.mark-in` est traite comme un mot entier : le decouper le priverait de son
+   * fond continu.
+   */
+  (function animateHeading() {
+    if (reduced) return;
+    const h1 = document.querySelector('h1.words');
+    if (!h1) return;
+    let i = 0;
+    const wrapNode = (node, out) => {
+      if (node.nodeType === 3) {
+        node.textContent.split(/(\s+)/).forEach((chunk) => {
+          if (!chunk.trim()) { out.push(document.createTextNode(chunk)); return; }
+          const w = document.createElement('span');
+          w.className = 'w';
+          const inner = document.createElement('i');
+          inner.textContent = chunk;
+          inner.style.setProperty('--d', (i++ * 0.055) + 's');
+          w.appendChild(inner);
+          out.push(w);
+        });
+      } else {
+        const w = document.createElement('span');
+        w.className = 'w';
+        const inner = document.createElement('i');
+        inner.style.setProperty('--d', (i++ * 0.055) + 's');
+        inner.appendChild(node.cloneNode(true));
+        w.appendChild(inner);
+        out.push(w);
+      }
+    };
+    const out = [];
+    Array.from(h1.childNodes).forEach((n) => wrapNode(n, out));
+    h1.replaceChildren(...out);
+  })();
+
+  /* --------------------------------------------------- Barre de lecture --- */
+  const nav = $('nav');
+  const progress = $('progress');
+  let ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.setProperty('--p', max > 0 ? window.scrollY / max : 0);
+      nav.classList.toggle('scrolled', window.scrollY > 30);
+      ticking = false;
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ------------------------------------------- Halo et inclinaison 3D ---- */
+  /**
+   * Une seule ecoute sur le document plutot qu'une par carte : avec une
+   * quarantaine de cartes, autant d'ecouteurs `mousemove` couteraient bien plus
+   * cher que ce test de proximite.
+   */
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches && !reduced) {
+    document.addEventListener('pointermove', (e) => {
+      const card = e.target.closest('.card.glow, .tilt');
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width;
+      const py = (e.clientY - r.top) / r.height;
+      card.style.setProperty('--mx', (px * 100) + '%');
+      card.style.setProperty('--my', (py * 100) + '%');
+      if (card.classList.contains('tilt')) {
+        // Amplitude faible : au-dela de 5 degres le texte devient penible a lire.
+        card.style.setProperty('--ry', ((px - 0.5) * 9).toFixed(2) + 'deg');
+        card.style.setProperty('--rx', ((0.5 - py) * 7).toFixed(2) + 'deg');
+      }
+    }, { passive: true });
+    document.addEventListener('pointerout', (e) => {
+      const card = e.target.closest('.tilt');
+      if (card) { card.style.setProperty('--rx', '0deg'); card.style.setProperty('--ry', '0deg'); }
+    }, { passive: true });
+  }
+
+  /* -------------------------------------------- Apparition au defilement -- */
   const observer = 'IntersectionObserver' in window && !reduced
     ? new IntersectionObserver((entries) => {
         entries.forEach((e, i) => {
           if (!e.isIntersecting) return;
           // Leger decalage entre elements voisins : l'apparition en bloc fait
           // « pop », l'echelonnement fait respirer.
-          setTimeout(() => e.target.classList.add('in'), i * 60);
+          e.target.style.setProperty('--rd', (i * 0.08) + 's');
+          e.target.classList.add('in');
           observer.unobserve(e.target);
         });
       }, { rootMargin: '0px 0px -60px 0px' })
@@ -419,11 +661,21 @@ curl -X POST https://api.orchi.africa/v1/payments \
     });
   }
 
+  /** Declenche une fonction la premiere fois qu'un element devient visible. */
+  function once(el, fn) {
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) { fn(); return; }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { io.disconnect(); fn(); }
+    }, { threshold: 0.25 });
+    io.observe(el);
+  }
+
   /* Compteurs : la valeur monte plutot que d'apparaitre d'un coup. */
   function countTo(el, target) {
     if (reduced || target < 2) { el.textContent = target; return; }
     const started = performance.now();
-    const duration = 900;
+    const duration = 1100;
     const tick = (now) => {
       const t = Math.min(1, (now - started) / duration);
       // Sortie en douceur : la fin du comptage doit ralentir, pas s'arreter net.
@@ -432,6 +684,252 @@ curl -X POST https://api.orchi.africa/v1/payments \
     };
     requestAnimationFrame(tick);
   }
+
+  /* ---------------------------------------------------- Frappe simulee ---- */
+  const SNIPPET = [
+    ['c', '# Encaisser 15 000 FCFA au Bénin\n'],
+    ['', 'curl -X POST https://api.orchi.africa/v1/payments \\\n'],
+    ['', '  -H '], ['s', '"Authorization: Bearer sk_live_..."'], ['', ' \\\n'],
+    ['', '  -H '], ['s', '"Idempotency-Key: cmd-4821-a"'], ['', ' \\\n'],
+    ['', '  -d \'{\n    '],
+    ['k', '"reference"'], ['', ': '], ['s', '"cmd-4821"'], ['', ',\n    '],
+    ['k', '"amount"'], ['', ': 15000,\n    '],
+    ['k', '"currency"'], ['', ': '], ['s', '"XOF"'], ['', ',\n    '],
+    ['k', '"country"'], ['', ': '], ['s', '"BJ"'], ['', ',\n    '],
+    ['k', '"channel"'], ['', ': '], ['s', '"mobile_money"'], ['', '\n  }\'\n\n'],
+    ['c', '# La réponse ne dit jamais « payé » :\n# elle renvoie l\'action à faire exécuter.\n'],
+    ['', '{\n  '], ['k', '"status"'], ['', ': '], ['s', '"PROCESSING"'], ['', ',\n  '],
+    ['k', '"action"'], ['', ': { '], ['k', '"type"'], ['', ': '], ['s', '"ussd_push"'], ['', ' }\n}'],
+  ];
+
+  function renderSnippet(upTo) {
+    let left = upTo;
+    let html = '';
+    for (const [cls, text] of SNIPPET) {
+      if (left <= 0) break;
+      const slice = text.slice(0, left);
+      left -= slice.length;
+      html += cls ? `<span class="${cls}">${esc(slice)}</span>` : esc(slice);
+    }
+    return html;
+  }
+
+  (function typeSnippet() {
+    const el = $('typed');
+    if (!el) return;
+    const total = SNIPPET.reduce((n, [, t]) => n + t.length, 0);
+    if (reduced) { el.innerHTML = renderSnippet(total); return; }
+
+    once(el, () => {
+      let shown = 0;
+      let last = 0;
+      const step = (now) => {
+        // Vitesse constante en caracteres par seconde plutot qu'un nombre fixe
+        // par image : la frappe garde le meme rythme quel que soit l'ecran.
+        if (!last) last = now;
+        shown = Math.min(total, shown + ((now - last) / 1000) * 340);
+        last = now;
+        el.innerHTML = renderSnippet(Math.floor(shown)) +
+          (shown < total ? '<span class="caret"></span>' : '');
+        if (shown < total) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  })();
+
+  /* ------------------------------------------------- Routage en action --- */
+  /**
+   * Le scenario joue est celui qui compte : un agregateur qui NE REPOND PAS.
+   * Le point n'est pas de montrer une jolie bascule, c'est de montrer qu'elle
+   * est refusee tant que le sort de la premiere tentative est inconnu.
+   */
+  (function routingDemo() {
+    const root = $('rd');
+    if (!root) return;
+
+    const svg = root.querySelector('svg');
+    const packet = $('packet');
+    const msg = $('rd-msg');
+    const stepEl = $('rd-step');
+    const phase = $('rd-phase');
+    const replay = $('rd-replay');
+    const nodes = [$('n0'), $('n1'), $('n2')];
+    const fills = [$('f0'), $('f1'), $('f2')];
+    const scores = [$('s0'), $('s1'), $('s2')];
+    const states = [$('t0'), $('t1'), $('t2')];
+    const wires = ['w-in', 'w-0', 'w-1', 'w-2'].map((id) => $(id));
+
+    const SCORES = [0.86, 0.79, 0.61];
+
+    function reset() {
+      nodes.forEach((n) => (n.setAttribute('class', 'node')));
+      fills.forEach((f) => f.setAttribute('width', '0'));
+      scores.forEach((s) => (s.textContent = '—'));
+      states.forEach((s) => (s.textContent = 'en attente'));
+      wires.forEach((w) => w.setAttribute('class', 'wire'));
+      packet.setAttribute('opacity', '0');
+      phase.textContent = 'veille';
+    }
+
+    function say(text, tone) {
+      msg.textContent = text;
+      msg.className = 'msg' + (tone ? ' ' + tone : '');
+    }
+
+    /** Deplace la bille le long d'un fil, en promesse pour enchainer les etapes. */
+    function travel(wire, ms) {
+      return new Promise((resolve) => {
+        const path = wire;
+        const len = path.getTotalLength();
+        const t0 = performance.now();
+        packet.setAttribute('opacity', '1');
+        const step = (now) => {
+          const t = Math.min(1, (now - t0) / ms);
+          // Acceleration puis freinage : un deplacement lineaire fait mecanique.
+          const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          const p = path.getPointAtLength(len * e);
+          packet.setAttribute('cx', p.x);
+          packet.setAttribute('cy', p.y);
+          if (t < 1) requestAnimationFrame(step);
+          else resolve();
+        };
+        requestAnimationFrame(step);
+      });
+    }
+
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    let running = false;
+    let cancelled = false;
+
+    async function play() {
+      if (running) return;
+      running = true;
+      cancelled = false;
+      replay.hidden = true;
+      reset();
+
+      const stop = () => cancelled;
+
+      stepEl.textContent = '01';
+      say('Paiement reçu — 15 000 XOF, Bénin, mobile money.');
+      wires[0].setAttribute('class', 'wire hot');
+      await travel(wires[0], 900);
+      if (stop()) return;
+
+      stepEl.textContent = '02';
+      phase.textContent = 'notation';
+      say('Le routeur note chaque agrégateur : santé, coût, latence, préférence.');
+      packet.setAttribute('opacity', '0');
+      wires[0].setAttribute('class', 'wire');
+      SCORES.forEach((v, i) => {
+        scores[i].textContent = v.toFixed(2).replace('.', ',');
+        fills[i].setAttribute('width', String(180 * v));
+      });
+      await wait(1500);
+      if (stop()) return;
+
+      stepEl.textContent = '03';
+      phase.textContent = 'appel';
+      say('L’agrégateur A obtient le meilleur score. Tentative n° 1.');
+      nodes[0].setAttribute('class', 'node try');
+      states[0].textContent = 'appel…';
+      wires[1].setAttribute('class', 'wire hot');
+      await travel(wires[1], 850);
+      if (stop()) return;
+      packet.setAttribute('opacity', '0');
+      await wait(1100);
+      if (stop()) return;
+
+      stepEl.textContent = '04';
+      say('Délai dépassé. Aucune réponse de l’agrégateur A.', 'bad');
+      nodes[0].setAttribute('class', 'node fail');
+      states[0].textContent = 'délai dépassé';
+      wires[1].setAttribute('class', 'wire');
+      await wait(1500);
+      if (stop()) return;
+
+      stepEl.textContent = '05';
+      phase.textContent = 'bloqué';
+      say('Statut INCONNU : le paiement a peut-être abouti. Bascule refusée.', 'warn');
+      nodes[0].setAttribute('class', 'node unk');
+      states[0].textContent = 'inconnu';
+      await wait(2100);
+      if (stop()) return;
+
+      stepEl.textContent = '06';
+      phase.textContent = 'contrôle';
+      say('Vérification auprès de l’agrégateur A avant tout réessai…', 'warn');
+      await wait(1900);
+      if (stop()) return;
+
+      stepEl.textContent = '07';
+      say('Confirmé non débité. La bascule est maintenant autorisée.');
+      states[0].textContent = 'non débité';
+      await wait(1500);
+      if (stop()) return;
+
+      stepEl.textContent = '08';
+      phase.textContent = 'bascule';
+      say('Agrégateur B retenu. Tentative n° 2.');
+      nodes[1].setAttribute('class', 'node try');
+      states[1].textContent = 'appel…';
+      wires[2].setAttribute('class', 'wire hot');
+      await travel(wires[2], 850);
+      if (stop()) return;
+      packet.setAttribute('opacity', '0');
+      wires[2].setAttribute('class', 'wire');
+      await wait(900);
+      if (stop()) return;
+
+      stepEl.textContent = '09';
+      phase.textContent = 'confirmé';
+      say('Paiement confirmé. Le client a été débité une seule fois.', 'good');
+      nodes[1].setAttribute('class', 'node ok');
+      states[1].textContent = 'confirmé';
+
+      running = false;
+      replay.hidden = false;
+    }
+
+    replay.addEventListener('click', play);
+
+    if (reduced) {
+      // Sans animation, le schema doit rester comprehensible : on affiche
+      // l'etat final et la sequence en clair.
+      SCORES.forEach((v, i) => {
+        scores[i].textContent = v.toFixed(2).replace('.', ',');
+        fills[i].setAttribute('width', String(180 * v));
+      });
+      nodes[0].setAttribute('class', 'node unk');
+      states[0].textContent = 'inconnu, vérifié';
+      nodes[1].setAttribute('class', 'node ok');
+      states[1].textContent = 'confirmé';
+      say('L’agrégateur A n’a pas répondu ; après vérification, le B a encaissé — une seule fois.');
+      stepEl.textContent = '—';
+      const list = document.createElement('ol');
+      list.className = 'fallback';
+      [
+        'Paiement reçu, 15 000 XOF au Bénin.',
+        'Notation des agrégateurs disponibles.',
+        'Agrégateur A retenu, puis délai dépassé.',
+        'Statut inconnu : réessai et bascule bloqués.',
+        'Vérification : la transaction n’a pas abouti.',
+        'Bascule vers l’agrégateur B, paiement confirmé.',
+      ].forEach((t) => { const li = document.createElement('li'); li.textContent = t; list.appendChild(li); });
+      root.appendChild(list);
+    } else {
+      // La demonstration ne demarre qu'une fois visible, et se relance a chaque
+      // retour dans le champ — mais jamais pendant qu'elle joue.
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) play();
+          else { cancelled = true; running = false; }
+        });
+      }, { threshold: 0.4 });
+      io.observe(svg);
+    }
+  })();
 
   /* ---------------------------------------------------------- Simulateur -- */
 
@@ -443,14 +941,14 @@ curl -X POST https://api.orchi.africa/v1/payments \
     const totalBps = pricing.total_payin_bps;
     const pct = (bps) => (bps / 100).toFixed(2).replace('.', ',') + ' %';
 
-    document.getElementById('total-rate').textContent = pct(totalBps);
-    document.getElementById('rate-payin').textContent = pct(totalBps);
-    document.getElementById('rate-payout').textContent = pct(pricing.total_payout_bps);
+    $('total-rate').textContent = pct(totalBps);
+    $('rate-payin').textContent = pct(totalBps);
+    $('rate-payout').textContent = pct(pricing.total_payout_bps);
 
-    const amountEl = document.getElementById('sim-amount');
-    const providerEl = document.getElementById('sim-provider');
-    const providerLabel = document.getElementById('sim-provider-label');
-    const receipt = document.getElementById('receipt');
+    const amountEl = $('sim-amount');
+    const providerEl = $('sim-provider');
+    const providerLabel = $('sim-provider-label');
+    const receipt = $('receipt');
 
     function render() {
       const amount = Math.max(0, Number(amountEl.value) || 0);
@@ -478,10 +976,12 @@ curl -X POST https://api.orchi.africa/v1/payments \
     render();
   }
 
+  /* ------------------------------------------------------------- Pays ----- */
+
   function renderCountries() {
     const list = region === 'ALL' ? catalog.countries : catalog.countries.filter((c) => c.region === region);
-    document.getElementById('countries').innerHTML = list.map((c) => `
-      <div class="country">
+    $('countries').innerHTML = list.map((c, i) => `
+      <div class="country" style="--d:${Math.min(i, 24) * 0.022}s">
         <div class="n"><span class="dot ${c.connected ? '' : 'off'}"></span> ${esc(c.name)} <code>${esc(c.iso2)}</code></div>
         <div class="m">
           <span>${esc(c.currency)}</span>
@@ -495,8 +995,16 @@ curl -X POST https://api.orchi.africa/v1/payments \
     const counts = catalog.totals.regions;
     const tabs = [['ALL', 'Tous les pays', catalog.totals.countries]]
       .concat(Object.keys(REGION_LABELS).filter((r) => counts[r]).map((r) => [r, REGION_LABELS[r], counts[r]]));
-    document.getElementById('regions').innerHTML = tabs.map(([id, label, n]) =>
+    $('regions').innerHTML = tabs.map(([id, label, n]) =>
       `<button data-region="${id}" aria-pressed="${id === region}">${label} · ${n}</button>`).join('');
+  }
+
+  function renderMarquee() {
+    const chips = catalog.countries.map((c) =>
+      `<span class="chip"><span class="dot ${c.connected ? '' : 'off'}"></span><b>${esc(c.name)}</b> ${esc(c.currency)}</span>`);
+    // La piste est doublee : la translation de -50 % ramene exactement au point
+    // de depart, et le raccord ne se voit pas.
+    $('marquee').innerHTML = chips.join('') + chips.join('');
   }
 
   watchReveals();
@@ -506,15 +1014,15 @@ curl -X POST https://api.orchi.africa/v1/payments \
       const res = await fetch('/v1/public/catalog');
       catalog = await res.json();
     } catch {
-      document.getElementById('eyebrow').textContent = 'catalogue momentanément indisponible';
+      $('eyebrow').textContent = 'catalogue momentanément indisponible';
       return;
     }
 
     const t = catalog.totals;
-    document.getElementById('eyebrow').textContent = `${t.countries} pays · ${t.providers} agrégateurs référencés`;
+    $('eyebrow').textContent = `${t.countries} pays · ${t.providers} agrégateurs référencés`;
     setupSimulator(catalog.pricing);
 
-    document.getElementById('figures').innerHTML = [
+    $('figures').innerHTML = [
       [t.countries, 'pays au catalogue'],
       [t.providers, 'agrégateurs référencés'],
       [t.currencies, 'devises gérées'],
@@ -522,13 +1030,16 @@ curl -X POST https://api.orchi.africa/v1/payments \
     ].map(([, k]) => `<div class="figure"><div class="v">0</div><div class="k">${k}</div></div>`).join('');
 
     const values = [t.countries, t.providers, t.currencies, 1];
-    document.querySelectorAll('#figures .v').forEach((el, i) => countTo(el, values[i]));
+    once($('figures'), () => {
+      document.querySelectorAll('#figures .v').forEach((el, i) => countTo(el, values[i]));
+    });
 
+    renderMarquee();
     renderRegions();
     renderCountries();
     watchReveals();
 
-    document.getElementById('regions').onclick = (e) => {
+    $('regions').onclick = (e) => {
       const btn = e.target.closest('[data-region]');
       if (!btn) return;
       region = btn.dataset.region;

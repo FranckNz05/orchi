@@ -78,6 +78,12 @@ export interface SessionContext {
   merchantId: string;
   merchantName: string;
   merchantCountry: string;
+  /// UNVERIFIED | PENDING | VERIFIED | REJECTED. Relu a chaque requete plutot
+  /// que fige a l'ouverture de la session : une suspension doit produire son
+  /// effet a l'appel suivant, pas au bout de trente jours de session glissante.
+  merchantKybStatus: string;
+  /** Autorite sur la plateforme. Ouvre /admin, rien d'autre. */
+  platformAdmin: boolean;
   environment: 'test' | 'live';
 }
 
@@ -134,6 +140,8 @@ export async function resolveSession(token: string | undefined): Promise<Session
     merchantId: session.user.merchantId,
     merchantName: session.user.merchant.name,
     merchantCountry: session.user.merchant.country,
+    merchantKybStatus: session.user.merchant.kybStatus,
+    platformAdmin: session.user.platformAdmin,
     environment: session.environment === 'live' ? 'live' : 'test',
   };
 }

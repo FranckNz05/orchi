@@ -37,8 +37,31 @@ model Merchant {
 
   /// ACTIVE | SUSPENDED | CLOSED
   status    String @default("ACTIVE")
+
   /// UNVERIFIED | PENDING | VERIFIED | REJECTED
+  ///
+  /// C'est ce champ, et lui seul, qui ouvre l'environnement `live`. Un marchand
+  /// non VERIFIED peut tout integrer et tout tester, mais ne peut ni emettre de
+  /// cle `live`, ni basculer son tableau de bord en `live`. La verification est
+  /// une decision humaine prise par la plateforme : elle n'est jamais accordee
+  /// par le code, seulement enregistree par lui.
   kybStatus String @default("UNVERIFIED") @map("kyb_status")
+
+  /// Demande d'acces a l'environnement reel. Les trois dates racontent le
+  /// dossier : quand il a ete depose, quand il a ete tranche, par qui.
+  liveRequestedAt DateTime? @map("live_requested_at")
+  liveReviewedAt  DateTime? @map("live_reviewed_at")
+  /// Identifiant de l'utilisateur administrateur ayant tranche. Volontairement
+  /// une chaine libre et non une relation : la trace doit survivre a la
+  /// suppression du compte administrateur qui l'a produite.
+  liveReviewedBy  String?   @map("live_reviewed_by")
+  /// Motif du refus, ou note d'acceptation. Montre tel quel au marchand : un
+  /// refus sans motif est un refus qu'on ne peut pas corriger.
+  liveReviewNote  String?   @map("live_review_note")
+  /// Ce que le marchand declare vendre. Sert a l'examen du dossier.
+  liveActivity    String?   @map("live_activity")
+  liveWebsite     String?   @map("live_website")
+  liveVolumeMinor Int?      @map("live_volume_minor")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -745,8 +768,22 @@ model User {
   merchantId String   @map("merchant_id")
   merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
-  /// OWNER | MEMBER
+  /// OWNER | MEMBER - role au sein du compte marchand.
   role String @default("OWNER")
+
+  /// Autorite sur la PLATEFORME, distincte du role au sein d'un marchand.
+  ///
+  /// Un administrateur reste un utilisateur ordinaire rattache a un marchand
+  /// (celui de la plateforme elle-meme) : c'est ce drapeau, et non son role,
+  /// qui lui ouvre /admin. Les deux notions sont separees parce qu'elles ne
+  /// repondent pas a la meme question — « que peut-il faire chez ce marchand »
+  /// et « peut-il decider pour la plateforme ».
+  ///
+  /// Aucune route ne permet de l'activer : il s'accorde en base, par
+  /// scripts/create-admin.ts. Une escalade de privileges ne doit pas etre a
+  /// portee d'une faille dans une route de compte.
+  platformAdmin Boolean @default(false) @map("platform_admin")
+
   /// ACTIVE | DISABLED
   status String @default("ACTIVE")
 

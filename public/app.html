@@ -261,6 +261,7 @@
     <a data-view="payouts"><span class="ico">↑</span> Décaissements</a>
 
     <div class="group">Infrastructure</div>
+    <a data-view="live"><span class="ico">◎</span> Passage en réel <span class="badge" id="badge-live" hidden>!</span></a>
     <a data-view="providers"><span class="ico">⛁</span> Agrégateurs</a>
     <a data-view="webhooks"><span class="ico">⇄</span> Webhooks</a>
 
@@ -282,6 +283,7 @@
       <a href="/docs" target="_blank"><span class="ico">▤</span> Documentation de l'API <span class="ext">↗</span></a>
       <a href="/console" target="_blank"><span class="ico">▦</span> Console technique <span class="ext">↗</span></a>
       <a data-view="keys"><span class="ico">⚿</span> Clés API</a>
+      <a href="/admin" id="admin-link" hidden><span class="ico">⚑</span> Administration <span class="ext">↗</span></a>
     </div>
   </div>
 
@@ -393,6 +395,7 @@
     reconciliation: { title: 'Réconciliation', sub: 'Ce qui demande une décision humaine' },
     payments:       { title: 'Encaissements', sub: 'Tous vos paiements entrants' },
     payouts:        { title: 'Décaissements', sub: 'Tous vos virements sortants' },
+    live:           { title: 'Passage en réel', sub: 'Encaisser de vrais paiements demande une vérification' },
     providers:      { title: 'Agrégateurs', sub: 'Comptes connectés et santé du routage' },
     webhooks:       { title: 'Webhooks', sub: 'Endpoints déclarés et journal de livraison' },
     keys:           { title: 'Clés API', sub: 'Pour connecter votre backend' },
@@ -735,6 +738,139 @@
     </section>`;
   }
 
+  /* ------------------------------------------------------- Passage en reel -- */
+  /**
+   * Le marchand ne bascule pas en `live` : il DEPOSE UN DOSSIER, et la
+   * plateforme tranche. Cette vue rend la regle lisible plutot que de la faire
+   * decouvrir par un bouton qui refuse.
+   *
+   * Les quatre etats sont montres tels quels, motif compris. Un refus dont on
+   * cache la raison produit exactement le meme dossier redepose la semaine
+   * suivante.
+   */
+  const LIVE_UI = {
+    UNVERIFIED: {
+      pill: 'non verifie',
+      title: 'Votre compte est en environnement de test',
+      body: 'Tout fonctionne : routage, bascule, webhooks, reconciliation. Aucun '
+          + 'argent reel ne circule. Pour encaisser de vrais paiements, deposez '
+          + 'un dossier ci-dessous.',
+    },
+    PENDING: {
+      pill: 'en cours d examen',
+      title: 'Votre dossier est en cours d examen',
+      body: 'Nous verifions votre activite et votre immatriculation. Vous '
+          + 'continuez a travailler en test sans aucune limite pendant ce temps.',
+    },
+    VERIFIED: {
+      pill: 'verifie',
+      title: 'L environnement reel est ouvert',
+      body: 'Vous pouvez basculer en Live et creer des cles sk_live_. Les '
+          + 'transactions passees avec ces cles deplacent de l argent reel.',
+    },
+    REJECTED: {
+      pill: 'refuse',
+      title: 'Votre demande a ete refusee',
+      body: 'Le motif figure ci-dessous. Corrigez ce qui est signale, puis '
+          + 'deposez une nouvelle demande.',
+    },
+  };
+
+  const FIELD = 'font:inherit;font-size:15px;padding:11px 14px;border-radius:10px;'
+              + 'border:1px solid var(--border);background:#05070a;color:var(--ink)';
+
+  async function renderLive() {
+    const state = await api('/v1/live-access');
+    const ui = LIVE_UI[state.status] || LIVE_UI.UNVERIFIED;
+    const canSubmit = state.status === 'UNVERIFIED' || state.status === 'REJECTED';
+    const when = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR') : '—');
+
+    $('content').innerHTML = `
+      <section class="panel">
+        <header>
+          <h2>${esc(ui.title)}</h2>
+          <span class="tag">${esc(ui.pill)}</span>
+        </header>
+        <div class="pad">
+          <p style="margin:0;color:var(--muted);font-size:14.5px;max-width:70ch">${esc(ui.body)}</p>
+        </div>
+      </section>
+
+      ${state.note ? `<section class="panel">
+        <header><h2>${state.status === 'VERIFIED' ? 'Note de la plateforme' : 'Motif'}</h2></header>
+        <div class="pad" style="white-space:pre-wrap;font-size:14.5px">${esc(state.note)}</div>
+        <div class="foot">Décision rendue le ${when(state.reviewed_at)}.</div>
+      </section>` : ''}
+
+      ${state.activity && !canSubmit ? `<section class="panel">
+        <header><h2>Le dossier déposé</h2></header>
+        <div class="pad" style="white-space:pre-wrap;font-size:14.5px;color:var(--muted)">${esc(state.activity)}</div>
+        <div class="foot">Déposé le ${when(state.requested_at)}${state.website ? ' · ' + esc(state.website) : ''}</div>
+      </section>` : ''}
+
+      ${canSubmit ? `<section class="panel">
+        <header><h2>Déposer une demande</h2></header>
+        <div class="pad" style="display:grid;gap:16px;max-width:640px">
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Que vendez-vous, et à qui ?
+            <textarea id="live-activity" rows="5" style="${FIELD};resize:vertical"
+              placeholder="Décrivez votre activité, vos produits, votre clientèle et les pays visés.">${esc(state.activity || '')}</textarea>
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Site web ou application <span style="font-weight:400;color:var(--muted)">— facultatif</span>
+            <input id="live-website" type="url" placeholder="https://…" value="${esc(state.website || '')}" style="${FIELD}" />
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Numéro RCCM / CAC / NINEA <span style="font-weight:400;color:var(--muted)">— exigé dans la plupart des pays</span>
+            <input id="live-rccm" type="text" placeholder="RB/COT/24 B 1234" style="${FIELD}" />
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Volume mensuel estimé <span style="font-weight:400;color:var(--muted)">— en unités mineures</span>
+            <input id="live-volume" type="number" min="0" step="1000" placeholder="5000000" style="${FIELD}" />
+          </label>
+          <div><button class="b solid" id="live-submit">Déposer la demande</button></div>
+          <div id="live-error" style="font-size:13.5px;color:var(--danger)"></div>
+        </div>
+        <div class="foot">
+          La demande est examinée par une personne, pas par un algorithme. Tant
+          qu’elle n’est pas tranchée, rien ne change pour votre intégration.
+        </div>
+      </section>` : ''}`;
+
+    const submit = $('live-submit');
+    if (!submit) return;
+
+    submit.onclick = async () => {
+      const activity = $('live-activity').value.trim();
+      const err = $('live-error');
+      if (activity.length < 20) {
+        err.textContent = 'Décrivez votre activité en quelques phrases (20 caractères minimum).';
+        return;
+      }
+      const website = $('live-website').value.trim();
+      const rccm = $('live-rccm').value.trim();
+      const volume = Number($('live-volume').value);
+
+      submit.disabled = true;
+      err.textContent = '';
+      try {
+        await api('/v1/live-access', {
+          method: 'POST',
+          body: JSON.stringify({
+            activity,
+            ...(website ? { website } : {}),
+            ...(rccm ? { registration_number: rccm } : {}),
+            ...(Number.isFinite(volume) && volume > 0 ? { monthly_volume_minor: Math.round(volume) } : {}),
+          }),
+        });
+        await boot();
+      } catch (e) {
+        err.textContent = e.message;
+        submit.disabled = false;
+      }
+    };
+  }
+
   const RENDER = {
     overview: renderOverview,
     devoverview: renderDevOverview,
@@ -746,6 +882,7 @@
     providers: renderProviders,
     webhooks: renderWebhooks,
     keys: renderKeys,
+    live: renderLive,
   };
 
   async function show(next) {
@@ -846,7 +983,15 @@
 
     const env = e.target.closest('#envswitch button');
     if (env) {
-      await api('/auth/environment', { method: 'POST', body: JSON.stringify({ environment: env.dataset.env }) });
+      try {
+        await api('/auth/environment', { method: 'POST', body: JSON.stringify({ environment: env.dataset.env }) });
+      } catch (err) {
+        // Le refus le plus frequent est l'absence de verification. Renvoyer vers
+        // la vue qui l'explique vaut mieux qu'une alerte sans suite.
+        if (err.body?.error?.code === 'live_access_denied') return show('live');
+        alert(err.message);
+        return;
+      }
       return boot();
     }
 
@@ -885,8 +1030,20 @@
     $('me-email').textContent = session.user.email;
     $('me-initials').textContent = initials(session.user.name);
 
-    document.querySelectorAll('#envswitch button').forEach((b) =>
-      b.setAttribute('aria-pressed', String(b.dataset.env === session.environment)));
+    document.querySelectorAll('#envswitch button').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.env === session.environment));
+      // Le bouton Live reste cliquable pour un marchand non verifie : c'est
+      // ainsi qu'il decouvre la regle. Le desactiver n'expliquerait rien.
+      b.title = b.dataset.env === 'live' && !session.merchant.can_go_live
+        ? 'Une verification est necessaire avant d encaisser reellement.'
+        : '';
+    });
+
+    $('admin-link').hidden = !session.user.platform_admin;
+
+    const liveBadge = $('badge-live');
+    liveBadge.hidden = session.merchant.kyb_status !== 'REJECTED';
+    liveBadge.textContent = '!';
 
     const recon = await api('/v1/reconciliation');
     const badge = $('badge-recon');

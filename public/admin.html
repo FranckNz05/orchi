@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Administration — Orchi</title>
+<meta name="robots" content="noindex" />
+<link rel="stylesheet" href="/assets/theme.css" />
+<style>
+  body { min-height: 100vh; }
+  main { max-width: 1180px; margin: 0 auto; padding: 30px 24px 80px; }
+
+  .adm-badge {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--accent-3);
+    border: 1px solid rgba(169,123,255,.35); background: rgba(169,123,255,.12);
+    border-radius: 999px; padding: 4px 11px;
+  }
+
+  h1 { font-size: 28px; letter-spacing: -0.03em; margin: 0 0 6px; }
+  .lead { color: var(--muted); margin: 0 0 26px; font-size: 15.5px; max-width: 70ch; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px; background: var(--border); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 28px;
+  }
+  .stat { background: var(--surface); padding: 18px 20px; }
+  .stat .v { font-size: 27px; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .stat .k { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .stat.alert .v { color: var(--warn); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .tabs button {
+    font: inherit; font-size: 13.5px; padding: 7px 15px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    cursor: pointer; transition: all .16s;
+  }
+  .tabs button:hover { border-color: var(--border-lit); color: var(--ink); }
+  .tabs button[aria-pressed="true"] {
+    background: var(--accent-soft); border-color: rgba(53,214,164,.35);
+    color: var(--accent); font-weight: 600;
+  }
+
+  .rows { display: grid; gap: 12px; }
+  .row {
+    background: linear-gradient(180deg, var(--surface), var(--bg-2));
+    border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    transition: border-color .18s;
+  }
+  .row:hover { border-color: var(--border-lit); }
+  .row.pending { border-color: rgba(240,192,99,.35); }
+
+  .row .top {
+    display: flex; align-items: center; gap: 14px; padding: 16px 20px;
+    cursor: pointer; user-select: none;
+  }
+  .row .top .name { font-weight: 650; font-size: 15.5px; }
+  .row .top .meta { color: var(--muted); font-size: 12.8px; font-family: var(--mono); }
+  .row .top .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .row .chev { color: var(--muted); transition: transform .2s; font-size: 12px; }
+  .row.open .chev { transform: rotate(90deg); }
+
+  .pill {
+    font-family: var(--mono); font-size: 11.5px; padding: 4px 11px; border-radius: 999px;
+    border: 1px solid var(--border-lit); color: var(--muted); white-space: nowrap;
+  }
+  .pill.PENDING   { color: var(--warn);   border-color: rgba(240,192,99,.4);  background: var(--warn-soft); }
+  .pill.VERIFIED  { color: var(--accent); border-color: rgba(53,214,164,.4);  background: var(--accent-soft); }
+  .pill.REJECTED  { color: var(--danger); border-color: rgba(255,138,122,.4); background: var(--danger-soft); }
+
+  .row .body { border-top: 1px solid var(--border); padding: 20px; display: none; }
+  .row.open .body { display: block; }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 22px; margin-bottom: 20px; }
+  .fact .k { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .fact .v { font-size: 14.5px; margin-top: 3px; word-break: break-word; }
+  .fact .v.mono { font-family: var(--mono); font-size: 13px; }
+
+  .quote {
+    background: #05070a; border: 1px solid var(--border); border-left: 3px solid var(--accent-2);
+    border-radius: 0 12px 12px 0; padding: 14px 18px; margin-bottom: 20px;
+    font-size: 14.5px; color: #c2cede; white-space: pre-wrap;
+  }
+  .verdict {
+    border-radius: 12px; padding: 13px 18px; margin-bottom: 20px; font-size: 14px;
+    border: 1px solid var(--border);
+  }
+  .verdict.ok { border-color: rgba(53,214,164,.3); background: var(--accent-soft); }
+  .verdict.ko { border-color: rgba(255,138,122,.3); background: var(--danger-soft); }
+  .verdict .who { color: var(--muted); font-size: 12px; font-family: var(--mono); margin-top: 5px; }
+
+  .decide { display: grid; gap: 12px; }
+  .decide textarea {
+    font: inherit; font-size: 14.5px; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+    resize: vertical; min-height: 74px; width: 100%;
+  }
+  .decide textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .decide .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn.danger { border-color: rgba(255,138,122,.45); color: var(--danger); }
+  .btn.danger:hover { border-color: var(--danger); background: var(--danger-soft); }
+
+  .empty, .gate {
+    border: 1px dashed var(--border-lit); border-radius: var(--radius);
+    padding: 40px 26px; text-align: center; color: var(--muted);
+  }
+  .gate h2 { color: var(--ink); font-size: 21px; margin: 0 0 8px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(140%);
+    background: var(--surface); border: 1px solid var(--border-lit); border-radius: 12px;
+    padding: 13px 20px; font-size: 14.5px; z-index: 80; box-shadow: 0 14px 40px rgba(0,0,0,.6);
+    transition: transform .3s cubic-bezier(.2,.8,.3,1);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: rgba(53,214,164,.5); }
+  .toast.ko { border-color: rgba(255,138,122,.5); }
+</style>
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"><div class="aurora"><i></i><i></i></div></div>
+
+<nav class="top">
+  <div class="wrap">
+    <a class="logo" href="/"><span class="mark"></span> Orchi</a>
+    <span class="adm-badge">administration</span>
+    <div class="links">
+      <a href="/app">Tableau de bord</a>
+      <a href="#" id="logout" class="btn">Se déconnecter</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div id="gate" class="gate" hidden>
+    <h2>Accès réservé</h2>
+    <p id="gate-msg">Cette page est réservée aux administrateurs de la plateforme.</p>
+    <p style="margin-top:18px"><a class="btn solid" href="/login">Se connecter</a></p>
+  </div>
+
+  <div id="panel" hidden>
+    <h1>Dossiers d'accès à l'environnement réel</h1>
+    <p class="lead">
+      Un marchand peut tout intégrer et tout tester sans autorisation. Le passage
+      au réel met en circulation l'argent de vrais clients : il ne s'accorde que
+      dossier par dossier, ici.
+    </p>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="tabs" id="tabs"></div>
+    <div class="rows" id="rows"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  const STATUS_LABEL = {
+    UNVERIFIED: 'non vérifié',
+    PENDING: 'à examiner',
+    VERIFIED: 'vérifié',
+    REJECTED: 'refusé',
+  };
+
+  let filter = 'PENDING';
+  let data = [];
+  let counts = {};
+  const open = new Set();
+
+  async function api(path, options) {
+    const res = await fetch(path, {
+      ...options,
+      headers: { 'content-type': 'application/json', ...(options?.headers || {}) },
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error(body?.error?.message || `Erreur ${res.status}`);
+      err.status = res.status;
+      err.code = body?.error?.code;
+      throw err;
+    }
+    return body;
+  }
+
+  function toast(text, tone) {
+    const el = $('toast');
+    el.textContent = text;
+    el.className = 'toast show ' + (tone || '');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => { el.className = 'toast ' + (tone || ''); }, 3600);
+  }
+
+  function date(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('fr-FR', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  function money(minor) {
+    if (minor === null || minor === undefined) return '—';
+    return String(minor).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  /* ---------------------------------------------------------------- rendu */
+
+  function renderStats(o) {
+    $('stats').innerHTML = [
+      [o.pending_reviews, 'dossiers à examiner', o.pending_reviews > 0],
+      [o.merchants, 'marchands'],
+      [o.verified_merchants, 'marchands vérifiés'],
+      [o.active_live_keys, 'clés live actives'],
+      [o.payments, 'encaissements'],
+      [o.payouts, 'décaissements'],
+    ].map(([v, k, alert]) =>
+      `<div class="stat${alert ? ' alert' : ''}"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+  }
+
+  function renderTabs() {
+    const order = ['PENDING', 'VERIFIED', 'REJECTED', 'UNVERIFIED', 'ALL'];
+    $('tabs').innerHTML = order.map((s) => {
+      const n = s === 'ALL'
+        ? Object.values(counts).reduce((a, b) => a + b, 0)
+        : (counts[s] || 0);
+      const label = s === 'ALL' ? 'Tous' : STATUS_LABEL[s];
+      return `<button data-s="${s}" aria-pressed="${s === filter}">${label} · ${n}</button>`;
+    }).join('');
+  }
+
+  function decisionBlock(m) {
+    // Un marchand deja verifie n'a pas besoin d'etre re-approuve : la seule
+    // action qui reste est le retrait, qui revoque aussi ses cles live.
+    const buttons = m.kyb_status === 'VERIFIED'
+      ? `<button class="btn danger" data-act="revoke" data-id="${esc(m.id)}">Retirer l'accès réel</button>`
+      : `<button class="btn solid" data-act="approve" data-id="${esc(m.id)}">Autoriser le réel</button>
+         <button class="btn danger" data-act="reject" data-id="${esc(m.id)}">Refuser</button>`;
+
+    return `<div class="decide">
+      <textarea data-note="${esc(m.id)}" placeholder="Motif — obligatoire pour un refus. Il est montré au marchand : sans lui, il ne peut pas corriger son dossier."></textarea>
+      <div class="buttons">${buttons}</div>
+    </div>`;
+  }
+
+  function renderRows() {
+    const list = filter === 'ALL' ? data : data.filter((m) => m.kyb_status === filter);
+
+    if (!list.length) {
+      $('rows').innerHTML = `<div class="empty">Aucun dossier ${filter === 'ALL' ? '' : `« ${STATUS_LABEL[filter]} »`} pour le moment.</div>`;
+      return;
+    }
+
+    $('rows').innerHTML = list.map((m) => {
+      const verdict = m.reviewed_at
+        ? `<div class="verdict ${m.kyb_status === 'VERIFIED' ? 'ok' : 'ko'}">
+             ${m.note ? esc(m.note) : (m.kyb_status === 'VERIFIED' ? 'Accès accordé.' : 'Accès refusé.')}
+             <div class="who">${date(m.reviewed_at)} · ${esc(m.reviewed_by || 'inconnu')}</div>
+           </div>` : '';
+
+      return `<article class="row ${m.kyb_status === 'PENDING' ? 'pending' : ''} ${open.has(m.id) ? 'open' : ''}" data-id="${esc(m.id)}">
+        <div class="top" data-toggle="${esc(m.id)}">
+          <span class="chev">&#9654;</span>
+          <div>
+            <div class="name">${esc(m.name)}</div>
+            <div class="meta">${esc(m.id)} · ${esc(m.country)} · ${esc(m.legal_type)}</div>
+          </div>
+          <div class="right">
+            <span class="pill">${m.counts ? m.counts.payments : 0} tx</span>
+            <span class="pill ${esc(m.kyb_status)}">${STATUS_LABEL[m.kyb_status] || m.kyb_status}</span>
+          </div>
+        </div>
+        <div class="body">
+          <div class="facts">
+            <div class="fact"><div class="k">Contact</div><div class="v mono">${esc(m.contact_email)}</div></div>
+            <div class="fact"><div class="k">Immatriculation</div><div class="v mono">${esc(m.registration_number || '—')}</div></div>
+            <div class="fact"><div class="k">Site</div><div class="v mono">${m.website ? `<a href="${esc(m.website)}" target="_blank" rel="noopener noreferrer">${esc(m.website)}</a>` : '—'}</div></div>
+            <div class="fact"><div class="k">Volume mensuel annoncé</div><div class="v mono">${money(m.monthly_volume_minor)}</div></div>
+            <div class="fact"><div class="k">Demande déposée</div><div class="v mono">${date(m.requested_at)}</div></div>
+            <div class="fact"><div class="k">Compte créé</div><div class="v mono">${date(m.created_at)}</div></div>
+            <div class="fact"><div class="k">Utilisateurs</div><div class="v mono">${m.counts ? m.counts.users : '—'}</div></div>
+            <div class="fact"><div class="k">Clés API</div><div class="v mono">${m.counts ? m.counts.api_keys : '—'}</div></div>
+          </div>
+          ${m.activity ? `<div class="quote">${esc(m.activity)}</div>` : '<p class="lead" style="margin:0 0 18px">Aucun dossier déposé : ce marchand n’a pas encore demandé l’accès au réel.</p>'}
+          ${verdict}
+          ${decisionBlock(m)}
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  /* --------------------------------------------------------------- actions */
+
+  async function load() {
+    const [overview, list] = await Promise.all([
+      api('/v1/admin/overview'),
+      api('/v1/admin/merchants'),
+    ]);
+    data = list.data;
+    counts = list.counts;
+    renderStats(overview);
+    renderTabs();
+    renderRows();
+  }
+
+  async function decide(id, decision, note) {
+    if (decision !== 'approve' && !note.trim()) {
+      toast('Un refus ou un retrait doit être motivé.', 'ko');
+      return;
+    }
+    try {
+      await api(`/v1/admin/merchants/${encodeURIComponent(id)}/review`, {
+        method: 'POST',
+        body: JSON.stringify({ decision, ...(note.trim() ? { note: note.trim() } : {}) }),
+      });
+      // Le dossier reste deplie apres la decision : on veut voir le verdict
+      // qu'on vient de rendre, pas un volet qui se referme.
+      open.add(id);
+      await load();
+      toast(decision === 'approve' ? 'Accès réel autorisé.' : 'Décision enregistrée.', 'ok');
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+  }
+
+  document.addEventListener('click', async (e) => {
+    const toggle = e.target.closest('[data-toggle]');
+    if (toggle) {
+      const id = toggle.dataset.toggle;
+      if (open.has(id)) open.delete(id); else open.add(id);
+      toggle.closest('.row').classList.toggle('open');
+      return;
+    }
+
+    const tab = e.target.closest('[data-s]');
+    if (tab) { filter = tab.dataset.s; renderTabs(); renderRows(); return; }
+
+    const act = e.target.closest('[data-act]');
+    if (act) {
+      const id = act.dataset.id;
+      const note = document.querySelector(`[data-note="${CSS.escape(id)}"]`)?.value ?? '';
+      act.disabled = true;
+      await decide(id, act.dataset.act, note);
+      return;
+    }
+
+    if (e.target.closest('#logout')) {
+      e.preventDefault();
+      await fetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
+      location.href = '/login';
+    }
+  });
+
+  /* ------------------------------------------------------------- amorçage */
+
+  (async () => {
+    try {
+      await load();
+      $('panel').hidden = false;
+    } catch (e) {
+      // 401 et 403 se traitent differemment : le premier signifie « connectez-vous »,
+      // le second « ce compte n'a pas cette autorite ». Les confondre enverrait
+      // un marchand se reconnecter en boucle sans jamais comprendre.
+      $('gate-msg').textContent = e.status === 401
+        ? 'Votre session a expiré ou vous n’êtes pas connecté.'
+        : e.status === 403
+          ? 'Ce compte n’est pas administrateur de la plateforme.'
+          : e.message;
+      $('gate').hidden = false;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
