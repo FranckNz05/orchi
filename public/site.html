@@ -989,7 +989,6 @@
         <div class="m">
           <span>${esc(c.currency)}</span>
           <span>${c.provider_count} agrégateur${c.provider_count > 1 ? 's' : ''}</span>
-          <span>dès ${(c.fee_min_bps / 100).toFixed(2).replace('.', ',')} %</span>
         </div>
       </div>`).join('');
   }
