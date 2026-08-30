@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Paiement sécurisé</title>
+<meta name="robots" content="noindex" />
+<link rel="stylesheet" href="/assets/theme.css" />
+<style>
+  body { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; }
+  main { display: grid; place-items: start center; padding: 26px 18px 40px; }
+
+  .sheet {
+    width: 100%; max-width: 460px;
+    background: linear-gradient(180deg, var(--surface), var(--bg-2));
+    border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+    position: relative;
+  }
+  .sheet::before {
+    content: ""; position: absolute; inset: -1px -1px auto -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .head { padding: 26px 26px 22px; text-align: center; border-bottom: 1px solid var(--border); }
+  .merchant { color: var(--muted); font-size: 14px; }
+  .amount {
+    font-size: 40px; font-weight: 700; letter-spacing: -0.04em; margin: 6px 0 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .amount span { font-size: 20px; color: var(--muted); margin-left: 5px; font-weight: 600; }
+  .desc { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+  .testbadge {
+    display: inline-block; margin-top: 12px; font-family: var(--mono); font-size: 11.5px;
+    color: var(--warn); background: var(--warn-soft);
+    border: 1px solid rgba(240,192,99,.3); border-radius: 999px; padding: 3px 11px;
+  }
+
+  .body { padding: 22px 26px 26px; }
+  .label { font-size: 13px; font-weight: 650; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .06em; margin: 0 0 12px; }
+
+  .methods { display: grid; gap: 9px; margin-bottom: 20px; }
+  .method {
+    display: flex; align-items: center; gap: 13px; width: 100%;
+    padding: 14px 16px; border-radius: 13px; cursor: pointer;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+    font: inherit; font-size: 15px; text-align: left; transition: all .16s;
+  }
+  .method:hover { border-color: var(--border-lit); transform: translateY(-1px); }
+  .method[aria-pressed="true"] {
+    border-color: var(--accent); background: var(--accent-soft);
+    box-shadow: 0 0 0 3px rgba(53,214,164,.1);
+  }
+  .method .glyph {
+    width: 36px; height: 36px; border-radius: 10px; flex: 0 0 36px;
+    background: var(--surface-2); display: grid; place-items: center;
+    font-size: 13px; font-weight: 700; color: var(--accent); font-family: var(--mono);
+  }
+  .method .name { font-weight: 600; }
+  .method .sub { font-size: 12.5px; color: var(--muted); }
+  .method .check { margin-left: auto; color: var(--accent); opacity: 0; font-size: 17px; }
+  .method[aria-pressed="true"] .check { opacity: 1; }
+
+  form { display: grid; gap: 15px; }
+  label.field { display: grid; gap: 7px; font-size: 13.5px; font-weight: 600; }
+  input {
+    font: inherit; font-size: 16px; padding: 13px 15px; border-radius: 12px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+  }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  button.pay { width: 100%; padding: 15px; font-size: 16px; }
+
+  .error {
+    background: var(--danger-soft); color: var(--danger);
+    border: 1px solid rgba(255,138,122,.35);
+    border-radius: 12px; padding: 12px 15px; font-size: 14px; margin-bottom: 16px;
+  }
+
+  /* ------------------------------------------------------------- attente -- */
+  .state { text-align: center; padding: 12px 0 4px; }
+  .spinner {
+    width: 46px; height: 46px; margin: 0 auto 18px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+  .state h2 { margin: 0 0 8px; font-size: 19px; letter-spacing: -0.02em; }
+  .state p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .state .big { font-size: 46px; margin-bottom: 14px; }
+  .state.ok .big { color: var(--accent); }
+  .state.ko .big { color: var(--danger); }
+  .state .actions { margin-top: 22px; display: grid; gap: 9px; }
+
+  .foot {
+    padding: 14px 26px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 8px;
+    justify-content: center;
+  }
+  .foot .lock { color: var(--accent); }
+  footer { padding: 20px; text-align: center; color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+
+<nav class="top">
+  <div class="wrap"><a class="logo" href="/"><span class="mark"></span> Orchi</a></div>
+</nav>
+
+<main>
+  <div class="sheet" id="sheet">
+    <div class="body"><div class="state"><div class="spinner"></div><p>Chargement…</p></div></div>
+  </div>
+</main>
+
+<footer>Paiement traité par Orchi · <a href="/">orchi.africa</a></footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const token = location.pathname.split('/').filter(Boolean).pop();
+  const sheet = document.getElementById('sheet');
+  const esc = (v) => String(v ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  let view = null;
+  let selected = null;
+  let poller = null;
+
+  const ZERO = ['XOF','XAF','GNF','KMF','RWF','BIF','DJF','UGX'];
+  const THREE = ['TND','LYD'];
+
+  /** Deux initiales pour la pastille : « MTN MoMo » -> « MM ». */
+  function initials(label) {
+    const letters = (label.match(/\b\w/g) || []).slice(0, 2).join('');
+    return (letters || label.slice(0, 2)).toUpperCase();
+  }
+
+  function money(minor, currency) {
+    const exp = ZERO.includes(currency) ? 0 : THREE.includes(currency) ? 3 : 2;
+    const s = String(Math.abs(minor ?? 0)).padStart(exp + 1, '0');
+    const whole = s.slice(0, s.length - exp) || '0';
+    const frac = exp ? ',' + s.slice(s.length - exp) : '';
+    return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + frac;
+  }
+
+  async function api(path, options) {
+    const res = await fetch(path, {
+      ...options,
+      headers: { 'content-type': 'application/json', ...(options?.headers || {}) },
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error(body?.error?.message || 'Erreur');
+      err.code = body?.error?.code;
+      throw err;
+    }
+    return body;
+  }
+
+  /* ------------------------------------------------------------- rendus -- */
+
+  function header() {
+    return `<div class="head">
+      <div class="merchant">${esc(view.merchant)}</div>
+      <div class="amount">${money(view.amount, view.currency)}<span>${esc(view.currency)}</span></div>
+      ${view.description ? `<p class="desc">${esc(view.description)}</p>` : ''}
+      ${view.environment === 'test' ? '<div class="testbadge">mode test — aucun débit réel</div>' : ''}
+    </div>`;
+  }
+
+  function footer() {
+    return `<div class="foot"><span class="lock">&#128274;</span> Paiement sécurisé — Orchi ne conserve pas vos identifiants bancaires</div>`;
+  }
+
+  function renderChoice(error) {
+    const groups = view.options;
+    if (groups.length === 0) {
+      return renderState('ko', '&#9888;', 'Aucun moyen de paiement disponible',
+        `Aucun agrégateur n'est actuellement branché pour ${esc(view.country)}.`);
+    }
+
+    sheet.innerHTML = header() + `<div class="body">
+      ${error ? `<div class="error">${esc(error)}</div>` : ''}
+      <p class="label">Choisissez votre moyen de paiement</p>
+      <div class="methods">
+        ${groups.map((o, i) => `
+          <button type="button" class="method" data-index="${i}" aria-pressed="${selected === i}">
+            <span class="glyph">${esc(initials(o.label))}</span>
+            <span>
+              <span class="name">${esc(o.label)}</span><br />
+              <span class="sub">${o.channel === 'mobile_money' ? 'Mobile money' : o.channel === 'card' ? 'Visa / Mastercard' : 'Virement'}</span>
+            </span>
+            <span class="check">&#10003;</span>
+          </button>`).join('')}
+      </div>
+      <form id="form" ${selected === null ? 'hidden' : ''}>
+        ${fields()}
+        <button type="submit" class="btn solid pay" id="submit">Payer ${money(view.amount, view.currency)} ${esc(view.currency)}</button>
+      </form>
+    </div>` + footer();
+
+    sheet.querySelectorAll('.method').forEach((b) => {
+      b.onclick = () => { selected = Number(b.dataset.index); renderChoice(); };
+    });
+    const form = document.getElementById('form');
+    if (form) form.onsubmit = submit;
+  }
+
+  function fields() {
+    if (selected === null) return '';
+    const option = view.options[selected];
+    if (option.channel === 'mobile_money') {
+      return `<label class="field">Numéro ${esc(option.label)}
+        <input name="phone" type="tel" inputmode="tel" required placeholder="+225 07 00 00 00 00"
+          value="${esc(view.prefill.phone || '')}" autocomplete="tel" />
+      </label>`;
+    }
+    if (option.channel === 'card') {
+      return `<label class="field">Adresse e-mail
+        <input name="email" type="email" required placeholder="vous@exemple.com"
+          value="${esc(view.prefill.email || '')}" autocomplete="email" />
+      </label>
+      <p class="desc" style="margin:0;font-size:13px">Vous serez redirigé vers une page sécurisée pour saisir votre carte.</p>`;
+    }
+    return `<p class="desc" style="margin:0">Vous serez redirigé pour finaliser le virement.</p>`;
+  }
+
+  function renderState(kind, glyph, title, text, actions = '') {
+    sheet.innerHTML = header() + `<div class="body">
+      <div class="state ${kind}">
+        ${kind === 'wait' ? '<div class="spinner"></div>' : `<div class="big">${glyph}</div>`}
+        <h2>${title}</h2>
+        <p>${text}</p>
+        ${actions ? `<div class="actions">${actions}</div>` : ''}
+      </div>
+    </div>` + footer();
+  }
+
+  /* ------------------------------------------------------------ actions -- */
+
+  async function submit(e) {
+    e.preventDefault();
+    const option = view.options[selected];
+    const data = Object.fromEntries(new FormData(e.target));
+    const submitBtn = document.getElementById('submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Traitement…';
+
+    try {
+      view = await api(`/v1/public/checkout/${token}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({
+          channel: option.channel,
+          ...(option.network ? { network: option.network } : {}),
+          ...(data.phone ? { phone: data.phone } : {}),
+          ...(data.email ? { email: data.email } : {}),
+        }),
+      });
+      route();
+    } catch (err) {
+      renderChoice(err.message);
+    }
+  }
+
+  function route() {
+    const p = view.payment;
+
+    if (view.status === 'COMPLETED' || p?.status === 'SUCCEEDED') {
+      stopPolling();
+      renderState('ok', '&#10003;', 'Paiement confirmé',
+        'Merci. Votre paiement a bien été reçu.',
+        view.return_url ? `<a class="btn solid" href="${esc(view.return_url)}">Revenir sur le site</a>` : '');
+      // Redirection automatique, mais apres un instant : disparaitre
+      // instantanement empeche de lire la confirmation.
+      if (view.return_url) setTimeout(() => { location.href = view.return_url; }, 3000);
+      return;
+    }
+
+    if (!p) { stopPolling(); return renderChoice(); }
+
+    if (p.status === 'FAILED' || p.status === 'EXPIRED') {
+      stopPolling();
+      return renderState('ko', '&#10005;',
+        p.status === 'EXPIRED' ? 'Délai dépassé' : 'Paiement refusé',
+        esc(p.failure || 'Le paiement n’a pas abouti. Vous pouvez réessayer.'),
+        `<button class="btn solid" onclick="location.reload()">Réessayer</button>` +
+        (view.return_url ? `<a class="btn" href="${esc(view.return_url)}">Retour au site</a>` : ''));
+    }
+
+    // Redirection exigee par l'agregateur (carte, guichet hebergé).
+    if (p.action === 'redirect' && p.action_url) {
+      stopPolling();
+      renderState('wait', '', 'Redirection…', 'Vous allez être redirigé vers la page de paiement.');
+      location.href = p.action_url;
+      return;
+    }
+
+    // Les instructions renvoyees par l'adaptateur sont redigees POUR LE
+    // MARCHAND (« le client doit saisir son code PIN ») : les afficher telles
+    // quelles ferait parler le payeur de lui a la troisieme personne. Cette
+    // page s'adresse a lui, elle a donc ses propres formulations.
+    const method = view.options?.find((o) => o.network === p.network)?.label;
+    renderState('wait', '', 'Validez sur votre téléphone',
+      `Une demande de paiement vient d'être envoyée sur votre téléphone${method ? ` ${esc(method)}` : ''}. ` +
+      'Saisissez votre code secret pour confirmer.');
+    startPolling();
+  }
+
+  /* Interrogation reguliere : les webhooks peuvent se perdre, la page ne doit
+     jamais dependre d'eux pour afficher le resultat au client. */
+  function startPolling() {
+    if (poller) return;
+    poller = setInterval(async () => {
+      try {
+        view = await api(`/v1/public/checkout/${token}/status`);
+        route();
+      } catch { /* on retentera au tour suivant */ }
+    }, 3000);
+  }
+
+  function stopPolling() {
+    if (poller) { clearInterval(poller); poller = null; }
+  }
+
+  (async () => {
+    try {
+      view = await api(`/v1/public/checkout/${token}`);
+    } catch (err) {
+      sheet.innerHTML = `<div class="body"><div class="state ko">
+        <div class="big">&#9888;</div>
+        <h2>${err.code === 'checkout_expired' ? 'Lien expiré' : 'Lien invalide'}</h2>
+        <p>${esc(err.message)}</p>
+      </div></div>`;
+      return;
+    }
+    route();
+  })();
+})();
+</script>
+</body>
+</html>

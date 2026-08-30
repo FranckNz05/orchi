@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orchi — Console</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --border: #e3e2dd;
+    --text: #1c1b19;
+    --muted: #6f6d67;
+    --accent: #1a5e4a;
+    --accent-soft: #e6f0ec;
+    --danger: #a8231b;
+    --danger-soft: #fbeae8;
+    --warn: #8a5a00;
+    --warn-soft: #fdf3e0;
+    --ok: #1a5e4a;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17171a;
+      --panel: #1f1f23;
+      --border: #32323a;
+      --text: #eceae6;
+      --muted: #9b988f;
+      --accent: #6cc3a4;
+      --accent-soft: #1c3730;
+      --danger: #f08a80;
+      --danger-soft: #3a1f1c;
+      --warn: #e0b25f;
+      --warn-soft: #382c14;
+      --ok: #6cc3a4;
+    }
+  }
+  * { box-sizing: border-box; }
+  /* Un `display` explicite (flex, grid) l'emporte sur l'attribut `hidden` :
+     sans cette regle, les panneaux s'affichent par-dessus l'ecran de connexion. */
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { font-weight: 650; letter-spacing: -0.01em; }
+  .brand span { color: var(--muted); font-weight: 400; margin-left: 8px; }
+  .grow { flex: 1; }
+  .pill {
+    padding: 2px 9px; border-radius: 999px; font-size: 12px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 600;
+  }
+  .pill.live { background: var(--danger-soft); color: var(--danger); }
+  input, select, button {
+    font: inherit; color: inherit;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 6px 10px;
+  }
+  input[type="password"], input[type="text"] { font-family: var(--mono); font-size: 12.5px; }
+  button { cursor: pointer; background: var(--panel); }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); color: var(--panel); border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  main { padding: 20px; max-width: 1400px; margin: 0 auto; display: grid; gap: 18px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+  .panel > h2 {
+    margin: 0; padding: 12px 16px; font-size: 13px; font-weight: 650;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel > h2 .grow { flex: 1; }
+  .body { padding: 14px 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .stat .n { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .stat .l { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .stat.alert { border-color: var(--danger); background: var(--danger-soft); }
+  .stat.alert .n, .stat.alert .l { color: var(--danger); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; font-weight: 600; color: var(--muted); font-size: 12px;
+    padding: 8px 16px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 9px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--bg); }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .muted { color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag {
+    display: inline-block; padding: 1px 8px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: .01em;
+  }
+  .tag.ok { background: var(--accent-soft); color: var(--ok); }
+  .tag.bad { background: var(--danger-soft); color: var(--danger); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.neutral { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+  .banner {
+    border: 1px solid var(--danger); background: var(--danger-soft); color: var(--danger);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .banner h3 { margin: 0 0 4px; font-size: 15px; }
+  .banner p { margin: 0 0 10px; font-size: 13px; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button { padding: 4px 12px; font-size: 13px; }
+  .tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
+  .empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  dialog {
+    border: 1px solid var(--border); border-radius: 12px; background: var(--panel);
+    color: var(--text); padding: 0; max-width: 720px; width: 92vw;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog h2 { margin: 0; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 15px; }
+  dialog pre {
+    margin: 0; padding: 16px 18px; max-height: 60vh; overflow: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.55;
+  }
+  dialog footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .note {
+    font-size: 12.5px; color: var(--muted); padding: 10px 16px;
+    border-top: 1px solid var(--border); background: var(--bg);
+    border-radius: 0 0 12px 12px;
+  }
+  .setup { max-width: 520px; margin: 60px auto; padding: 0 20px; }
+  .setup .body { display: grid; gap: 12px; }
+  .err { color: var(--danger); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header id="bar" hidden>
+  <div class="brand">Orchi <span id="merchant">—</span></div>
+  <span class="pill" id="env">—</span>
+  <div class="grow"></div>
+  <label class="muted" style="font-size:12.5px">
+    <input type="checkbox" id="auto" checked style="vertical-align:-2px"> actualisation auto
+  </label>
+  <button id="refresh">Actualiser</button>
+  <button id="logout">Changer de clé</button>
+</header>
+
+<div id="setup" class="setup">
+  <div class="panel">
+    <h2>Console d'exploitation</h2>
+    <form class="body" id="setup-form">
+      <p style="margin:0;font-size:13px" class="muted">
+        Collez une clé API. Elle est conservée dans ce navigateur uniquement et
+        n'est jamais envoyée ailleurs qu'à cette instance d'Orchi.
+      </p>
+      <input type="password" id="key" placeholder="sk_test_..." autocomplete="off" spellcheck="false" />
+      <div class="err" id="setup-err" hidden></div>
+      <button class="primary" id="connect" type="submit">Se connecter</button>
+    </form>
+    <div class="note">
+      Une clé <code>sk_live_</code> donne accès à de vraies transactions. En
+      production, cette console doit être remplacée par une session
+      authentifiée côté serveur.
+    </div>
+  </div>
+</div>
+
+<main id="app" hidden>
+
+  <div id="alerts"></div>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="panel">
+    <h2>
+      Transactions
+      <div class="tabs" role="tablist">
+        <button role="tab" data-kind="payments" aria-selected="true">Encaissements</button>
+        <button role="tab" data-kind="payouts" aria-selected="false">Décaissements</button>
+      </div>
+      <div class="grow"></div>
+      <select id="status-filter">
+        <option value="">tous les statuts</option>
+      </select>
+    </h2>
+    <div class="scroll"><table>
+      <thead id="tx-head"></thead>
+      <tbody id="tx-body"></tbody>
+    </table></div>
+    <div class="empty" id="tx-empty" hidden>Aucune transaction.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Santé des agrégateurs</h2>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>Agrégateur</th><th>Pays</th><th>Canal</th><th>État</th>
+        <th class="num">Succès</th><th class="num">Échecs tech.</th>
+        <th class="num">Refus client</th><th class="num">p95</th><th>Prochaine sonde</th>
+      </tr></thead>
+      <tbody id="health-body"></tbody>
+    </table></div>
+    <div class="empty" id="health-empty" hidden>Aucun appel observé sur la fenêtre courante.</div>
+    <div class="note">
+      Les refus clients sont suivis mais n'ouvrent jamais un disjoncteur : un
+      agrégateur qui transmet des refus fonctionne.
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Comptes agrégateurs</h2>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>Agrégateur</th><th>État</th><th class="num">Priorité</th>
+        <th>Credentials</th><th>URL de callback</th>
+      </tr></thead>
+      <tbody id="accounts-body"></tbody>
+    </table></div>
+    <div class="note">
+      L'URL de callback est à déclarer dans le tableau de bord de l'agrégateur.
+      Son jeton identifie le compte : c'est lui qui permet de vérifier la
+      signature d'une notification entrante.
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>
+      Couverture
+      <div class="grow"></div>
+      <select id="country"></select>
+    </h2>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>Agrégateur</th><th>Branché</th><th>Canaux</th>
+        <th>Pay-in</th><th>Payout</th><th class="num">Frais</th><th>Réseaux</th>
+      </tr></thead>
+      <tbody id="coverage-body"></tbody>
+    </table></div>
+    <div class="note" id="coverage-note"></div>
+  </section>
+
+</main>
+
+<dialog id="detail">
+  <h2 id="detail-title">Détail</h2>
+  <pre id="detail-body"></pre>
+  <footer>
+    <button id="detail-refresh">Interroger l'agrégateur</button>
+    <button id="detail-retry">Relancer</button>
+    <button class="primary" id="detail-close">Fermer</button>
+  </footer>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORE = 'orchi.console.key';
+  let key = localStorage.getItem(STORE) || '';
+  let kind = 'payments';
+  let timer = null;
+  let current = null; // { kind, id }
+
+  const $ = (id) => document.getElementById(id);
+
+  /* ------------------------------------------------------------------ API -- */
+
+  async function api(path, options = {}) {
+    const res = await fetch(path, {
+      ...options,
+      headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json', ...(options.headers || {}) },
+    });
+    const text = await res.text();
+    const body = text ? JSON.parse(text) : null;
+    if (!res.ok) {
+      const err = new Error(body?.error?.message || ('HTTP ' + res.status));
+      err.status = res.status;
+      err.body = body;
+      throw err;
+    }
+    return body;
+  }
+
+  /* --------------------------------------------------------------- Rendu -- */
+
+  const fmtAmount = (minor, currency) => {
+    // Les devises a zero decimale sont majoritaires en zone franc : afficher
+    // "150,00 XOF" pour 15000 francs serait un contresens de facteur 100.
+    const zero = ['XOF','XAF','GNF','KMF','RWF','BIF','DJF','UGX'];
+    const three = ['TND','LYD'];
+    const exp = zero.includes(currency) ? 0 : three.includes(currency) ? 3 : 2;
+    const s = String(Math.abs(minor)).padStart(exp + 1, '0');
+    const whole = s.slice(0, s.length - exp) || '0';
+    const frac = exp ? ',' + s.slice(s.length - exp) : '';
+    return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + frac + ' ' + currency;
+  };
+
+  const ago = (iso) => {
+    if (!iso) return '—';
+    const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'il y a ' + s + ' s';
+    if (s < 3600) return 'il y a ' + Math.round(s / 60) + ' min';
+    if (s < 86400) return 'il y a ' + Math.round(s / 3600) + ' h';
+    return 'il y a ' + Math.round(s / 86400) + ' j';
+  };
+
+  const STATUS_CLASS = {
+    SUCCEEDED: 'ok', CREATED: 'neutral', PROCESSING: 'warn',
+    FAILED: 'bad', EXPIRED: 'neutral', UNKNOWN: 'bad',
+    CLOSED: 'ok', OPEN: 'bad', HALF_OPEN: 'warn',
+    ACTIVE: 'ok', DISABLED: 'neutral',
+    DELIVERED: 'ok', PENDING: 'warn',
+  };
+  const tag = (v) => '<span class="tag ' + (STATUS_CLASS[v] || 'neutral') + '">' + v + '</span>';
+  const esc = (v) => String(v ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  /* ------------------------------------------------------------ Sections -- */
+
+  async function loadIdentity() {
+    const me = await api('/v1/me');
+    $('merchant').textContent = me.merchant.name + ' · ' + me.merchant.country;
+    const env = $('env');
+    env.textContent = me.api_key.environment;
+    env.className = 'pill' + (me.api_key.environment === 'live' ? ' live' : '');
+  }
+
+  async function loadOverview() {
+    const [recon, health, payments] = await Promise.all([
+      api('/v1/reconciliation'),
+      api('/v1/routing/health'),
+      api('/v1/payments?limit=100'),
+    ]);
+
+    // Bandeau d'alerte : les decaissements indetermines sont les seuls
+    // elements qui peuvent demander une decision humaine.
+    const stuck = recon.indeterminate_payouts;
+    $('alerts').innerHTML = stuck.length === 0 ? '' :
+      '<div class="banner"><h3>' + stuck.length + ' décaissement' + (stuck.length > 1 ? 's' : '') +
+      ' à l\'issue inconnue</h3><p>L\'argent est peut-être parti. Ne relancez pas : interrogez l\'agrégateur.</p>' +
+      stuck.map((p) => '<div style="margin-top:6px"><button data-stuck="' + esc(p.id) +
+        '">Interroger</button> <span class="mono">' + esc(p.reference) + '</span> — ' +
+        fmtAmount(p.amount, p.currency) + ' <span class="muted">via ' + esc(p.provider || '—') +
+        ', ' + ago(p.since) + '</span></div>').join('') + '</div>';
+
+    const succeeded = payments.data.filter((p) => p.status === 'SUCCEEDED').length;
+    const settled = payments.data.filter((p) => ['SUCCEEDED', 'FAILED', 'EXPIRED'].includes(p.status)).length;
+    const openBreakers = health.data.filter((h) => h.state !== 'CLOSED').length;
+
+    $('stats').innerHTML = [
+      ['', payments.count, 'encaissements récents'],
+      ['', settled ? Math.round((succeeded / settled) * 100) + ' %' : '—', 'taux de succès'],
+      [stuck.length ? 'alert' : '', stuck.length, 'décaissements bloqués'],
+      [openBreakers ? 'alert' : '', openBreakers, 'disjoncteurs ouverts'],
+      [recon.undelivered_events ? 'alert' : '', recon.undelivered_events, 'événements non livrés'],
+      [recon.rejected_webhooks_24h ? 'alert' : '', recon.rejected_webhooks_24h, 'webhooks rejetés (24 h)'],
+    ].map(([cls, n, l]) => '<div class="stat ' + cls + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>').join('');
+
+    const hb = $('health-body');
+    hb.innerHTML = health.data.map((h) => '<tr>' +
+      '<td class="mono">' + esc(h.provider) + '</td><td>' + esc(h.country) + '</td>' +
+      '<td class="muted">' + esc(h.channel) + '</td><td>' + tag(h.state) + '</td>' +
+      '<td class="num">' + h.successes + '</td><td class="num">' + h.technical_failures + '</td>' +
+      '<td class="num muted">' + h.declines + '</td>' +
+      '<td class="num">' + (h.latency_p95_ms == null ? '—' : h.latency_p95_ms + ' ms') + '</td>' +
+      '<td class="muted">' + (h.next_probe_at ? new Date(h.next_probe_at).toLocaleTimeString('fr') : '—') + '</td></tr>').join('');
+    $('health-empty').hidden = health.data.length > 0;
+  }
+
+  async function loadTransactions() {
+    const status = $('status-filter').value;
+    const list = await api('/v1/' + kind + '?limit=25' + (status ? '&status=' + status : ''));
+
+    const counterparty = kind === 'payments' ? 'Client' : 'Bénéficiaire';
+    $('tx-head').innerHTML = '<tr><th>Référence</th><th>Statut</th><th class="num">Montant</th>' +
+      '<th>Pays</th><th>' + counterparty + '</th><th>Agrégateur</th><th class="num">Tent.</th><th>Créé</th></tr>';
+
+    $('tx-body').innerHTML = list.data.map((t) => '<tr data-id="' + esc(t.id) + '" style="cursor:pointer">' +
+      '<td class="mono">' + esc(t.reference) + '</td>' +
+      '<td>' + tag(t.status) + '</td>' +
+      '<td class="num">' + fmtAmount(t.amount, t.currency) + '</td>' +
+      '<td>' + esc(t.country) + '</td>' +
+      '<td class="mono muted">' + esc(t.customer_phone || t.recipient_phone || '—') + '</td>' +
+      '<td class="mono">' + esc(t.provider || '—') + '</td>' +
+      '<td class="num' + (t.attempt_count > 1 ? '' : ' muted') + '">' + t.attempt_count + '</td>' +
+      '<td class="muted">' + ago(t.created_at) + '</td></tr>').join('');
+    $('tx-empty').hidden = list.data.length > 0;
+  }
+
+  async function loadAccounts() {
+    const list = await api('/v1/provider-accounts');
+    $('accounts-body').innerHTML = list.data.map((a) => '<tr>' +
+      '<td class="mono">' + esc(a.provider) + '</td><td>' + tag(a.status) + '</td>' +
+      '<td class="num">' + a.priority + '</td>' +
+      '<td class="muted">' + a.credential_keys.map(esc).join(', ') + '</td>' +
+      '<td class="mono muted" style="max-width:340px;overflow:hidden;text-overflow:ellipsis">' + esc(a.callback_url) + '</td></tr>').join('');
+  }
+
+  let countriesLoaded = false;
+  async function loadCoverage() {
+    if (!countriesLoaded) {
+      const countries = await api('/v1/countries');
+      $('country').innerHTML = countries.data
+        .map((c) => '<option value="' + c.iso2 + '">' + esc(c.name) + ' (' + c.iso2 + ')</option>').join('');
+      $('country').value = 'BJ';
+      countriesLoaded = true;
+    }
+
+    const cov = await api('/v1/coverage?country=' + $('country').value);
+    $('coverage-body').innerHTML = cov.providers.map((p) => '<tr>' +
+      '<td class="mono">' + esc(p.id) + '</td>' +
+      '<td>' + (p.connected ? '<span class="tag ok">oui</span>' : '<span class="tag neutral">non</span>') + '</td>' +
+      '<td class="muted">' + p.channels.map(esc).join(', ') + '</td>' +
+      '<td>' + (p.payin ? '✓' : '<span class="muted">—</span>') + '</td>' +
+      '<td>' + (p.payout ? '✓' : '<span class="muted">—</span>') + '</td>' +
+      '<td class="num">' + (p.fees.min_bps / 100).toFixed(2) + ' %</td>' +
+      '<td class="mono muted" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">' +
+      (p.networks.join(', ') || '—') + '</td></tr>').join('');
+
+    $('coverage-note').innerHTML = 'KYC : ' + esc(cov.kyc.label) +
+      (cov.kyc.allows_individual ? ' — particuliers acceptés sous plafond' : '') +
+      ' · Décaissement : ' + esc(cov.payout.mode) + ' — ' + esc(cov.payout.note) +
+      ' · <strong>' + (cov.routable_now ? 'routable aujourd\'hui' : 'aucun agrégateur branché') + '</strong>';
+  }
+
+  /* --------------------------------------------------------------- Detail -- */
+
+  async function openDetail(id) {
+    current = { kind, id };
+    $('detail-title').textContent = id;
+    $('detail-body').textContent = 'Chargement…';
+    $('detail').showModal();
+    await refreshDetail();
+  }
+
+  async function refreshDetail() {
+    if (!current) return;
+    try {
+      // GET interroge l'agregateur quand la tentative n'est pas terminee :
+      // c'est aussi ce qui peut lever un blocage UNKNOWN.
+      const data = await api('/v1/' + current.kind + '/' + current.id);
+      $('detail-body').textContent = JSON.stringify(data, null, 2);
+      $('detail-retry').disabled = data.status === 'SUCCEEDED' || data.status === 'UNKNOWN';
+    } catch (e) {
+      $('detail-body').textContent = 'Erreur : ' + e.message;
+    }
+  }
+
+  async function retryDetail() {
+    if (!current) return;
+    try {
+      const data = await api('/v1/' + current.kind + '/' + current.id + '/retry', { method: 'POST' });
+      $('detail-body').textContent = JSON.stringify(data, null, 2);
+      await loadTransactions();
+    } catch (e) {
+      $('detail-body').textContent = 'Relance refusée : ' + e.message +
+        (e.body?.error?.code ? '\n\ncode : ' + e.body.error.code : '');
+    }
+  }
+
+  /* ------------------------------------------------------------ Actualise -- */
+
+  let busy = false;
+  async function refreshAll() {
+    if (busy) return;
+    busy = true;
+    try {
+      await Promise.all([loadOverview(), loadTransactions(), loadAccounts(), loadCoverage()]);
+    } catch (e) {
+      if (e.status === 401) return disconnect('Clé refusée.');
+      console.error(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function schedule() {
+    if (timer) clearInterval(timer);
+    if ($('auto').checked) timer = setInterval(refreshAll, 5000);
+  }
+
+  function disconnect(message) {
+    localStorage.removeItem(STORE);
+    key = '';
+    if (timer) clearInterval(timer);
+    $('app').hidden = true;
+    $('bar').hidden = true;
+    $('setup').hidden = false;
+    if (message) { $('setup-err').textContent = message; $('setup-err').hidden = false; }
+  }
+
+  async function connect(candidate) {
+    key = candidate.trim();
+    try {
+      await loadIdentity();
+    } catch (e) {
+      $('setup-err').textContent = e.status === 401 ? 'Clé invalide ou révoquée.' : e.message;
+      $('setup-err').hidden = false;
+      return;
+    }
+    localStorage.setItem(STORE, key);
+    $('setup').hidden = true;
+    $('setup-err').hidden = true;
+    $('app').hidden = false;
+    $('bar').hidden = false;
+
+    const statuses = kind === 'payments'
+      ? ['CREATED', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'EXPIRED']
+      : ['CREATED', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'];
+    $('status-filter').innerHTML = '<option value="">tous les statuts</option>' +
+      statuses.map((s) => '<option>' + s + '</option>').join('');
+
+    await refreshAll();
+    schedule();
+  }
+
+  /* ---------------------------------------------------------- Evenements -- */
+
+  // Soumission de formulaire plutot qu'un gestionnaire de clavier : la touche
+  // Entree fonctionne alors nativement, y compris avec un gestionnaire de mots
+  // de passe qui remplit le champ par programme.
+  $('setup-form').onsubmit = (e) => { e.preventDefault(); connect($('key').value); };
+  $('refresh').onclick = refreshAll;
+  $('logout').onclick = () => disconnect();
+  $('auto').onchange = schedule;
+  $('country').onchange = loadCoverage;
+  $('status-filter').onchange = loadTransactions;
+  $('detail-close').onclick = () => { $('detail').close(); current = null; };
+  $('detail-refresh').onclick = refreshDetail;
+  $('detail-retry').onclick = retryDetail;
+
+  document.querySelectorAll('[role="tab"]').forEach((btn) => {
+    btn.onclick = () => {
+      kind = btn.dataset.kind;
+      document.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === btn)));
+      const statuses = kind === 'payments'
+        ? ['CREATED', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'EXPIRED']
+        : ['CREATED', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'UNKNOWN'];
+      $('status-filter').innerHTML = '<option value="">tous les statuts</option>' +
+        statuses.map((s) => '<option>' + s + '</option>').join('');
+      loadTransactions();
+    };
+  });
+
+  $('tx-body').onclick = (e) => {
+    const row = e.target.closest('tr[data-id]');
+    if (row) openDetail(row.dataset.id);
+  };
+
+  $('alerts').onclick = (e) => {
+    const btn = e.target.closest('[data-stuck]');
+    if (!btn) return;
+    kind = 'payouts';
+    document.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.kind === 'payouts')));
+    openDetail(btn.dataset.stuck);
+  };
+
+  if (key) connect(key); else $('key').focus();
+})();
+</script>
+</body>
+</html>

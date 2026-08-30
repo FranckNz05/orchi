@@ -1,0 +1,223 @@
+/**
+ * Theme commun aux pages publiques.
+ *
+ * Sombre et technique, mais jamais au detriment de la lisibilite : le contraste
+ * du texte reste eleve, les animations sont lentes et toutes desactivables. Un
+ * site de paiement doit inspirer le serieux avant l'effet.
+ */
+
+:root {
+  --bg: #07090c;
+  --bg-2: #0b0f14;
+  --surface: #10151c;
+  --surface-2: #151b24;
+  --border: #1e2630;
+  --border-lit: #2b3746;
+  --ink: #e9eef4;
+  --muted: #8896a6;
+  --accent: #35d6a4;
+  --accent-2: #4aa8ff;
+  --accent-ink: #04221a;
+  --accent-soft: rgba(53, 214, 164, 0.12);
+  --danger: #ff8a7a;
+  --danger-soft: rgba(255, 138, 122, 0.12);
+  --warn: #f0c063;
+  --warn-soft: rgba(240, 192, 99, 0.12);
+  --globe-line: rgba(120, 160, 190, 0.12);
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 16px;
+  --max: 1160px;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Decor                                                                      */
+/*                                                                            */
+/* Trois couches fixes derriere le contenu : une grille, deux halos colores et */
+/* un grain. Elles sont en `position: fixed` et `pointer-events: none` — le    */
+/* decor ne doit jamais intercepter un clic ni provoquer de reflow au defilement*/
+/* -------------------------------------------------------------------------- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(1100px 700px at 78% -8%, rgba(53, 214, 164, 0.10), transparent 60%),
+    radial-gradient(900px 620px at 8% 12%, rgba(74, 168, 255, 0.08), transparent 62%),
+    linear-gradient(180deg, var(--bg-2), var(--bg) 45%);
+}
+
+/* Grille en perspective, animee par translation verticale. */
+.backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -50% -50% 0 -50%;
+  background-image:
+    linear-gradient(var(--globe-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--globe-line) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  animation: grid-drift 26s linear infinite;
+}
+
+@keyframes grid-drift {
+  from { transform: translateY(0); }
+  to { transform: translateY(54px); }
+}
+
+/* Grain : casse les degrades trop lisses sans peser un octet de plus. */
+.backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Structure                                                                  */
+/* -------------------------------------------------------------------------- */
+
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+a { color: inherit; }
+
+nav.top {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(7, 9, 12, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--border);
+}
+nav.top .wrap { display: flex; align-items: center; gap: 26px; height: 64px; }
+nav.top .links { display: flex; gap: 22px; margin-left: auto; align-items: center; }
+/* `:not(.btn)` est indispensable : sans lui, cette regle l'emporte en
+   specificite sur `.btn.solid` et repeint le texte du bouton en gris attenue —
+   soit un contraste de 1,6:1 sur fond vert, illisible. */
+nav.top .links a:not(.btn) { text-decoration: none; font-size: 14.5px; color: var(--muted); transition: color .18s; }
+nav.top .links a:not(.btn):hover { color: var(--ink); }
+nav.top .links a.btn { text-decoration: none; }
+@media (max-width: 820px) { nav.top .links a.hide-sm { display: none; } }
+
+.logo {
+  font-weight: 700; font-size: 19.5px; letter-spacing: -0.03em;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 9px;
+}
+.logo .mark {
+  width: 26px; height: 26px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 18px rgba(53, 214, 164, .35);
+  position: relative;
+}
+.logo .mark::after {
+  content: ""; position: absolute; inset: 7px;
+  border: 1.5px solid rgba(4, 34, 26, .75); border-radius: 50%;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Composants                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-block; text-decoration: none; font: inherit;
+  font-size: 14.5px; font-weight: 600; padding: 10px 18px;
+  border-radius: 10px; border: 1px solid var(--border-lit);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+  transition: transform .16s ease, border-color .16s, box-shadow .16s;
+}
+.btn:hover { transform: translateY(-1px); border-color: var(--muted); }
+.btn.solid {
+  background: linear-gradient(135deg, var(--accent), #23b98c);
+  border-color: transparent; color: var(--accent-ink);
+  box-shadow: 0 6px 22px rgba(53, 214, 164, .22);
+}
+.btn.solid:hover { box-shadow: 0 10px 30px rgba(53, 214, 164, .32); }
+.btn.lg { padding: 14px 26px; font-size: 16px; border-radius: 12px; }
+.btn:disabled { opacity: .5; cursor: progress; transform: none; }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-size: 13px; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border: 1px solid rgba(53, 214, 164, .22);
+  padding: 6px 14px; border-radius: 999px;
+  font-family: var(--mono); letter-spacing: -0.01em;
+}
+.eyebrow .live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(53, 214, 164, .6);
+  animation: ping 2.4s ease-out infinite;
+}
+@keyframes ping {
+  0%   { box-shadow: 0 0 0 0 rgba(53, 214, 164, .55); }
+  70%  { box-shadow: 0 0 0 9px rgba(53, 214, 164, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(53, 214, 164, 0); }
+}
+
+.card {
+  background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  position: relative;
+  transition: transform .2s ease, border-color .2s;
+}
+.card:hover { transform: translateY(-3px); border-color: var(--border-lit); }
+.card h3 { margin: 0 0 9px; font-size: 17.5px; letter-spacing: -0.015em; }
+.card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* Trait lumineux sur le bord superieur, revele au survol. */
+.card.lit::before {
+  content: ""; position: absolute; inset: -1px -1px auto -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0; transition: opacity .25s;
+}
+.card.lit:hover::before { opacity: .8; }
+
+pre {
+  background: #05070a; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px;
+  overflow-x: auto; font-family: var(--mono);
+  font-size: 13px; line-height: 1.75; margin: 0;
+}
+pre .c { color: #5c6a7a; }
+pre .s { color: var(--accent); }
+pre .k { color: var(--accent-2); }
+
+/* -------------------------------------------------------------------------- */
+/* Apparition au defilement                                                   */
+/* -------------------------------------------------------------------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity .6s cubic-bezier(.2,.7,.3,1), transform .6s cubic-bezier(.2,.7,.3,1);
+}
+.reveal.in { opacity: 1; transform: none; }
+
+/**
+ * Respect strict de `prefers-reduced-motion` : tout ce qui bouge est neutralise,
+ * et les elements a reveler doivent rester VISIBLES — les masquer sans
+ * animation pour les afficher les rendrait definitivement invisibles.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}

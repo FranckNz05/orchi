@@ -1,0 +1,850 @@
+// Orchi - schema de donnees
+//
+// Provider SQLite en developpement, PostgreSQL en production.
+// Le schema reste volontairement portable : pas d'enum natif, pas de type Json,
+// pas de tableau. Les valeurs enumerees sont des String documentees ci-dessous et
+// validees par Zod a la frontiere de l'application (src/core/enums.ts).
+//
+// Etape 0 : identite marchand + authentification. Les tables Payment,
+// PaymentAttempt, Payout, ProviderAccount, LedgerEntry, etc. arrivent aux
+// etapes suivantes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Un marchand = un client de l'orchestrateur.
+/// En modele A (passerelle technique), le marchand apporte ses propres comptes
+/// agregateurs ; l'orchestrateur ne detient jamais ses fonds.
+model Merchant {
+  id String @id
+
+  name         String
+  /// COMPANY | INDIVIDUAL - conditionne les regles d'eligibilite RCCM.
+  legalType    String  @map("legal_type")
+  /// Code ISO 3166-1 alpha-2 du pays d'immatriculation (BJ, CI, CM...).
+  country      String
+  /// Numero RCCM / CAC / NINEA / CIPC selon la juridiction. Null pour un
+  /// marchand INDIVIDUAL sous plafond (offre Starter).
+  registrationNumber String? @map("registration_number")
+  contactEmail String  @map("contact_email")
+  contactPhone String? @map("contact_phone")
+
+  /// ACTIVE | SUSPENDED | CLOSED
+  status    String @default("ACTIVE")
+  /// UNVERIFIED | PENDING | VERIFIED | REJECTED
+  kybStatus String @default("UNVERIFIED") @map("kyb_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  apiKeys          ApiKey[]
+  providerAccounts ProviderAccount[]
+  payments         Payment[]
+  payouts          Payout[]
+  webhookEndpoints WebhookEndpoint[]
+  users            User[]
+  checkoutSessions CheckoutSession[]
+
+  @@index([status])
+  @@map("merchants")
+}
+
+/// Cle API d'un marchand.
+/// Le secret n'est jamais stocke : seul un HMAC-SHA256 (avec pepper hors base)
+/// est conserve. Le prefixe permet d'identifier la cle sans la reveler.
+model ApiKey {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// Libelle libre choisi par le marchand ("Backend prod", "Integration test").
+  label String
+
+  /// Partie publique de la cle : sk_test_a1b2c3d4 -> "sk_test_a1b2c3d4".
+  prefix String @unique
+  /// HMAC-SHA256(secret, API_KEY_PEPPER), en hexadecimal.
+  hash   String @unique
+
+  /// test | live - un compte agregateur sandbox ne doit jamais servir en live.
+  environment String @default("test")
+  /// Liste de scopes separes par des virgules : payments:write,payouts:write...
+  scopes      String @default("payments:read,payments:write")
+
+  lastUsedAt DateTime? @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([merchantId])
+  @@map("api_keys")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Catalogue                                                                  */
+/*                                                                            */
+/* Ces tables sont des DONNEES, pas du code : ouvrir un pays, corriger une     */
+/* commission ou desactiver un agregateur defaillant se fait en base, sans     */
+/* redeploiement. Le fichier src/catalog/ reste la source de verite versionnee */
+/* et le seed est idempotent (upsert).                                         */
+/* -------------------------------------------------------------------------- */
+
+model Currency {
+  code     String @id
+  /// Nombre de decimales ISO 4217. XOF/XAF = 0, TND = 3.
+  exponent Int
+  name     String
+
+  countries Country[]
+
+  @@map("currencies")
+}
+
+model Country {
+  iso2 String @id
+
+  name        String
+  /// WEST | CENTRAL | EAST | NORTH | SOUTHERN | ISLANDS
+  region      String
+  currencyCode String   @map("currency_code")
+  currency    Currency  @relation(fields: [currencyCode], references: [code])
+  callingCode String    @map("calling_code")
+  /// Zones economiques separees par des virgules : UEMOA,CEDEAO
+  zones       String    @default("")
+  /// false pour les territoires non souverains (Sainte-Helene).
+  sovereign   Boolean   @default(true)
+
+  /// RCCM_REQUIRED | LOCAL_REGISTRATION | STATE_AUTHORIZATION | LIGHT_KYC
+  kycRequirement   String  @map("kyc_requirement")
+  kycLabel         String  @map("kyc_label")
+  allowsIndividual Boolean @default(false) @map("allows_individual")
+
+  /// Fourchette indicative en points de base (250 = 2,50 %).
+  feeMinBps Int @map("fee_min_bps")
+  feeMaxBps Int @map("fee_max_bps")
+
+  /// FULL | PARTIAL | LIMITED | NONE
+  payoutMode String @map("payout_mode")
+  payoutNote String @map("payout_note")
+
+  /// Permet de fermer un pays sans supprimer ses donnees.
+  enabled Boolean @default(true)
+
+  coverage CoverageRule[]
+
+  @@index([region])
+  @@index([enabled])
+  @@map("countries")
+}
+
+model Provider {
+  id String @id
+
+  name String
+  /// AGGREGATOR | OPERATOR | BANK | SCHEME
+  type String
+  /// LIVE | SANDBOX | PLANNED | DIRECT_AGREEMENT - etat de l'adaptateur Orchi.
+  integration String
+  scope       String
+
+  enabled Boolean @default(true)
+
+  coverage CoverageRule[]
+
+  @@index([integration])
+  @@map("providers")
+}
+
+/// Une regle = un couple (pays, agregateur) et ce qu'il sait faire.
+model CoverageRule {
+  id String @id
+
+  countryIso2 String  @map("country_iso2")
+  country     Country @relation(fields: [countryIso2], references: [iso2], onDelete: Cascade)
+
+  providerId String   @map("provider_id")
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  /// Canaux separes par des virgules : mobile_money,card,bank_transfer
+  channels String
+
+  supportsPayin  Boolean @default(true) @map("supports_payin")
+  supportsPayout Boolean @default(true) @map("supports_payout")
+
+  /// Reseaux joignables, separes par des virgules : MTN_BENIN,MOOV_BENIN
+  networks String @default("")
+
+  /// Surcharge de la fourchette pays quand un taux contractuel est connu.
+  feeMinBps Int? @map("fee_min_bps")
+  feeMaxBps Int? @map("fee_max_bps")
+
+  /// 1 = agregateur maitre du pays. Depart du scoring de routage.
+  priority Int
+
+  note    String?
+  enabled Boolean @default(true)
+
+  @@unique([countryIso2, providerId])
+  @@index([countryIso2, enabled])
+  @@index([providerId])
+  @@map("coverage_rules")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Comptes agregateurs des marchands                                          */
+/* -------------------------------------------------------------------------- */
+
+/// Modele A (passerelle technique) : le marchand apporte SES comptes chez les
+/// agregateurs. Orchi conserve les credentials chiffres et ne detient jamais
+/// les fonds. Un marchand doit avoir un compte actif chez un agregateur pour
+/// que le routage puisse l'y envoyer.
+model ProviderAccount {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// Identifiant d'agregateur, cf. table providers.
+  providerId String @map("provider_id")
+
+  /// test | live - un compte sandbox ne doit jamais servir en production.
+  environment String @default("test")
+
+  /// Jeton non devinable place dans l'URL de callback communiquee a
+  /// l'agregateur : /v1/hooks/{provider}/{token}. C'est lui qui permet de
+  /// savoir DE QUEL marchand provient une notification entrante, donc quelles
+  /// credentials utiliser pour en verifier la signature.
+  webhookToken String @unique @map("webhook_token")
+
+  /// Credentials chiffres AES-256-GCM (src/core/crypto.ts). Jamais en clair,
+  /// jamais journalises, dechiffres uniquement le temps d'un appel sortant.
+  credentials String
+
+  /// ACTIVE | DISABLED - permet de couper un compte sans le supprimer.
+  status String @default("ACTIVE")
+
+  /// Preference du marchand : plus petit = prefere. Entre dans le score de routage.
+  priority Int @default(100)
+
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  paymentAttempts PaymentAttempt[]
+  payoutAttempts  PayoutAttempt[]
+
+  @@unique([merchantId, providerId, environment])
+  @@index([merchantId, status])
+  @@map("provider_accounts")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Idempotence                                                                */
+/* -------------------------------------------------------------------------- */
+
+/// Garantit qu'une meme requete rejouee ne cree pas deux transactions.
+///
+/// L'enregistrement est cree AVANT tout appel agregateur, en IN_PROGRESS. Un
+/// rejeu pendant le traitement recoit une 409 explicite plutot que de lancer un
+/// second paiement en parallele.
+model IdempotencyRecord {
+  id String @id
+
+  merchantId String @map("merchant_id")
+  key        String
+
+  /// Empreinte du corps de la requete : rejouer une cle avec un corps
+  /// different est une erreur d'integration, pas une reprise.
+  requestHash String @map("request_hash")
+  endpoint    String
+
+  /// IN_PROGRESS | COMPLETED
+  status String @default("IN_PROGRESS")
+
+  responseStatus Int?    @map("response_status")
+  responseBody   String? @map("response_body")
+  /// Identifiant de la ressource creee, pour le support.
+  resourceId     String? @map("resource_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@unique([merchantId, key])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Encaissements                                                              */
+/* -------------------------------------------------------------------------- */
+
+/// L'INTENTION du marchand : un montant, un client, une reference stable.
+/// Distincte des tentatives : c'est ce qui rend le failover tracable.
+model Payment {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// Reference du marchand. Unique chez lui : deuxieme filet contre les doublons.
+  reference String
+
+  /// test | live. Une transaction de test et une transaction reelle doivent
+  /// etre distinguables en base, sans passer par la cle API qui l'a creee :
+  /// c'est ce qui permet a un webhook entrant de savoir vers quels endpoints
+  /// marchands emettre.
+  environment String @default("test")
+
+  /// Montant en unites mineures (cf. src/core/money.ts).
+  amount   Int
+  currency String
+  country  String
+  /// mobile_money | card | bank_transfer
+  channel  String
+  /// Reseau vise : MTN_BENIN, WAVE_SN...
+  network  String?
+
+  customerPhone String? @map("customer_phone")
+  customerEmail String? @map("customer_email")
+  customerName  String? @map("customer_name")
+
+  description String?
+  /// Metadonnees libres du marchand, serialisees en JSON.
+  metadata    String  @default("{}")
+  returnUrl   String? @map("return_url")
+
+  /// CREATED | PROCESSING | SUCCEEDED | FAILED | EXPIRED
+  status String @default("CREATED")
+
+  /// Tentative en cours ou derniere tentative.
+  currentAttemptId String? @map("current_attempt_id")
+
+  /// Frais preleves par l'agregateur, quand ils sont communiques.
+  providerFeeAmount Int? @map("provider_fee_amount")
+  /// Commission Orchi, facturee hors flux en modele A.
+  platformFeeAmount Int? @map("platform_fee_amount")
+
+  succeededAt DateTime? @map("succeeded_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  attempts PaymentAttempt[]
+
+  @@unique([merchantId, reference])
+  @@index([merchantId, status])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+/// Une tentative = un passage chez UN agregateur. Un echec n'ecrase jamais
+/// l'historique : le failover ajoute une ligne.
+model PaymentAttempt {
+  id String @id
+
+  paymentId String  @map("payment_id")
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  attemptNumber Int @map("attempt_number")
+
+  providerId        String          @map("provider_id")
+  providerAccountId String          @map("provider_account_id")
+  providerAccount   ProviderAccount @relation(fields: [providerAccountId], references: [id])
+
+  /// Reference transmise a l'agregateur. Unique globalement.
+  reference String @unique
+
+  /// PENDING | AWAITING_CUSTOMER | SUCCEEDED | FAILED | EXPIRED | UNKNOWN
+  status String @default("PENDING")
+
+  providerReference String? @map("provider_reference")
+  providerCode      String? @map("provider_code")
+  providerMessage   String? @map("provider_message")
+  /// Code de la taxonomie ProviderError quand la tentative a echoue.
+  failureCode       String? @map("failure_code")
+
+  /// Taux de l'agregateur retenu au moment du routage, en points de base.
+  /// Conserve ici parce que la commission Orchi s'en deduit : sans lui, une
+  /// modification du catalogue changerait retroactivement le calcul d'une
+  /// transaction deja passee.
+  providerFeeBps Int? @map("provider_fee_bps")
+
+  /// Action a faire executer par le client final.
+  actionType         String?   @map("action_type")
+  actionUrl          String?   @map("action_url")
+  actionInstructions String?   @map("action_instructions")
+  actionExpiresAt    DateTime? @map("action_expires_at")
+
+  providerFeeAmount Int? @map("provider_fee_amount")
+
+  /// Reponse brute de l'agregateur, conservee pour la reconciliation.
+  rawResponse String? @map("raw_response")
+
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([paymentId, attemptNumber])
+  @@index([status, updatedAt])
+  @@index([providerReference])
+  @@map("payment_attempts")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Decaissements                                                              */
+/* -------------------------------------------------------------------------- */
+
+model Payout {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  reference String
+
+  /// test | live, cf. Payment.environment.
+  environment String @default("test")
+
+  amount   Int
+  currency String
+  country  String
+  channel  String
+
+  recipientPhone         String? @map("recipient_phone")
+  recipientNetwork       String? @map("recipient_network")
+  recipientAccountNumber String? @map("recipient_account_number")
+  recipientBankCode      String? @map("recipient_bank_code")
+  recipientName          String? @map("recipient_name")
+
+  description String?
+  metadata    String @default("{}")
+
+  /// CREATED | PROCESSING | SUCCEEDED | FAILED | UNKNOWN
+  ///
+  /// UNKNOWN est un etat bloquant : il interdit toute nouvelle tentative
+  /// jusqu'a ce que la reconciliation tranche. C'est la protection contre le
+  /// double decaissement.
+  status String @default("CREATED")
+
+  currentAttemptId String? @map("current_attempt_id")
+
+  providerFeeAmount Int? @map("provider_fee_amount")
+  platformFeeAmount Int? @map("platform_fee_amount")
+
+  settledAt DateTime? @map("settled_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  attempts PayoutAttempt[]
+
+  @@unique([merchantId, reference])
+  @@index([merchantId, status])
+  @@index([status, createdAt])
+  @@map("payouts")
+}
+
+model PayoutAttempt {
+  id String @id
+
+  payoutId String @map("payout_id")
+  payout   Payout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+
+  attemptNumber Int @map("attempt_number")
+
+  providerId        String          @map("provider_id")
+  providerAccountId String          @map("provider_account_id")
+  providerAccount   ProviderAccount @relation(fields: [providerAccountId], references: [id])
+
+  reference String @unique
+
+  /// PENDING | SUCCEEDED | FAILED | UNKNOWN
+  status String @default("PENDING")
+
+  providerReference String? @map("provider_reference")
+  providerCode      String? @map("provider_code")
+  providerMessage   String? @map("provider_message")
+  failureCode       String? @map("failure_code")
+
+  /// Voir PaymentAttempt.providerFeeBps.
+  providerFeeBps    Int?    @map("provider_fee_bps")
+
+  providerFeeAmount Int?    @map("provider_fee_amount")
+  rawResponse       String? @map("raw_response")
+
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([payoutId, attemptNumber])
+  @@index([status, updatedAt])
+  @@index([providerReference])
+  @@map("payout_attempts")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Ledger miroir                                                              */
+/* -------------------------------------------------------------------------- */
+
+/// En modele A, Orchi ne detient pas les fonds : ce ledger REFLETE les flux
+/// constates chez les agregateurs. Il sert au reporting, a la facturation et a
+/// la detection d'ecarts, pas a la garde de fonds. La partie double est
+/// conservee parce que c'est elle qui rend un ecart visible.
+model LedgerJournal {
+  id String @id
+
+  merchantId String @map("merchant_id")
+  /// payin.succeeded | payout.succeeded | fee.accrued
+  type       String
+  /// payment | payout
+  refType    String @map("ref_type")
+  refId      String @map("ref_id")
+  currency   String
+
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  entries LedgerEntry[]
+
+  @@index([merchantId, createdAt])
+  @@index([refType, refId])
+  @@map("ledger_journals")
+}
+
+model LedgerEntry {
+  id String @id
+
+  journalId String        @map("journal_id")
+  journal   LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+
+  /// Compte au format `scope:identifiant:role`, ex merchant:mch_1:receivable.
+  account  String
+  /// DEBIT | CREDIT
+  side     String
+  amount   Int
+  currency String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([account, createdAt])
+  @@map("ledger_entries")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sante des agregateurs et decisions de routage                              */
+/* -------------------------------------------------------------------------- */
+
+/// Instantane de sante par (agregateur, pays, canal).
+///
+/// La decision temps reel se prend en memoire (fenetre glissante, sans acces
+/// base sur le chemin critique d'un paiement). Cette table sert a deux choses :
+/// l'observabilite cote exploitation, et le redemarrage a chaud — un processus
+/// qui repart ne doit pas relancer du trafic sur un agregateur qu'on venait de
+/// couper.
+model ProviderHealth {
+  /// providerId:country:channel
+  id String @id
+
+  providerId  String @map("provider_id")
+  countryIso2 String @map("country_iso2")
+  channel     String
+
+  /// CLOSED | OPEN | HALF_OPEN
+  state String @default("CLOSED")
+
+  /// Compteurs de la fenetre glissante au moment de l'instantane.
+  successes         Int @default(0)
+  technicalFailures Int @default(0) @map("technical_failures")
+  /// Refus client (solde insuffisant...). Suivis, mais n'ouvrent JAMAIS le
+  /// disjoncteur : un agregateur qui transmet des refus fonctionne.
+  declines          Int @default(0)
+
+  latencyP95Ms Int? @map("latency_p95_ms")
+
+  openedAt        DateTime? @map("opened_at")
+  nextProbeAt     DateTime? @map("next_probe_at")
+  lastFailureCode String?   @map("last_failure_code")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([state])
+  @@index([providerId])
+  @@map("provider_health")
+}
+
+/// Trace de la decision de routage : candidats, scores, motif.
+///
+/// Sans elle, il est impossible d'expliquer a un marchand pourquoi sa
+/// transaction est partie chez tel agregateur — et donc impossible de defendre
+/// le produit le jour ou il conteste.
+model RoutingDecision {
+  id String @id
+
+  merchantId String @map("merchant_id")
+  /// payment | payout
+  refType    String @map("ref_type")
+  refId      String @map("ref_id")
+  /// Tentative issue de cette decision.
+  attemptId  String? @unique @map("attempt_id")
+
+  countryIso2 String @map("country_iso2")
+  channel     String
+  direction   String
+
+  chosenProviderId String @map("chosen_provider_id")
+  /// Candidats et leurs scores, serialises en JSON.
+  candidates       String
+  reason           String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@index([refType, refId])
+  @@map("routing_decisions")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Webhooks entrants                                                          */
+/* -------------------------------------------------------------------------- */
+
+/// Notification recue d'un agregateur, conservee brute.
+///
+/// On enregistre AVANT de traiter, et meme quand la signature est invalide :
+/// une rafale de webhooks non signes est un signal de securite, pas un
+/// non-evenement. Le corps brut est indispensable — la signature porte sur les
+/// octets recus, pas sur le JSON reserialise.
+model InboundWebhook {
+  id String @id
+
+  providerId String @map("provider_id")
+  /// Compte agregateur destinataire, resolu par le jeton d'URL.
+  providerAccountId String? @map("provider_account_id")
+  merchantId        String? @map("merchant_id")
+
+  /// Identifiant d'evenement de l'agregateur, base de la deduplication.
+  eventId String @map("event_id")
+
+  rawBody        String  @map("raw_body")
+  signatureValid Boolean @map("signature_valid")
+  rejectReason   String? @map("reject_reason")
+
+  providerReference String? @map("provider_reference")
+  /// payin | payout | unknown
+  kind              String  @default("unknown")
+  /// Statut normalise porte par l'evenement.
+  status            String?
+
+  /// RECEIVED | APPLIED | IGNORED | REJECTED
+  outcome String @default("RECEIVED")
+  /// Tentative mise a jour, le cas echeant.
+  appliedToAttemptId String? @map("applied_to_attempt_id")
+  note               String?
+
+  processedAt DateTime? @map("processed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  /// Deduplication : un agregateur qui renvoie le meme evenement ne doit pas
+  /// produire deux traitements.
+  @@unique([providerId, eventId])
+  @@index([createdAt])
+  @@index([outcome])
+  @@map("inbound_webhooks")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Webhooks sortants                                                          */
+/* -------------------------------------------------------------------------- */
+
+/// Endpoint declare par un marchand pour recevoir nos evenements.
+model WebhookEndpoint {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  url String
+  /// Secret de signature, chiffre au repos. Montre une seule fois a la creation.
+  secret String
+  /// Evenements souscrits, separes par des virgules. `*` = tous.
+  events String @default("*")
+
+  /// test | live
+  environment String @default("test")
+  /// ACTIVE | DISABLED
+  status      String @default("ACTIVE")
+  description String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  deliveries OutboundDelivery[]
+
+  @@index([merchantId, status])
+  @@map("webhook_endpoints")
+}
+
+/// Une livraison = un evenement vers un endpoint.
+///
+/// Les tentatives sont espacees exponentiellement. Un marchand indisponible une
+/// heure ne doit pas perdre ses evenements, et un marchand definitivement mort
+/// ne doit pas saturer le worker.
+model OutboundDelivery {
+  id String @id
+
+  merchantId String @map("merchant_id")
+
+  endpointId String          @map("endpoint_id")
+  endpoint   WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  /// payment.succeeded | payment.failed | payout.succeeded | payout.indeterminate...
+  eventType String @map("event_type")
+  /// Identifiant stable de l'evenement, base de l'idempotence cote marchand.
+  eventId   String @map("event_id")
+  payload   String
+
+  /// PENDING | DELIVERED | FAILED
+  status   String @default("PENDING")
+  attempts Int    @default(0)
+
+  lastStatusCode Int?    @map("last_status_code")
+  lastError      String? @map("last_error")
+
+  nextAttemptAt DateTime  @map("next_attempt_at")
+  deliveredAt   DateTime? @map("delivered_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  /// Un meme evenement n'est envoye qu'une fois par endpoint.
+  @@unique([endpointId, eventId])
+  @@index([status, nextAttemptAt])
+  @@map("outbound_deliveries")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Utilisateurs et sessions                                                   */
+/* -------------------------------------------------------------------------- */
+
+/// Une personne qui se connecte au tableau de bord.
+///
+/// Distinct de `Merchant` : le marchand est l'entreprise, l'utilisateur est
+/// l'humain. Les confondre interdirait d'ajouter un collaborateur, et
+/// obligerait a partager un mot de passe.
+model User {
+  id String @id
+
+  email String @unique
+  /// Format `scrypt$N$r$p$sel$empreinte`. Le mot de passe n'est jamais stocke.
+  /// Le cout est inscrit dans la chaine pour pouvoir le relever plus tard sans
+  /// invalider les comptes existants.
+  passwordHash String @map("password_hash")
+  name         String
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// OWNER | MEMBER
+  role String @default("OWNER")
+  /// ACTIVE | DISABLED
+  status String @default("ACTIVE")
+
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  sessions Session[]
+
+  @@index([merchantId])
+  @@map("users")
+}
+
+/// Session de navigateur.
+///
+/// Le jeton n'est jamais stocke : seule son empreinte SHA-256 l'est, comme pour
+/// les cles API. Une fuite de la base ne permet donc pas d'usurper une session.
+model Session {
+  id String @id
+
+  tokenHash String @unique @map("token_hash")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Environnement consulte dans le tableau de bord : test | live.
+  environment String @default("test")
+
+  userAgent String? @map("user_agent")
+  ip        String?
+
+  expiresAt  DateTime  @map("expires_at")
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page de paiement hebergee                                                  */
+/* -------------------------------------------------------------------------- */
+
+/// Session de paiement destinee a la page hebergee.
+///
+/// Elle existe pour une raison precise : permettre a un marchand d'encaisser
+/// SANS coder de tunnel de paiement, et surtout sans que son site manipule des
+/// numeros de telephone ou choisisse un operateur. Le client final arrive sur
+/// une page servie par Orchi, choisit son moyen de paiement, et paie.
+///
+/// Le `token` est la seule authentification de cette page : il est donc long,
+/// non devinable, a usage unique et expirant. Il ne donne acces qu'a CETTE
+/// session — jamais au compte du marchand.
+model CheckoutSession {
+  id String @id
+
+  /// Jeton public place dans l'URL. Non devinable.
+  token String @unique
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// test | live
+  environment String @default("test")
+
+  /// Reference marchand, reutilisee pour le paiement cree ensuite.
+  reference String
+  amount    Int
+  currency  String
+  country   String
+
+  description String?
+  metadata    String @default("{}")
+
+  /// Pre-remplissage facultatif du formulaire.
+  customerName  String? @map("customer_name")
+  customerEmail String? @map("customer_email")
+  customerPhone String? @map("customer_phone")
+
+  /// Redirections apres issue. Le client final doit toujours revenir chez le
+  /// marchand : une page de paiement sans retour est une impasse.
+  successUrl String? @map("success_url")
+  cancelUrl  String? @map("cancel_url")
+
+  /// OPEN | COMPLETED | EXPIRED | CANCELLED
+  status String @default("OPEN")
+
+  /// Paiement cree lorsque le client a valide son choix.
+  paymentId String? @map("payment_id")
+
+  expiresAt   DateTime  @map("expires_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([merchantId, reference])
+  @@index([status, expiresAt])
+  @@map("checkout_sessions")
+}

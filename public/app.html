@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tableau de bord — Orchi</title>
+<style>
+  /* Meme palette que les pages publiques, pour que le passage du site au
+     tableau de bord ne donne pas l'impression de changer de produit. */
+  :root {
+    --bg: #07090c;
+    --rail: #0b0f14;
+    --surface: #10151c;
+    --surface-2: #151b24;
+    --border: #1e2630;
+    --border-lit: #2b3746;
+    --ink: #e9eef4;
+    --muted: #8896a6;
+    --accent: #35d6a4;
+    --accent-2: #4aa8ff;
+    --accent-ink: #04221a;
+    --accent-soft: rgba(53, 214, 164, 0.12);
+    --danger: #ff8a7a;
+    --danger-soft: rgba(255, 138, 122, 0.12);
+    --warn: #f0c063;
+    --warn-soft: rgba(240, 192, 99, 0.12);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  /**
+   * Decor volontairement SOBRE et NON anime.
+   *
+   * Le site vitrine peut se permettre une grille qui defile ; un tableau de
+   * bord que l'on garde ouvert des heures, non — le mouvement perpetuel
+   * fatigue et detourne du seul mouvement qui compte, celui des chiffres.
+   */
+  .backdrop {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(900px 520px at 88% -6%, rgba(53, 214, 164, 0.07), transparent 62%),
+      radial-gradient(700px 460px at 4% 4%, rgba(74, 168, 255, 0.05), transparent 64%);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14.5px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: grid; grid-template-columns: 272px 1fr; min-height: 100vh;
+  }
+  @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside { display: none; } }
+
+  /* ---------------------------------------------------------------- rail -- */
+  aside {
+    background: var(--rail); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+  }
+  .org { display: flex; align-items: center; gap: 11px; padding: 18px 18px 14px; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 10px; flex: 0 0 34px;
+    background: linear-gradient(140deg, var(--accent), #2b8f70);
+    display: grid; place-items: center; color: var(--accent-ink); font-weight: 800; font-size: 14px;
+  }
+  .org .n { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .org .e { font-size: 12px; color: var(--muted); }
+
+  nav { padding: 8px 12px; overflow-y: auto; flex: 1; }
+  nav .group { color: var(--muted); font-size: 11.5px; font-weight: 650; letter-spacing: .07em;
+    text-transform: uppercase; padding: 16px 10px 6px; }
+  nav a {
+    display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px;
+    color: var(--muted); text-decoration: none; font-size: 14.5px; cursor: pointer;
+  }
+  nav a:hover { background: var(--surface); color: var(--ink); }
+  nav a[aria-current="true"] { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+  nav a .ico { width: 17px; text-align: center; opacity: .85; font-size: 14px; }
+  nav a .badge {
+    margin-left: auto; background: var(--danger-soft); color: var(--danger);
+    font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  }
+
+  /* --------------------------------------------------- barre developpeurs -- */
+  /* Repliee par defaut : ces outils servent a l'integration, pas au quotidien.
+     Les mettre dans la navigation principale noierait les operations. */
+  .devbar { border-top: 1px solid var(--border); position: relative; }
+  .devbar > button {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; background: transparent; border: 0; cursor: pointer;
+    color: var(--accent); font: inherit; font-size: 14px; font-weight: 600;
+  }
+  .devbar > button:hover { background: var(--surface); }
+  .devbar > button .chev { margin-left: auto; transition: transform .2s; font-size: 11px; }
+  .devbar[data-open="true"] > button .chev { transform: rotate(180deg); }
+  .devmenu {
+    position: absolute; bottom: calc(100% + 6px); left: 10px; right: 10px;
+    background: var(--surface); border: 1px solid var(--border-lit);
+    border-radius: 14px; padding: 10px; z-index: 40;
+    box-shadow: 0 18px 50px rgba(0,0,0,.55);
+    animation: pop .16s cubic-bezier(.2,.7,.3,1);
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } }
+  @media (prefers-reduced-motion: reduce) { .devmenu { animation: none; } }
+  .devmenu .group {
+    color: var(--muted); font-size: 11px; font-weight: 650; letter-spacing: .07em;
+    text-transform: uppercase; padding: 8px 10px 5px;
+  }
+  .devmenu a {
+    display: flex; align-items: center; gap: 11px; padding: 9px 10px;
+    border-radius: 9px; color: var(--ink); text-decoration: none; font-size: 14px; cursor: pointer;
+  }
+  .devmenu a:hover { background: var(--surface-2); }
+  .devmenu a .ico { width: 17px; text-align: center; opacity: .8; }
+  .devmenu a .ext { margin-left: auto; opacity: .45; font-size: 11px; }
+  .devmenu hr { border: 0; border-top: 1px solid var(--border); margin: 8px 4px; }
+
+  .rail-foot { border-top: 1px solid var(--border); padding: 12px; display: grid; gap: 10px; }
+  .envswitch { display: flex; background: var(--surface); border-radius: 9px; padding: 3px; gap: 3px; }
+  .envswitch button {
+    flex: 1; font: inherit; font-size: 13px; font-weight: 600; padding: 6px;
+    border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .envswitch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  .envswitch button[aria-pressed="true"][data-env="live"] { background: var(--danger); color: #2a0f0d; }
+  .me { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
+  .me .initials {
+    width: 30px; height: 30px; border-radius: 9px; background: var(--surface-2);
+    display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--muted);
+  }
+  .me .n { font-size: 13.5px; font-weight: 600; }
+  .me .e { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .me button { margin-left: auto; }
+
+  /* ---------------------------------------------------------------- main -- */
+  main { padding: 26px 30px 60px; max-width: 1240px; }
+  .page-head h1 {
+    background: linear-gradient(120deg, var(--ink), var(--muted));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .page-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; margin-bottom: 26px; }
+  .page-head h1 { font-size: 30px; letter-spacing: -0.03em; margin: 0; font-weight: 700; }
+  .page-head p { margin: 3px 0 0; color: var(--muted); font-size: 14.5px; }
+  .page-head .actions { margin-left: auto; display: flex; gap: 9px; flex-wrap: wrap; }
+
+  button.b, a.b {
+    font: inherit; font-size: 14px; font-weight: 600; padding: 9px 15px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+    cursor: pointer; text-decoration: none; display: inline-block;
+  }
+  button.b:hover, a.b:hover { border-color: var(--muted); }
+  button.b.solid { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.b:disabled { opacity: .45; cursor: not-allowed; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .kpi {
+    background: linear-gradient(180deg, var(--surface), var(--rail));
+    border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px;
+    position: relative; overflow: hidden; transition: border-color .18s, transform .18s;
+  }
+  .kpi:hover { border-color: var(--border-lit); transform: translateY(-2px); }
+  .kpi::before {
+    content: ""; position: absolute; inset: -1px -1px auto -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0; transition: opacity .25s;
+  }
+  .kpi:hover::before { opacity: .7; }
+  .kpi .t { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13.5px; }
+  .kpi .t .ico { margin-left: auto; opacity: .5; }
+  .kpi .v { font-size: 29px; font-weight: 700; letter-spacing: -0.035em; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .kpi .v small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+  .kpi .d { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .kpi.alert { border-color: var(--danger); }
+  .kpi.alert .v { color: var(--danger); }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 16px; }
+  .panel > header {
+    display: flex; align-items: center; gap: 12px; padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel > header h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+  .panel > header .grow { flex: 1; }
+  .panel .pad { padding: 20px; }
+  .panel .foot { padding: 11px 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12.5px; }
+
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted);
+    padding: 9px 20px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 11px 20px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--mono); font-size: 12.5px; }
+  .muted { color: var(--muted); }
+
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 650; }
+  .tag.ok { background: var(--accent-soft); color: var(--accent); }
+  .tag.bad { background: var(--danger-soft); color: var(--danger); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .tag.neutral { background: var(--surface-2); color: var(--muted); }
+
+  .banner { border: 1px solid var(--danger); background: var(--danger-soft); border-radius: 14px;
+    padding: 18px 20px; margin-bottom: 16px; }
+  .banner h3 { margin: 0 0 4px; font-size: 16px; color: var(--danger); }
+  .banner p { margin: 0 0 12px; font-size: 13.5px; color: var(--danger); opacity: .92; }
+  .banner .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 7px; font-size: 13.5px; }
+
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  .empty strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 5px; }
+
+  .chart { display: flex; align-items: flex-end; gap: 5px; height: 150px; padding: 0 4px; }
+  .chart .bar { flex: 1; background: var(--accent-soft); border-radius: 4px 4px 0 0; position: relative; min-height: 2px; }
+  .chart .bar > i {
+    position: absolute; inset: auto 0 0 0; display: block; border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, var(--accent), rgba(53,214,164,.35));
+    box-shadow: 0 0 12px rgba(53,214,164,.25);
+    animation: grow .5s cubic-bezier(.2,.7,.3,1) backwards;
+  }
+  @keyframes grow { from { transform: scaleY(0); transform-origin: bottom; } }
+  @media (prefers-reduced-motion: reduce) { .chart .bar > i { animation: none; } }
+  .chart-x { display: flex; gap: 5px; padding: 8px 4px 0; }
+  .chart-x span { flex: 1; text-align: center; font-size: 11px; color: var(--muted); }
+
+  .keyout {
+    background: var(--surface-2); border: 1px dashed var(--accent); border-radius: 11px;
+    padding: 15px 17px; margin-top: 14px;
+  }
+  .keyout code { font-family: var(--mono); font-size: 13px; word-break: break-all; color: var(--accent); }
+  .keyout p { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+
+  dialog {
+    border: 1px solid var(--border); border-radius: 14px; background: var(--surface);
+    color: var(--ink); padding: 0; max-width: 760px; width: 92vw;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0; padding: 15px 20px; border-bottom: 1px solid var(--border); font-size: 15px; }
+  dialog pre { margin: 0; padding: 18px 20px; max-height: 58vh; overflow: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+  dialog footer { padding: 13px 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+
+<aside>
+  <div class="org">
+    <div class="avatar" id="avatar">··</div>
+    <div style="min-width:0">
+      <div class="n" id="org-name">Chargement…</div>
+      <div class="e" id="org-country"></div>
+    </div>
+  </div>
+
+  <nav id="nav">
+    <a data-view="overview" aria-current="true"><span class="ico">◈</span> Vue d'ensemble</a>
+    <a data-view="reconciliation"><span class="ico">⚖</span> Réconciliation <span class="badge" id="badge-recon" hidden>0</span></a>
+
+    <div class="group">Opérations</div>
+    <a data-view="payments"><span class="ico">↓</span> Encaissements</a>
+    <a data-view="payouts"><span class="ico">↑</span> Décaissements</a>
+
+    <div class="group">Infrastructure</div>
+    <a data-view="providers"><span class="ico">⛁</span> Agrégateurs</a>
+    <a data-view="webhooks"><span class="ico">⇄</span> Webhooks</a>
+
+  </nav>
+
+  <div class="devbar" id="devbar" data-open="false">
+    <button type="button" id="devtoggle" aria-expanded="false">
+      <span class="ico">&lt;/&gt;</span> Développeurs
+      <span class="chev">▲</span>
+    </button>
+    <div class="devmenu" id="devmenu" hidden>
+      <div class="group">Workbench</div>
+      <a data-view="devoverview"><span class="ico">◔</span> Aperçu</a>
+      <a data-view="webhooks"><span class="ico">⇄</span> Webhooks</a>
+      <a data-view="events"><span class="ico">◫</span> Événements</a>
+      <a data-view="logs"><span class="ico">&gt;_</span> Logs</a>
+      <hr />
+      <div class="group">Documentation</div>
+      <a href="/docs" target="_blank"><span class="ico">▤</span> Documentation de l'API <span class="ext">↗</span></a>
+      <a href="/console" target="_blank"><span class="ico">▦</span> Console technique <span class="ext">↗</span></a>
+      <a data-view="keys"><span class="ico">⚿</span> Clés API</a>
+    </div>
+  </div>
+
+  <div class="rail-foot">
+    <div class="envswitch" id="envswitch">
+      <button data-env="test" aria-pressed="true">Test</button>
+      <button data-env="live" aria-pressed="false">Live</button>
+    </div>
+    <div class="me">
+      <div class="initials" id="me-initials">··</div>
+      <div style="min-width:0">
+        <div class="n" id="me-name">—</div>
+        <div class="e" id="me-email">—</div>
+      </div>
+      <button class="b" id="logout" title="Se déconnecter" style="padding:6px 10px">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<main>
+  <div class="page-head">
+    <div>
+      <h1 id="title">Vue d'ensemble</h1>
+      <p id="subtitle">Bienvenue dans votre espace de gestion</p>
+    </div>
+    <div class="actions" id="actions"></div>
+  </div>
+
+  <div id="content"></div>
+</main>
+
+<dialog id="detail">
+  <h2 id="detail-title">Détail</h2>
+  <pre id="detail-body"></pre>
+  <footer>
+    <button class="b" id="detail-refresh">Interroger l'agrégateur</button>
+    <button class="b" id="detail-retry">Relancer</button>
+    <button class="b solid" id="detail-close">Fermer</button>
+  </footer>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  let session = null;
+  let view = 'overview';
+  let current = null;
+  let timer = null;
+
+  /* ------------------------------------------------------------------ API -- */
+
+  async function api(path, options = {}) {
+    const res = await fetch(path, {
+      ...options,
+      headers: { 'content-type': 'application/json', ...(options.headers || {}) },
+    });
+    if (res.status === 401) { window.location.href = '/login'; throw new Error('non authentifié'); }
+    const text = await res.text();
+    const body = text ? JSON.parse(text) : null;
+    if (!res.ok) {
+      const err = new Error(body?.error?.message || `HTTP ${res.status}`);
+      err.body = body;
+      throw err;
+    }
+    return body;
+  }
+
+  /* --------------------------------------------------------------- Format -- */
+
+  const ZERO = ['XOF','XAF','GNF','KMF','RWF','BIF','DJF','UGX'];
+  const THREE = ['TND','LYD'];
+
+  function money(minor, currency) {
+    const exp = ZERO.includes(currency) ? 0 : THREE.includes(currency) ? 3 : 2;
+    const s = String(Math.abs(minor ?? 0)).padStart(exp + 1, '0');
+    const whole = s.slice(0, s.length - exp) || '0';
+    const frac = exp ? ',' + s.slice(s.length - exp) : '';
+    return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + frac;
+  }
+
+  function ago(iso) {
+    if (!iso) return '—';
+    const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'à l’instant';
+    if (s < 3600) return `il y a ${Math.round(s / 60)} min`;
+    if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
+    return `il y a ${Math.round(s / 86400)} j`;
+  }
+
+  const CLASSES = {
+    SUCCEEDED: 'ok', DELIVERED: 'ok', ACTIVE: 'ok', CLOSED: 'ok',
+    PROCESSING: 'warn', PENDING: 'warn', HALF_OPEN: 'warn', CREATED: 'neutral',
+    FAILED: 'bad', UNKNOWN: 'bad', OPEN: 'bad',
+    EXPIRED: 'neutral', DISABLED: 'neutral',
+  };
+  const tag = (v) => `<span class="tag ${CLASSES[v] || 'neutral'}">${esc(v)}</span>`;
+
+  /* ----------------------------------------------------------------- Vues -- */
+
+  const VIEWS = {
+    overview:       { title: 'Vue d’ensemble', sub: 'Bienvenue dans votre espace de gestion' },
+    devoverview:    { title: 'Workbench', sub: 'Tout ce qu’il faut pour intégrer' },
+    events:         { title: 'Événements', sub: 'Ce qu’Orchi vous a envoyé' },
+    logs:           { title: 'Logs', sub: 'Notifications reçues des agrégateurs' },
+    reconciliation: { title: 'Réconciliation', sub: 'Ce qui demande une décision humaine' },
+    payments:       { title: 'Encaissements', sub: 'Tous vos paiements entrants' },
+    payouts:        { title: 'Décaissements', sub: 'Tous vos virements sortants' },
+    providers:      { title: 'Agrégateurs', sub: 'Comptes connectés et santé du routage' },
+    webhooks:       { title: 'Webhooks', sub: 'Endpoints déclarés et journal de livraison' },
+    keys:           { title: 'Clés API', sub: 'Pour connecter votre backend' },
+  };
+
+  async function renderOverview() {
+    const [recon, payments, payouts, health] = await Promise.all([
+      api('/v1/reconciliation'),
+      api('/v1/payments?limit=100'),
+      api('/v1/payouts?limit=100'),
+      api('/v1/routing/health'),
+    ]);
+
+    const currency = payments.data[0]?.currency || payouts.data[0]?.currency || 'XOF';
+    const succeeded = payments.data.filter((p) => p.status === 'SUCCEEDED');
+    const settled = payments.data.filter((p) => ['SUCCEEDED','FAILED','EXPIRED'].includes(p.status));
+    const volume = succeeded.reduce((s, p) => s + p.amount, 0);
+    const today = succeeded.filter((p) => new Date(p.created_at).toDateString() === new Date().toDateString());
+    const todayVolume = today.reduce((s, p) => s + p.amount, 0);
+    const openBreakers = health.data.filter((h) => h.state !== 'CLOSED').length;
+
+    // Volume par jour sur 14 jours, calcule cote client : une poignee de
+    // transactions ne justifie pas un endpoint d'agregation dedie.
+    const days = [];
+    for (let i = 13; i >= 0; i -= 1) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+      days.push({ d, total: 0 });
+    }
+    for (const p of succeeded) {
+      const t = new Date(p.created_at); t.setHours(0,0,0,0);
+      const slot = days.find((x) => x.d.getTime() === t.getTime());
+      if (slot) slot.total += p.amount;
+    }
+    const peak = Math.max(1, ...days.map((d) => d.total));
+
+    $('content').innerHTML = `
+      ${recon.indeterminate_payouts.length ? banner(recon.indeterminate_payouts) : ''}
+
+      <div class="kpis">
+        ${kpi('Volume du jour', `${money(todayVolume, currency)} <small>${currency}</small>`, `${today.length} transaction${today.length > 1 ? 's' : ''} aboutie${today.length > 1 ? 's' : ''}`)}
+        ${kpi('Volume encaissé', `${money(volume, currency)} <small>${currency}</small>`, 'sur les 100 dernières transactions')}
+        ${kpi('Taux de succès', settled.length ? `${Math.round((succeeded.length / settled.length) * 100)} <small>%</small>` : '—', `${settled.length} transaction${settled.length > 1 ? 's' : ''} conclue${settled.length > 1 ? 's' : ''}`)}
+        ${kpi('Décaissements bloqués', recon.indeterminate_payouts.length, 'issue inconnue', recon.indeterminate_payouts.length > 0)}
+        ${kpi('Disjoncteurs ouverts', openBreakers, 'agrégateurs écartés', openBreakers > 0)}
+        ${kpi('Événements non livrés', recon.undelivered_events, 'webhooks en attente', recon.undelivered_events > 0)}
+      </div>
+
+      <section class="panel">
+        <header><h2>Volume encaissé — 14 derniers jours</h2></header>
+        <div class="pad">
+          <div class="chart">
+            ${days.map((d) => `<div class="bar" title="${d.d.toLocaleDateString('fr')} — ${money(d.total, currency)} ${currency}"><i style="height:${Math.round((d.total / peak) * 100)}%"></i></div>`).join('')}
+          </div>
+          <div class="chart-x">
+            ${days.map((d, i) => `<span>${i % 2 === 0 ? d.d.getDate() : ''}</span>`).join('')}
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Dernières transactions</h2><div class="grow"></div>
+          <button class="b" data-goto="payments">Tout voir</button></header>
+        ${txTable(payments.data.slice(0, 6), 'payments')}
+      </section>`;
+  }
+
+  function kpi(label, value, detail, alert = false) {
+    return `<div class="kpi ${alert ? 'alert' : ''}">
+      <div class="t">${label}</div>
+      <div class="v">${value}</div>
+      <div class="d">${detail}</div>
+    </div>`;
+  }
+
+  function banner(stuck) {
+    return `<div class="banner">
+      <h3>${stuck.length} décaissement${stuck.length > 1 ? 's' : ''} à l’issue inconnue</h3>
+      <p>L’argent est peut-être parti. Ne relancez pas : interrogez l’agrégateur.</p>
+      ${stuck.map((p) => `<div class="row">
+        <button class="b" data-open="payouts:${esc(p.id)}">Interroger</button>
+        <span class="mono">${esc(p.reference)}</span>
+        <strong>${money(p.amount, p.currency)} ${esc(p.currency)}</strong>
+        <span class="muted">via ${esc(p.provider || '—')}, ${ago(p.since)}</span>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  function txTable(rows, kind) {
+    if (!rows.length) {
+      return `<div class="empty"><strong>Aucune transaction</strong>
+        ${kind === 'payments' ? 'Créez votre première transaction depuis votre backend.' : 'Aucun virement sortant pour le moment.'}</div>`;
+    }
+    const who = kind === 'payments' ? 'Client' : 'Bénéficiaire';
+    return `<div class="scroll"><table>
+      <thead><tr><th>Référence</th><th>Statut</th><th class="num">Montant</th><th>Pays</th>
+        <th>${who}</th><th>Agrégateur</th><th class="num">Tent.</th><th>Créé</th></tr></thead>
+      <tbody>${rows.map((t) => `<tr data-open="${kind}:${esc(t.id)}" style="cursor:pointer">
+        <td class="mono">${esc(t.reference)}</td>
+        <td>${tag(t.status)}</td>
+        <td class="num">${money(t.amount, t.currency)} <span class="muted">${esc(t.currency)}</span></td>
+        <td>${esc(t.country)}</td>
+        <td class="mono muted">${esc(t.customer_phone || t.recipient_phone || '—')}</td>
+        <td class="mono">${esc(t.provider || '—')}</td>
+        <td class="num ${t.attempt_count > 1 ? '' : 'muted'}">${t.attempt_count}</td>
+        <td class="muted">${ago(t.created_at)}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  async function renderList(kind) {
+    const list = await api(`/v1/${kind}?limit=50`);
+    $('content').innerHTML = `<section class="panel">
+      <header><h2>${list.count} transaction${list.count > 1 ? 's' : ''}</h2></header>
+      ${txTable(list.data, kind)}
+      <div class="foot">Cliquez une ligne pour interroger l’agrégateur et voir le détail des tentatives.</div>
+    </section>`;
+  }
+
+  async function renderReconciliation() {
+    const recon = await api('/v1/reconciliation');
+    $('content').innerHTML = `
+      ${recon.indeterminate_payouts.length ? banner(recon.indeterminate_payouts) : ''}
+      <div class="kpis">
+        ${kpi('Décaissements bloqués', recon.indeterminate_payouts.length, 'issue inconnue', recon.indeterminate_payouts.length > 0)}
+        ${kpi('Paiements enlisés', recon.stuck_payments, 'en cours depuis plus de 24 h', recon.stuck_payments > 0)}
+        ${kpi('Événements non livrés', recon.undelivered_events, 'webhooks en attente', recon.undelivered_events > 0)}
+        ${kpi('Webhooks rejetés', recon.rejected_webhooks_24h, 'sur 24 h — signal de sécurité', recon.rejected_webhooks_24h > 0)}
+      </div>
+      <section class="panel"><div class="pad muted" style="font-size:13.5px">
+        Un décaissement à l’issue inconnue ne peut pas être relancé : l’argent est
+        peut-être parti. Seule une interrogation de l’agrégateur lève le blocage.
+        Le balayeur s’en charge automatiquement chaque minute ; ce tableau montre
+        ce qu’il n’a pas encore pu trancher.
+      </div></section>`;
+  }
+
+  async function renderProviders() {
+    const [accounts, health, coverage] = await Promise.all([
+      api('/v1/provider-accounts'),
+      api('/v1/routing/health'),
+      api(`/v1/coverage?country=${session.merchant.country}`),
+    ]);
+
+    $('content').innerHTML = `
+      <section class="panel">
+        <header><h2>Comptes connectés</h2></header>
+        ${accounts.count === 0 ? `<div class="empty"><strong>Aucun compte agrégateur</strong>
+          Sans compte connecté, aucune transaction ne peut partir.</div>` :
+        `<div class="scroll"><table>
+          <thead><tr><th>Agrégateur</th><th>État</th><th class="num">Priorité</th><th>Credentials</th><th>URL de callback</th></tr></thead>
+          <tbody>${accounts.data.map((a) => `<tr>
+            <td class="mono">${esc(a.provider)}</td><td>${tag(a.status)}</td>
+            <td class="num">${a.priority}</td>
+            <td class="muted">${a.credential_keys.map(esc).join(', ')}</td>
+            <td class="mono muted" style="max-width:320px;overflow:hidden;text-overflow:ellipsis">${esc(a.callback_url)}</td>
+          </tr>`).join('')}</tbody></table></div>`}
+        <div class="foot">L’URL de callback est à déclarer chez l’agrégateur. Son jeton identifie le compte.</div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Santé du routage</h2></header>
+        ${health.count === 0 ? '<div class="empty"><strong>Aucun appel observé</strong>La fenêtre glissante est de 5 minutes.</div>' :
+        `<div class="scroll"><table>
+          <thead><tr><th>Agrégateur</th><th>Pays</th><th>Canal</th><th>Disjoncteur</th>
+            <th class="num">Succès</th><th class="num">Échecs</th><th class="num">Refus client</th><th class="num">p95</th></tr></thead>
+          <tbody>${health.data.map((h) => `<tr>
+            <td class="mono">${esc(h.provider)}</td><td>${esc(h.country)}</td>
+            <td class="muted">${esc(h.channel)}</td><td>${tag(h.state)}</td>
+            <td class="num">${h.successes}</td><td class="num">${h.technical_failures}</td>
+            <td class="num muted">${h.declines}</td>
+            <td class="num">${h.latency_p95_ms == null ? '—' : h.latency_p95_ms + ' ms'}</td>
+          </tr>`).join('')}</tbody></table></div>`}
+        <div class="foot">Les refus clients n’ouvrent jamais un disjoncteur : un agrégateur qui transmet des refus fonctionne.</div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Couverture — ${esc(coverage.country.name)}</h2></header>
+        <div class="scroll"><table>
+          <thead><tr><th>Agrégateur</th><th>Branché</th><th>Canaux</th><th class="num">Frais</th><th>Réseaux</th></tr></thead>
+          <tbody>${coverage.providers.map((p) => `<tr>
+            <td class="mono">${esc(p.id)}</td>
+            <td>${p.connected ? '<span class="tag ok">oui</span>' : '<span class="tag neutral">non</span>'}</td>
+            <td class="muted">${p.channels.map(esc).join(', ')}</td>
+            <td class="num">${(p.fees.min_bps / 100).toFixed(2)} %</td>
+            <td class="mono muted" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(p.networks.join(', ') || '—')}</td>
+          </tr>`).join('')}</tbody></table></div>
+      </section>`;
+  }
+
+  async function renderWebhooks() {
+    const [endpoints, deliveries] = await Promise.all([
+      api('/v1/webhook-endpoints'),
+      api('/v1/webhook-deliveries?limit=25'),
+    ]);
+
+    $('content').innerHTML = `
+      <section class="panel">
+        <header><h2>Endpoints</h2><div class="grow"></div>
+          <button class="b solid" id="add-endpoint">Déclarer un endpoint</button></header>
+        ${endpoints.count === 0 ? `<div class="empty"><strong>Aucun endpoint</strong>
+          Sans endpoint, il vous faut interroger l’API pour connaître l’issue d’un paiement.</div>` :
+        `<div class="scroll"><table>
+          <thead><tr><th>URL</th><th>État</th><th>Événements</th><th>Créé</th></tr></thead>
+          <tbody>${endpoints.data.map((e) => `<tr>
+            <td class="mono">${esc(e.url)}</td><td>${tag(e.status)}</td>
+            <td class="muted">${e.events.map(esc).join(', ')}</td>
+            <td class="muted">${ago(e.created_at)}</td></tr>`).join('')}</tbody></table></div>`}
+        <div id="endpoint-out"></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Journal de livraison</h2></header>
+        ${deliveries.count === 0 ? '<div class="empty"><strong>Aucune livraison</strong>Les événements apparaîtront ici.</div>' :
+        `<div class="scroll"><table>
+          <thead><tr><th>Événement</th><th>Type</th><th>État</th><th class="num">Tentatives</th><th>Code</th><th>Créé</th></tr></thead>
+          <tbody>${deliveries.data.map((d) => `<tr>
+            <td class="mono">${esc(d.event_id)}</td><td class="muted">${esc(d.event_type)}</td>
+            <td>${tag(d.status)}</td><td class="num">${d.attempts}</td>
+            <td class="mono muted">${d.last_status_code ?? '—'}</td>
+            <td class="muted">${ago(d.created_at)}</td></tr>`).join('')}</tbody></table></div>`}
+        <div class="foot">Livraison au moins une fois, 5 tentatives espacées de 30 s à 6 h. Sans ordre garanti.</div>
+      </section>`;
+  }
+
+  async function renderKeys() {
+    const keys = await api('/v1/api-keys');
+    $('content').innerHTML = `
+      <section class="panel">
+        <header><h2>Clés API</h2><div class="grow"></div>
+          <button class="b solid" id="new-key">Créer une clé ${session.environment}</button></header>
+        ${keys.count === 0 ? '<div class="empty"><strong>Aucune clé</strong>Créez-en une pour connecter votre backend.</div>' :
+        `<div class="scroll"><table>
+          <thead><tr><th>Libellé</th><th>Préfixe</th><th>Env.</th><th>État</th><th>Dernier usage</th><th></th></tr></thead>
+          <tbody>${keys.data.map((k) => `<tr>
+            <td>${esc(k.label)}</td><td class="mono">${esc(k.prefix)}…</td>
+            <td>${tag(k.environment === 'live' ? 'LIVE' : 'TEST')}</td>
+            <td>${k.revoked ? '<span class="tag bad">révoquée</span>' : '<span class="tag ok">active</span>'}</td>
+            <td class="muted">${k.last_used_at ? ago(k.last_used_at) : 'jamais'}</td>
+            <td class="num">${k.revoked ? '' : `<button class="b" data-revoke="${esc(k.id)}">Révoquer</button>`}</td>
+          </tr>`).join('')}</tbody></table></div>`}
+        <div id="key-out"></div>
+        <div class="foot">Le secret n’est affiché qu’à la création. Orchi n’en conserve qu’une empreinte : il est irrécupérable.</div>
+      </section>`;
+  }
+
+  async function renderDevOverview() {
+    const [keys, endpoints, accounts] = await Promise.all([
+      api('/v1/api-keys'),
+      api('/v1/webhook-endpoints'),
+      api('/v1/provider-accounts'),
+    ]);
+
+    const activeKeys = keys.data.filter((k) => !k.revoked).length;
+    const base = session.public_base_url;
+
+    // Liste de controle plutot qu'une page de doc : ce qui manque est plus
+    // utile a montrer que ce qui est deja fait.
+    const steps = [
+      ['Compte agrégateur connecté', accounts.count > 0, 'providers'],
+      ['Clé API créée', activeKeys > 0, 'keys'],
+      ['Endpoint de webhook déclaré', endpoints.count > 0, 'webhooks'],
+    ];
+
+    $('content').innerHTML = `
+      <div class="kpis">
+        ${kpi('Clés actives', activeKeys, 'pour connecter votre backend')}
+        ${kpi('Endpoints', endpoints.count, 'destinataires de nos événements')}
+        ${kpi('Agrégateurs', accounts.count, 'comptes connectés')}
+      </div>
+
+      <section class="panel">
+        <header><h2>Où en est votre intégration</h2></header>
+        <div class="scroll"><table><tbody>
+          ${steps.map(([label, done, view]) => `<tr>
+            <td>${done ? '<span class="tag ok">fait</span>' : '<span class="tag warn">à faire</span>'}</td>
+            <td>${label}</td>
+            <td class="num">${done ? '' : `<button class="b" data-goto="${view}">Configurer</button>`}</td>
+          </tr>`).join('')}
+        </tbody></table></div>
+      </section>
+
+      <section class="panel">
+        <header><h2>Votre premier encaissement</h2></header>
+        <div class="pad">
+          <pre style="margin:0;background:#05070a;border:1px solid var(--border);border-radius:12px;padding:18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.7">curl -X POST ${esc(base)}/v1/payments \
+  -H "Authorization: Bearer sk_${esc(session.environment)}_..." \
+  -H "Idempotency-Key: cmd-1-a" \
+  -H "content-type: application/json" \
+  -d '{"reference":"cmd-1","amount":15000,"currency":"XOF",
+       "country":"${esc(session.merchant.country === 'CM' ? 'CM' : 'BJ')}","channel":"mobile_money",
+       "customer":{"phone":"+22997000000"}}'</pre>
+        </div>
+        <div class="foot">
+          En environnement de test, le numéro se terminant par <strong>0003</strong> produit un
+          état indéterminé — le scénario qu'il faut absolument avoir traité avant la production.
+        </div>
+      </section>`;
+  }
+
+  async function renderEvents() {
+    const list = await api('/v1/webhook-deliveries?limit=50');
+    $('content').innerHTML = `<section class="panel">
+      <header><h2>${list.count} événement${list.count > 1 ? 's' : ''} émis</h2></header>
+      ${list.count === 0 ? '<div class="empty"><strong>Aucun événement</strong>Ils apparaîtront dès qu’une transaction changera d’état.</div>' :
+      `<div class="scroll"><table>
+        <thead><tr><th>Événement</th><th>Type</th><th>État</th><th class="num">Tentatives</th><th>Code HTTP</th><th>Erreur</th><th>Émis</th></tr></thead>
+        <tbody>${list.data.map((d) => `<tr>
+          <td class="mono">${esc(d.event_id)}</td>
+          <td class="muted">${esc(d.event_type)}</td>
+          <td>${tag(d.status)}</td>
+          <td class="num">${d.attempts}</td>
+          <td class="mono muted">${d.last_status_code ?? '—'}</td>
+          <td class="muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(d.last_error || '—')}</td>
+          <td class="muted">${ago(d.created_at)}</td></tr>`).join('')}</tbody>
+      </table></div>`}
+      <div class="foot">Livraison au moins une fois, 5 tentatives de 30 s à 6 h. Sans ordre garanti.</div>
+    </section>`;
+  }
+
+  async function renderLogs() {
+    const list = await api('/v1/inbound-webhooks?limit=50');
+    $('content').innerHTML = `<section class="panel">
+      <header><h2>${list.count} notification${list.count > 1 ? 's' : ''} reçue${list.count > 1 ? 's' : ''}</h2></header>
+      ${list.count === 0 ? `<div class="empty"><strong>Aucune notification reçue</strong>
+        Déclarez l’URL de callback chez votre agrégateur pour être notifié immédiatement.</div>` :
+      `<div class="scroll"><table>
+        <thead><tr><th>Agrégateur</th><th>Signature</th><th>Traitement</th><th>Sens</th><th>Statut</th><th>Référence</th><th>Reçu</th></tr></thead>
+        <tbody>${list.data.map((w) => `<tr>
+          <td class="mono">${esc(w.provider)}</td>
+          <td>${w.signature_valid ? '<span class="tag ok">valide</span>' : '<span class="tag bad">invalide</span>'}</td>
+          <td>${tag(w.outcome)}</td>
+          <td class="muted">${esc(w.kind)}</td>
+          <td class="muted">${esc(w.status || '—')}</td>
+          <td class="mono muted">${esc(w.provider_reference || '—')}</td>
+          <td class="muted">${ago(w.created_at)}</td></tr>`).join('')}</tbody>
+      </table></div>`}
+      <div class="foot">
+        Les notifications mal signées sont conservées volontairement : une rafale
+        de signatures invalides est un signal de sécurité, pas un non-événement.
+      </div>
+    </section>`;
+  }
+
+  const RENDER = {
+    overview: renderOverview,
+    devoverview: renderDevOverview,
+    events: renderEvents,
+    logs: renderLogs,
+    reconciliation: renderReconciliation,
+    payments: () => renderList('payments'),
+    payouts: () => renderList('payouts'),
+    providers: renderProviders,
+    webhooks: renderWebhooks,
+    keys: renderKeys,
+  };
+
+  async function show(next) {
+    view = next;
+    const meta = VIEWS[view];
+    $('title').textContent = meta.title;
+    $('subtitle').textContent = meta.sub;
+    document.querySelectorAll('[data-view]').forEach((a) =>
+      a.setAttribute('aria-current', String(a.dataset.view === view)));
+    $('content').innerHTML = '<div class="empty">Chargement…</div>';
+    try {
+      await RENDER[view]();
+    } catch (e) {
+      $('content').innerHTML = `<div class="empty"><strong>Impossible de charger cette vue</strong>${esc(e.message)}</div>`;
+    }
+  }
+
+  /* --------------------------------------------------------------- Detail -- */
+
+  async function openDetail(kind, id) {
+    current = { kind, id };
+    $('detail-title').textContent = id;
+    $('detail-body').textContent = 'Chargement…';
+    $('detail').showModal();
+    await refreshDetail();
+  }
+
+  async function refreshDetail() {
+    if (!current) return;
+    try {
+      const data = await api(`/v1/${current.kind}/${current.id}`);
+      $('detail-body').textContent = JSON.stringify(data, null, 2);
+      $('detail-retry').disabled = data.status === 'SUCCEEDED' || data.status === 'UNKNOWN';
+    } catch (e) {
+      $('detail-body').textContent = 'Erreur : ' + e.message;
+    }
+  }
+
+  /* ---------------------------------------------------------- Evenements -- */
+
+  function closeDevMenu() {
+    $('devmenu').hidden = true;
+    $('devbar').dataset.open = 'false';
+    $('devtoggle').setAttribute('aria-expanded', 'false');
+  }
+
+  document.body.onclick = async (e) => {
+    if (e.target.closest('#devtoggle')) {
+      const open = $('devmenu').hidden;
+      $('devmenu').hidden = !open;
+      $('devbar').dataset.open = String(open);
+      $('devtoggle').setAttribute('aria-expanded', String(open));
+      return;
+    }
+    // Tout clic hors du menu le referme : un panneau qui reste ouvert par
+    // inadvertance masque la moitie de la barre laterale.
+    if (!e.target.closest('#devmenu')) closeDevMenu();
+
+    const nav = e.target.closest('[data-view]');
+    if (nav) { e.preventDefault(); closeDevMenu(); return show(nav.dataset.view); }
+
+    const goto = e.target.closest('[data-goto]');
+    if (goto) return show(goto.dataset.goto);
+
+    const open = e.target.closest('[data-open]');
+    if (open) { const [k, id] = open.dataset.open.split(':'); return openDetail(k, id); }
+
+    if (e.target.closest('#new-key')) {
+      const label = prompt('Libellé de la clé ?', 'Backend');
+      if (!label) return;
+      const key = await api('/v1/api-keys', { method: 'POST', body: JSON.stringify({ label }) });
+      await renderKeys();
+      $('key-out').innerHTML = `<div class="keyout">
+        <p>Copiez cette clé maintenant — elle ne sera plus jamais affichée.</p>
+        <code>${esc(key.secret)}</code></div>`;
+      return;
+    }
+
+    const revoke = e.target.closest('[data-revoke]');
+    if (revoke) {
+      if (!confirm('Révoquer cette clé ? Tout système qui l’utilise cessera de fonctionner.')) return;
+      await api(`/v1/api-keys/${revoke.dataset.revoke}`, { method: 'DELETE' });
+      return renderKeys();
+    }
+
+    if (e.target.closest('#add-endpoint')) {
+      const url = prompt('URL de votre endpoint ?', 'https://');
+      if (!url) return;
+      try {
+        const ep = await api('/v1/webhook-endpoints', { method: 'POST', body: JSON.stringify({ url }) });
+        await renderWebhooks();
+        $('endpoint-out').innerHTML = `<div class="keyout">
+          <p>Secret de signature — affiché une seule fois. Vérifiez l’en-tête <code>Orchi-Signature</code>.</p>
+          <code>${esc(ep.secret)}</code></div>`;
+      } catch (err) { alert(err.message); }
+      return;
+    }
+
+    const env = e.target.closest('#envswitch button');
+    if (env) {
+      await api('/auth/environment', { method: 'POST', body: JSON.stringify({ environment: env.dataset.env }) });
+      return boot();
+    }
+
+    if (e.target.closest('#logout')) {
+      await api('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+  };
+
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDevMenu(); });
+
+  $('detail-close').onclick = () => { $('detail').close(); current = null; };
+  $('detail-refresh').onclick = refreshDetail;
+  $('detail-retry').onclick = async () => {
+    if (!current) return;
+    try {
+      const data = await api(`/v1/${current.kind}/${current.id}/retry`, { method: 'POST' });
+      $('detail-body').textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      $('detail-body').textContent = 'Relance refusée : ' + e.message +
+        (e.body?.error?.code ? `\n\ncode : ${e.body.error.code}` : '');
+    }
+  };
+
+  /* ------------------------------------------------------------- Demarrage -- */
+
+  const initials = (s) => (s || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+  async function boot() {
+    session = await api('/auth/session');
+
+    $('org-name').textContent = session.merchant.name;
+    $('org-country').textContent = session.merchant.country + ' · ' + session.environment;
+    $('avatar').textContent = initials(session.merchant.name);
+    $('me-name').textContent = session.user.name;
+    $('me-email').textContent = session.user.email;
+    $('me-initials').textContent = initials(session.user.name);
+
+    document.querySelectorAll('#envswitch button').forEach((b) =>
+      b.setAttribute('aria-pressed', String(b.dataset.env === session.environment)));
+
+    const recon = await api('/v1/reconciliation');
+    const badge = $('badge-recon');
+    badge.hidden = recon.indeterminate_payouts.length === 0;
+    badge.textContent = recon.indeterminate_payouts.length;
+
+    await show(view);
+
+    if (timer) clearInterval(timer);
+    // Les vues de liste se rafraichissent seules ; le detail ouvert ne doit pas
+    // etre ecrase sous les yeux de l'utilisateur.
+    timer = setInterval(() => { if (!current) void show(view); }, 15000);
+  }
+
+  /**
+   * Rediriger vers /login sur N'IMPORTE QUELLE erreur deguiserait un defaut de
+   * rendu en echec d'authentification — et produirait une boucle silencieuse.
+   * `api()` gere deja le 401 ; ici on affiche ce qui s'est reellement passe.
+   */
+  boot().catch((e) => {
+    $('content').innerHTML = `<div class="empty"><strong>Impossible de charger le tableau de bord</strong>
+      ${esc(e.message)}</div>`;
+    console.error(e);
+  });
+})();
+</script>
+</body>
+</html>

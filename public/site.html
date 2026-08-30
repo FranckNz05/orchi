@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orchi — Une seule API pour encaisser et décaisser en Afrique</title>
+<meta name="description" content="Orchi unifie les agrégateurs de paiement africains derrière une API unique. Mobile money, carte et virement dans 54 pays." />
+<link rel="stylesheet" href="/assets/theme.css" />
+<style>
+  /* ------------------------------------------------------------------ hero */
+  /* Le globe est place DERRIERE le titre, pas a cote : le regard va au message,
+     le decor donne le contexte geographique sans se disputer l'attention. */
+  header.hero {
+    position: relative; padding: 96px 0 60px; text-align: center;
+    display: grid; place-items: center;
+  }
+  .globe-wrap {
+    position: absolute; inset: -40px 0 auto 0; height: 620px;
+    z-index: 0; pointer-events: none;
+    mask-image: radial-gradient(ellipse 62% 62% at 50% 42%, #000 35%, transparent 78%);
+    opacity: .85;
+  }
+  #globe { width: 100%; height: 100%; display: block; }
+  .hero-inner { position: relative; z-index: 1; max-width: 860px; }
+
+  h1 {
+    font-size: clamp(36px, 5.8vw, 66px); line-height: 1.05; letter-spacing: -0.04em;
+    margin: 24px auto 0; max-width: 16ch; font-weight: 700;
+  }
+  /* Mot-cle surligne : un bloc plein tranche mieux qu'un degrade de texte sur
+     un fond deja charge. */
+  h1 .mark-in {
+    background: linear-gradient(135deg, var(--accent), #23b98c);
+    color: var(--accent-ink); padding: 0 .18em; border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(53,214,164,.28);
+    display: inline-block;
+  }
+  .lede { font-size: clamp(16.5px, 1.7vw, 19px); color: var(--muted); max-width: 56ch; margin: 24px auto 0; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; align-items: center; justify-content: center; }
+  .cta small { color: var(--muted); font-size: 13.5px; }
+
+  .badges {
+    display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 30px;
+  }
+  .badges span {
+    font-size: 12.5px; color: var(--muted); font-family: var(--mono);
+    border: 1px solid var(--border); border-radius: 999px; padding: 5px 13px;
+    background: rgba(16,21,28,.6);
+  }
+  .badges span b { color: var(--accent); font-weight: 600; }
+
+  .figures {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px; background: var(--border); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-top: 52px;
+  }
+  .figure { background: var(--surface); padding: 20px 22px; }
+  .figure .v {
+    font-size: 31px; font-weight: 700; letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(140deg, var(--ink), var(--muted));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .figure .k { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  /* -------------------------------------------------------------- sections */
+  section { padding: 76px 0; position: relative; }
+  section + section { border-top: 1px solid var(--border); }
+  h2 { font-size: clamp(27px, 3.3vw, 38px); letter-spacing: -0.03em; margin: 0 0 14px; font-weight: 700; max-width: 20ch; }
+  .sub { color: var(--muted); max-width: 66ch; margin: 0 0 38px; font-size: 16.5px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 18px; }
+  .step { display: flex; gap: 16px; align-items: flex-start; }
+  .step .n {
+    flex: 0 0 32px; height: 32px; border-radius: 10px;
+    background: var(--accent-soft); border: 1px solid rgba(53,214,164,.25);
+    color: var(--accent); display: grid; place-items: center;
+    font-weight: 700; font-size: 14px; font-family: var(--mono);
+  }
+
+  .split { display: grid; grid-template-columns: 1fr 1.05fr; gap: 34px; align-items: start; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+
+  /* ------------------------------------------------------------------ pays */
+  .region-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .region-tabs button {
+    font: inherit; font-size: 13.5px; padding: 7px 15px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    cursor: pointer; transition: all .16s;
+  }
+  .region-tabs button:hover { border-color: var(--border-lit); color: var(--ink); }
+  .region-tabs button[aria-pressed="true"] {
+    background: var(--accent-soft); border-color: rgba(53,214,164,.35);
+    color: var(--accent); font-weight: 600;
+  }
+  .countries { display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr)); gap: 10px; }
+  .country {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; transition: border-color .16s, transform .16s;
+  }
+  .country:hover { border-color: var(--border-lit); transform: translateY(-2px); }
+  .country .n { font-weight: 600; font-size: 14.5px; display: flex; gap: 8px; align-items: center; }
+  .country .n code { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+  .country .m { color: var(--muted); font-size: 12.5px; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: 0 0 7px;
+    box-shadow: 0 0 8px rgba(53,214,164,.7); }
+  .dot.off { background: var(--border-lit); box-shadow: none; }
+
+  /* ---------------------------------------------------------------- tarifs */
+  table.pricing {
+    width: 100%; border-collapse: collapse; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  }
+  table.pricing th, table.pricing td { padding: 15px 22px; text-align: left; border-bottom: 1px solid var(--border); }
+  table.pricing th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  table.pricing tr:last-child td { border-bottom: 0; }
+  table.pricing td.num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
+
+  /* ------------------------------------------------------------ simulateur */
+  .sim { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 820px) { .sim { grid-template-columns: 1fr; } }
+  .sim-controls { display: grid; gap: 18px; }
+  .sim label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+  .sim label .val { color: var(--accent); font-family: var(--mono); font-weight: 700; }
+  .sim input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .sim input[type="number"] {
+    font: inherit; font-size: 16px; padding: 11px 13px; border-radius: 10px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .sim input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  .receipt {
+    background: #05070a; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px 24px; font-family: var(--mono); font-size: 14px;
+  }
+  .receipt .line { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; }
+  .receipt .line span:last-child { font-variant-numeric: tabular-nums; }
+  .receipt .line.sep { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 14px; }
+  .receipt .line.net { font-size: 17px; font-weight: 700; color: var(--accent); }
+  .receipt .muted { color: var(--muted); }
+  .receipt .warn { color: var(--warn); font-size: 12.5px; margin-top: 12px; line-height: 1.5; }
+
+  .notice {
+    border: 1px solid rgba(240,192,99,.3); background: var(--warn-soft);
+    border-radius: var(--radius); padding: 24px 26px;
+  }
+  .notice h3 { margin: 0 0 10px; font-size: 17.5px; color: var(--warn); }
+  .notice p { margin: 0 0 8px; font-size: 15px; }
+  .notice ul { margin: 10px 0 0; padding-left: 20px; font-size: 15px; color: var(--muted); }
+  .notice li { margin-bottom: 6px; }
+
+  footer { border-top: 1px solid var(--border); padding: 44px 0; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+</style>
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+
+<nav class="top">
+  <div class="wrap">
+    <a class="logo" href="/"><span class="mark"></span> Orchi</a>
+    <div class="links">
+      <a href="#comment" class="hide-sm">Comment ça marche</a>
+      <a href="#pays" class="hide-sm">Pays</a>
+      <a href="#tarifs" class="hide-sm">Tarifs</a>
+      <a href="/login">Connexion</a>
+      <a href="/register" class="btn solid">Créer un compte</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="globe-wrap"><canvas id="globe" aria-hidden="true"></canvas></div>
+
+  <div class="wrap hero-inner">
+    <span class="eyebrow"><span class="live-dot"></span><span id="eyebrow">chargement du catalogue…</span></span>
+    <h1>Une seule API pour encaisser <span class="mark-in">et décaisser</span> en Afrique</h1>
+    <p class="lede">
+      Mobile money, carte, virement. Orchi masque la fragmentation des
+      agrégateurs régionaux derrière une interface unique — et bascule
+      automatiquement quand l'un d'eux tombe.
+    </p>
+    <div class="cta">
+      <a href="/register" class="btn solid lg">Obtenir ma clé API</a>
+      <a href="#comment" class="btn lg">Comment ça marche</a>
+    </div>
+    <div class="badges">
+      <span><b>5 %</b> tout compris</span>
+      <span>aucun frais caché</span>
+      <span>sandbox complet</span>
+      <span>API REST</span>
+    </div>
+  </div>
+
+  <div class="wrap" style="width:100%">
+    <div class="figures" id="figures">
+      <div class="figure"><div class="v">—</div><div class="k">pays au catalogue</div></div>
+      <div class="figure"><div class="v">—</div><div class="k">agrégateurs référencés</div></div>
+      <div class="figure"><div class="v">—</div><div class="k">devises gérées</div></div>
+      <div class="figure"><div class="v">1</div><div class="k">API à intégrer</div></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2 class="reveal">Le problème n'est pas de trouver un agrégateur</h2>
+    <p class="sub reveal">
+      C'est d'en gérer douze. Chaque pays a ses opérateurs, chaque agrégateur son
+      format, ses statuts, ses pannes. Un marchand qui vend au Bénin, au Cameroun
+      et au Kenya intègre trois fois, réconcilie trois fois, et tombe trois fois.
+    </p>
+    <div class="cards">
+      <div class="card lit reveal">
+        <h3>Une API, tous les canaux</h3>
+        <p>Le même appel encaisse par mobile money au Bénin, par carte en Égypte
+        et par virement instantané en Afrique du Sud. Les différences vivent dans
+        nos adaptateurs, pas dans votre code.</p>
+      </div>
+      <div class="card lit reveal">
+        <h3>Bascule automatique</h3>
+        <p>Chaque agrégateur est noté en continu sur sa fiabilité, son coût et sa
+        latence. Celui qui dégrade cesse de recevoir du trafic — sans que vous
+        ayez à intervenir.</p>
+      </div>
+      <div class="card lit reveal">
+        <h3>Vos fonds ne transitent pas</h3>
+        <p>Vous gardez vos propres comptes agrégateurs. Orchi route et réconcilie,
+        mais ne détient jamais votre argent. Vous restez le marchand de référence.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="comment">
+  <div class="wrap">
+    <h2 class="reveal">Trois étapes, puis vous encaissez</h2>
+    <p class="sub reveal">Un environnement de test complet vous permet de tout intégrer avant même d'avoir signé chez un agrégateur.</p>
+    <div class="split">
+      <div class="cards" style="grid-template-columns:1fr">
+        <div class="card step reveal">
+          <div class="n">01</div>
+          <div><h3>Connectez vos comptes</h3><p>Vous apportez vos clés FedaPay, CinetPay ou autres. Elles sont chiffrées et ne ressortent jamais de la plateforme.</p></div>
+        </div>
+        <div class="card step reveal">
+          <div class="n">02</div>
+          <div><h3>Appelez une seule API</h3><p>Un montant, un pays, un client. Orchi choisit l'agrégateur et vous renvoie l'action à faire exécuter par votre client.</p></div>
+        </div>
+        <div class="card step reveal">
+          <div class="n">03</div>
+          <div><h3>Recevez les événements</h3><p>Webhooks signés, réessais automatiques, et un balayeur qui reprend tout ce qui traîne. Aucune transaction ne dépend d'une notification perdue.</p></div>
+        </div>
+      </div>
+      <div class="reveal">
+<pre><span class="c"># Encaisser 15 000 FCFA au Bénin</span>
+curl -X POST https://api.orchi.africa/v1/payments \
+  -H <span class="s">"Authorization: Bearer sk_live_..."</span> \
+  -H <span class="s">"Idempotency-Key: cmd-4821-a"</span> \
+  -d '{
+    <span class="k">"reference"</span>: <span class="s">"cmd-4821"</span>,
+    <span class="k">"amount"</span>: 15000,
+    <span class="k">"currency"</span>: <span class="s">"XOF"</span>,
+    <span class="k">"country"</span>: <span class="s">"BJ"</span>,
+    <span class="k">"channel"</span>: <span class="s">"mobile_money"</span>,
+    <span class="k">"customer"</span>: { <span class="k">"phone"</span>: <span class="s">"+22997000000"</span> }
+  }'
+
+<span class="c"># La réponse ne dit jamais « payé » :
+# elle renvoie l'action à faire exécuter.</span>
+{
+  <span class="k">"status"</span>: <span class="s">"PROCESSING"</span>,
+  <span class="k">"action"</span>: {
+    <span class="k">"type"</span>: <span class="s">"ussd_push"</span>,
+    <span class="k">"instructions"</span>: <span class="s">"Le client valide sur son téléphone."</span>
+  }
+}</pre>
+        <p class="sub" style="margin:18px 0 0;font-size:14.5px">
+          Un paiement mobile money est asynchrone par nature. Une API qui prétend
+          le contraire vous ment — et vous fera perdre de l'argent en
+          réconciliation.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pays">
+  <div class="wrap">
+    <h2 class="reveal">La couverture, sans embellissement</h2>
+    <p class="sub reveal">
+      Le catalogue ci-dessous est lu en direct depuis la plateforme. Un point
+      lumineux signale un pays où au moins un agrégateur est
+      <strong>réellement branché</strong> ; un point éteint, un pays documenté
+      mais pas encore opérationnel.
+    </p>
+    <div class="region-tabs reveal" id="regions"></div>
+    <div class="countries" id="countries"></div>
+  </div>
+</section>
+
+<section id="tarifs">
+  <div class="wrap">
+    <h2 class="reveal"><span id="total-rate">5 %</span> au total. Toujours.</h2>
+    <p class="sub reveal">
+      Pas d'abonnement, pas de frais fixe, pas de facture en fin de mois. Un taux
+      unique prélevé sur chaque transaction réussie — et la part d'Orchi n'est
+      que <strong>le solde après la commission de votre agrégateur</strong>.
+      S'il prend 2 %, nous prenons 3. S'il prend 4 %, nous prenons 1.
+    </p>
+
+    <div class="sim reveal">
+      <div class="sim-controls">
+        <label>
+          Montant de la transaction
+          <input type="number" id="sim-amount" value="15000" min="100" step="100" />
+        </label>
+        <label>
+          Commission de votre agrégateur — <span class="val" id="sim-provider-label">2,00 %</span>
+          <input type="range" id="sim-provider" min="0" max="600" step="5" value="200" />
+        </label>
+        <p class="sub" style="margin:0;font-size:13.5px">
+          Faites varier la commission de l'agrégateur : votre coût total ne bouge
+          pas. C'est ce qui rend le routage automatique acceptable — basculer
+          vers un agrégateur plus cher ne vous coûte rien de plus.
+        </p>
+      </div>
+
+      <div class="receipt" id="receipt"></div>
+    </div>
+
+    <div class="reveal" style="margin-top:26px">
+      <table class="pricing">
+        <thead><tr><th>Prestation</th><th>Détail</th><th class="num">Tarif</th></tr></thead>
+        <tbody>
+          <tr><td>Encaissement réussi</td><td>Agrégateur + Orchi, tout compris</td><td class="num" id="rate-payin">5,00 %</td></tr>
+          <tr><td>Décaissement réussi</td><td>Agrégateur + Orchi, tout compris</td><td class="num" id="rate-payout">5,00 %</td></tr>
+          <tr><td>Transaction échouée</td><td>Aucun frais</td><td class="num">0</td></tr>
+          <tr><td>Abonnement</td><td>Aucun</td><td class="num">0</td></tr>
+          <tr><td>Environnement de test</td><td>Illimité, tous pays</td><td class="num">Gratuit</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="notice reveal">
+      <h3>Où en est la plateforme, honnêtement</h3>
+      <p>
+        Le moteur est complet et testé : routage, bascule, idempotence, ledger,
+        webhooks, réconciliation. Ce qui ne l'est pas encore :
+      </p>
+      <ul>
+        <li>Les adaptateurs FedaPay et CinetPay sont écrits d'après leur documentation publique, mais <strong>pas encore validés contre un compte sandbox réel</strong> — ils sont donc désactivés.</li>
+        <li>Les 54 pays sont <strong>documentés</strong>, pas branchés. L'API le dit elle-même, pays par pays.</li>
+        <li>L'import des fichiers de settlement, pour le rapprochement à trois voies, reste à faire.</li>
+      </ul>
+      <p style="margin-top:12px">
+        Vous pouvez intégrer et tester l'ensemble dès aujourd'hui contre le
+        simulateur, qui reproduit aussi les pannes, les délais dépassés et les
+        états indéterminés.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap" style="text-align:center">
+    <h2 class="reveal" style="max-width:none;margin-inline:auto">Prêt à essayer ?</h2>
+    <p class="sub reveal" style="margin-inline:auto">
+      Créez un compte, obtenez une clé de test, et faites passer votre première
+      transaction en quelques minutes.
+    </p>
+    <div class="reveal"><a href="/register" class="btn solid lg">Créer un compte</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="logo" href="/"><span class="mark"></span> Orchi</a>
+    <span>Orchestrateur de paiement pan-africain</span>
+    <span style="margin-left:auto"><a href="/login">Connexion</a> · <a href="/register">Créer un compte</a> · <a href="/console">Console</a></span>
+  </div>
+</footer>
+
+<script src="/assets/globe.js" defer></script>
+<script>
+(() => {
+  'use strict';
+
+  const REGION_LABELS = {
+    WEST: 'Afrique de l’Ouest', CENTRAL: 'Afrique centrale', EAST: 'Afrique de l’Est',
+    NORTH: 'Afrique du Nord', SOUTHERN: 'Afrique australe', ISLANDS: 'Îles',
+  };
+  const esc = (v) => String(v ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  let catalog = null;
+  let region = 'ALL';
+
+  /* Apparition au defilement. Sans IntersectionObserver, tout reste visible. */
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const observer = 'IntersectionObserver' in window && !reduced
+    ? new IntersectionObserver((entries) => {
+        entries.forEach((e, i) => {
+          if (!e.isIntersecting) return;
+          // Leger decalage entre elements voisins : l'apparition en bloc fait
+          // « pop », l'echelonnement fait respirer.
+          setTimeout(() => e.target.classList.add('in'), i * 60);
+          observer.unobserve(e.target);
+        });
+      }, { rootMargin: '0px 0px -60px 0px' })
+    : null;
+
+  function watchReveals() {
+    document.querySelectorAll('.reveal:not(.in)').forEach((el) => {
+      if (observer) observer.observe(el); else el.classList.add('in');
+    });
+  }
+
+  /* Compteurs : la valeur monte plutot que d'apparaitre d'un coup. */
+  function countTo(el, target) {
+    if (reduced || target < 2) { el.textContent = target; return; }
+    const started = performance.now();
+    const duration = 900;
+    const tick = (now) => {
+      const t = Math.min(1, (now - started) / duration);
+      // Sortie en douceur : la fin du comptage doit ralentir, pas s'arreter net.
+      el.textContent = Math.round(target * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------------------------------------------------------- Simulateur -- */
+
+  function fmt(n) {
+    return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function setupSimulator(pricing) {
+    const totalBps = pricing.total_payin_bps;
+    const pct = (bps) => (bps / 100).toFixed(2).replace('.', ',') + ' %';
+
+    document.getElementById('total-rate').textContent = pct(totalBps);
+    document.getElementById('rate-payin').textContent = pct(totalBps);
+    document.getElementById('rate-payout').textContent = pct(pricing.total_payout_bps);
+
+    const amountEl = document.getElementById('sim-amount');
+    const providerEl = document.getElementById('sim-provider');
+    const providerLabel = document.getElementById('sim-provider-label');
+    const receipt = document.getElementById('receipt');
+
+    function render() {
+      const amount = Math.max(0, Number(amountEl.value) || 0);
+      const providerBps = Number(providerEl.value);
+      providerLabel.textContent = pct(providerBps);
+
+      // Meme calcul que src/modules/pricing.ts : arrondi au demi-superieur, et
+      // la part Orchi ne descend jamais sous zero.
+      const total = Math.floor((amount * totalBps + 5000) / 10000);
+      const provider = Math.floor((amount * providerBps + 5000) / 10000);
+      const platform = Math.max(0, total - provider);
+      const net = amount - provider - platform;
+
+      receipt.innerHTML = `
+        <div class="line"><span class="muted">Le client paie</span><span>${fmt(amount)} F</span></div>
+        <div class="line"><span class="muted">Commission agrégateur</span><span>− ${fmt(provider)} F</span></div>
+        <div class="line"><span class="muted">Commission Orchi</span><span>− ${fmt(platform)} F</span></div>
+        <div class="line sep net"><span>Vous recevez</span><span>${fmt(net)} F</span></div>
+        <div class="line"><span class="muted">Coût total</span><span class="muted">${fmt(amount - net)} F · ${pct(amount ? Math.round(((amount - net) / amount) * 10000) : 0)}</span></div>
+        ${platform === 0 ? `<p class="warn">À ce niveau de commission, l'agrégateur absorbe la totalité du taux : la part d'Orchi tombe à zéro. Quelques pays du catalogue sont dans ce cas.</p>` : ''}`;
+    }
+
+    amountEl.oninput = render;
+    providerEl.oninput = render;
+    render();
+  }
+
+  function renderCountries() {
+    const list = region === 'ALL' ? catalog.countries : catalog.countries.filter((c) => c.region === region);
+    document.getElementById('countries').innerHTML = list.map((c) => `
+      <div class="country">
+        <div class="n"><span class="dot ${c.connected ? '' : 'off'}"></span> ${esc(c.name)} <code>${esc(c.iso2)}</code></div>
+        <div class="m">
+          <span>${esc(c.currency)}</span>
+          <span>${c.provider_count} agrégateur${c.provider_count > 1 ? 's' : ''}</span>
+          <span>dès ${(c.fee_min_bps / 100).toFixed(2).replace('.', ',')} %</span>
+        </div>
+      </div>`).join('');
+  }
+
+  function renderRegions() {
+    const counts = catalog.totals.regions;
+    const tabs = [['ALL', 'Tous les pays', catalog.totals.countries]]
+      .concat(Object.keys(REGION_LABELS).filter((r) => counts[r]).map((r) => [r, REGION_LABELS[r], counts[r]]));
+    document.getElementById('regions').innerHTML = tabs.map(([id, label, n]) =>
+      `<button data-region="${id}" aria-pressed="${id === region}">${label} · ${n}</button>`).join('');
+  }
+
+  watchReveals();
+
+  (async () => {
+    try {
+      const res = await fetch('/v1/public/catalog');
+      catalog = await res.json();
+    } catch {
+      document.getElementById('eyebrow').textContent = 'catalogue momentanément indisponible';
+      return;
+    }
+
+    const t = catalog.totals;
+    document.getElementById('eyebrow').textContent = `${t.countries} pays · ${t.providers} agrégateurs référencés`;
+    setupSimulator(catalog.pricing);
+
+    document.getElementById('figures').innerHTML = [
+      [t.countries, 'pays au catalogue'],
+      [t.providers, 'agrégateurs référencés'],
+      [t.currencies, 'devises gérées'],
+      [1, 'API à intégrer'],
+    ].map(([, k]) => `<div class="figure"><div class="v">0</div><div class="k">${k}</div></div>`).join('');
+
+    const values = [t.countries, t.providers, t.currencies, 1];
+    document.querySelectorAll('#figures .v').forEach((el, i) => countTo(el, values[i]));
+
+    renderRegions();
+    renderCountries();
+    watchReveals();
+
+    document.getElementById('regions').onclick = (e) => {
+      const btn = e.target.closest('[data-region]');
+      if (!btn) return;
+      region = btn.dataset.region;
+      renderRegions();
+      renderCountries();
+    };
+  })();
+})();
+</script>
+</body>
+</html>

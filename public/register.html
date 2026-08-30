@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Créer un compte — Orchi</title>
+<link rel="stylesheet" href="/assets/theme.css" />
+<style>
+  body { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; }
+  main { display: grid; place-items: center; padding: 26px 24px 46px; }
+
+  .panel {
+    background: linear-gradient(180deg, var(--surface), var(--bg-2));
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 34px; max-width: 580px; width: 100%;
+    position: relative; overflow: hidden;
+  }
+  .panel::before {
+    content: ""; position: absolute; inset: -1px -1px auto -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  h1 { font-size: 27px; letter-spacing: -0.03em; margin: 0 0 6px; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0 0 26px; }
+
+  form { display: grid; gap: 17px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 580px) { .row { grid-template-columns: 1fr; } }
+  label { display: grid; gap: 7px; font-size: 14px; font-weight: 600; }
+  label .hint { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+  input, select {
+    font: inherit; font-size: 15px; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+    transition: border-color .16s, box-shadow .16s;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .meter { height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s, background .25s; }
+  .error {
+    background: var(--danger-soft); color: var(--danger);
+    border: 1px solid rgba(255,138,122,.35);
+    border-radius: 10px; padding: 12px 15px; font-size: 14px; margin-bottom: 18px;
+  }
+  .alt { margin: 24px 0 0; font-size: 14.5px; color: var(--muted); text-align: center; }
+  .alt a { color: var(--accent); }
+  .note {
+    margin-top: 20px; padding: 15px 17px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 12px;
+    font-size: 13.5px; color: var(--muted);
+  }
+  footer { padding: 24px; text-align: center; color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<div class="backdrop" aria-hidden="true"></div>
+
+<nav class="top">
+  <div class="wrap">
+    <a class="logo" href="/"><span class="mark"></span> Orchi</a>
+    <div class="links"><a href="/login" class="btn">Connexion</a></div>
+  </div>
+</nav>
+
+<main>
+  <div class="panel">
+    <h1>Créer un compte</h1>
+    <p class="sub">Vous obtenez immédiatement une clé de test et un simulateur complet.</p>
+
+    <div class="error" id="error" hidden></div>
+
+    <form id="form">
+      <div class="row">
+        <label>
+          Votre nom
+          <input name="name" required minlength="2" autocomplete="name" autofocus />
+        </label>
+        <label>
+          Adresse e-mail
+          <input type="email" name="email" required autocomplete="email" />
+        </label>
+      </div>
+
+      <label>
+        Mot de passe
+        <span class="hint">12 caractères minimum. Une phrase vaut mieux qu'un mot compliqué.</span>
+        <input type="password" name="password" required minlength="12" autocomplete="new-password" id="password" />
+        <span class="meter"><i id="meter"></i></span>
+      </label>
+
+      <div class="row">
+        <label>
+          Nom de l'entreprise
+          <input name="company_name" required minlength="2" autocomplete="organization" />
+        </label>
+        <label>
+          Pays d'immatriculation
+          <select name="country" id="country" required></select>
+        </label>
+      </div>
+
+      <div class="row">
+        <label>
+          Forme
+          <select name="legal_type">
+            <option value="COMPANY">Entreprise</option>
+            <option value="INDIVIDUAL">Particulier / micro-entrepreneur</option>
+          </select>
+        </label>
+        <label>
+          Immatriculation
+          <span class="hint" id="reg-hint">RCCM, CAC, NINEA…</span>
+          <input name="registration_number" autocomplete="off" />
+        </label>
+      </div>
+
+      <button type="submit" class="btn solid lg" id="submit">Créer mon compte</button>
+    </form>
+
+    <div class="note">
+      L'immatriculation n'est pas vérifiée à l'inscription : elle est transmise à
+      l'agrégateur au moment où vous connectez un compte réel.
+    </div>
+
+    <p class="alt">Déjà inscrit ? <a href="/login">Se connecter</a></p>
+  </div>
+</main>
+
+<footer><a href="/">Retour au site</a> · <a href="/login">Connexion</a></footer>
+
+<script>
+(() => {
+  'use strict';
+  const form = document.getElementById('form');
+  const error = document.getElementById('error');
+  const submit = document.getElementById('submit');
+  const meter = document.getElementById('meter');
+  const password = document.getElementById('password');
+  const country = document.getElementById('country');
+  const regHint = document.getElementById('reg-hint');
+
+  let catalog = [];
+
+  const KYC_LABELS = {
+    RCCM_REQUIRED: 'RCCM requis',
+    LOCAL_REGISTRATION: 'Immatriculation locale',
+    STATE_AUTHORIZATION: 'Autorisation d’État requise',
+    LIGHT_KYC: 'KYC allégé',
+  };
+
+  // La jauge suit la LONGUEUR, pas la presence de symboles : imposer un
+  // caractere special sur huit caracteres produit `Passw0rd!`, que tout
+  // dictionnaire connait.
+  password.oninput = () => {
+    const n = password.value.length;
+    meter.style.width = Math.min(100, Math.round((n / 20) * 100)) + '%';
+    meter.style.background = n < 12 ? 'var(--warn)' : 'var(--accent)';
+  };
+
+  country.onchange = () => {
+    const c = catalog.find((x) => x.iso2 === country.value);
+    if (!c) return;
+    regHint.textContent = (KYC_LABELS[c.kyc_requirement] || 'Immatriculation')
+      + (c.allows_individual ? ' — particuliers acceptés sous plafond' : '');
+  };
+
+  (async () => {
+    try {
+      const res = await fetch('/v1/public/catalog');
+      const data = await res.json();
+      catalog = data.countries;
+      country.innerHTML = catalog
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+        .map((c) => `<option value="${c.iso2}">${c.name}</option>`)
+        .join('');
+      country.value = 'BJ';
+      country.onchange();
+    } catch {
+      country.innerHTML = '<option value="BJ">Bénin</option>';
+    }
+  })();
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    error.hidden = true;
+    submit.disabled = true;
+    submit.textContent = 'Création…';
+
+    const data = Object.fromEntries(new FormData(form));
+    if (!data.registration_number) delete data.registration_number;
+
+    try {
+      const res = await fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json();
+
+      if (!res.ok) {
+        error.textContent = body?.error?.message || 'Inscription impossible.';
+        error.hidden = false;
+        return;
+      }
+      window.location.href = body.next || '/app';
+    } catch {
+      error.textContent = 'Le serveur est injoignable.';
+      error.hidden = false;
+    } finally {
+      submit.disabled = false;
+      submit.textContent = 'Créer mon compte';
+    }
+  };
+})();
+</script>
+</body>
+</html>
