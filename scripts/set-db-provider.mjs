@@ -15,6 +15,13 @@
  * Le script est idempotent et ne touche au fichier que si la valeur change :
  * l'executer en local sur une URL SQLite ne produit aucune modification.
  */
+// DATABASE_URL vient de l'environnement sur un PaaS, mais du fichier .env sur
+// un poste de developpement. Sans ce chargement, le script ne trouvait rien en
+// local et laissait le schema tel quel EN SILENCE — le pire des deux mondes :
+// il ne servait a rien la ou on peut le tester, et n'etait exerce qu'en
+// production. `dotenv` ne fait rien quand le fichier est absent, ce qui est
+// exactement le comportement voulu sur Render.
+import 'dotenv/config';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,11 +39,14 @@ function providerFor(url) {
 const provider = providerFor(process.env.DATABASE_URL);
 
 if (!provider) {
-  // Pas d'URL exploitable : on laisse le schema tel quel plutot que de deviner.
-  // `prisma generate` echouera plus loin avec un message plus clair que le
-  // notre si la configuration est reellement absente.
-  console.log('[db-provider] DATABASE_URL absente ou non reconnue, schema inchange.');
-  process.exit(0);
+  // Pas d'URL exploitable. On echoue plutot que de laisser passer : un schema
+  // fige sur le mauvais provider ne se manifeste qu'au premier appel a la base,
+  // loin de sa cause.
+  console.error(
+    '[db-provider] DATABASE_URL absente ou non reconnue' +
+      (process.env.DATABASE_URL ? ` : ${process.env.DATABASE_URL.slice(0, 24)}…` : '.'),
+  );
+  process.exit(1);
 }
 
 const source = readFileSync(SCHEMA, 'utf8');

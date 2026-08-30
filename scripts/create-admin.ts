@@ -7,13 +7,19 @@ import { prisma } from '../src/db/client.js';
  *
  *   npx tsx scripts/create-admin.ts <email> <mot-de-passe> ["Nom complet"]
  *
+ * Sans argument, le script se rabat sur BOOTSTRAP_ADMIN_EMAIL et
+ * BOOTSTRAP_ADMIN_PASSWORD, et ne fait RIEN si elles sont absentes. C'est ce
+ * qui permet de l'enchainer au demarrage d'un deploiement sans le casser quand
+ * il n'y a pas d'amorcage a faire.
+ *
  * POURQUOI UN SCRIPT ET PAS UNE ROUTE
  *
  * Aucune route de l'API ne permet d'accorder le drapeau `platformAdmin`. Si une
  * telle route existait, elle serait la cible la plus interessante de toute la
  * plateforme : une faille dans n'importe quelle route de compte deviendrait une
- * escalade de privileges. Devenir administrateur exige donc un acces au serveur
- * et a la base — ce qui est deja le niveau de privilege qu'on accorderait.
+ * escalade de privileges. Devenir administrateur exige donc la main sur le
+ * serveur — sa base ou ses variables d'environnement — ce qui est deja le
+ * niveau de privilege qu'on accorderait.
  *
  * L'administrateur est rattache au marchand de la plateforme elle-meme. Ce
  * n'est pas un artifice : Orchi est un compte comme un autre, et son
@@ -25,10 +31,22 @@ import { prisma } from '../src/db/client.js';
 const PLATFORM_MERCHANT_ID = 'mch_orchi_platform';
 
 async function main() {
-  const [email, password, name] = process.argv.slice(2);
+  const [argEmail, argPassword, argName] = process.argv.slice(2);
+
+  const email = argEmail ?? process.env.BOOTSTRAP_ADMIN_EMAIL;
+  const password = argPassword ?? process.env.BOOTSTRAP_ADMIN_PASSWORD;
+  const name = argName ?? process.env.BOOTSTRAP_ADMIN_NAME;
+
+  // Enchaine au demarrage d'un service, ce script doit etre silencieux et
+  // inoffensif quand il n'y a rien a faire — pas bloquer le demarrage.
+  if (!email && !password && process.argv.length <= 2) {
+    console.log('[admin] aucun amorcage demande, rien a faire.');
+    return;
+  }
 
   if (!email || !password) {
     console.error('Usage : npx tsx scripts/create-admin.ts <email> <mot-de-passe> ["Nom"]');
+    console.error('   ou : BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD');
     process.exit(1);
   }
   if (password.length < 12) {
@@ -53,8 +71,18 @@ async function main() {
     },
   });
 
-  const passwordHash = await hashPassword(password);
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+
+  // Relance a chaque demarrage quand l'amorcage passe par les variables
+  // d'environnement : on ne rehache le mot de passe que s'il y a une raison,
+  // sans quoi chaque redemarrage revoquerait les sessions de l'administrateur.
+  const alreadyAdmin = existing?.platformAdmin === true && existing.status === 'ACTIVE';
+  if (alreadyAdmin && !argEmail) {
+    console.log(`[admin] ${existing.email} est deja administrateur, inchange.`);
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
 
   const user = existing
     ? await prisma.user.update({

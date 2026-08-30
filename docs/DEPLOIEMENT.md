@@ -15,29 +15,77 @@ et crée le service web *et* la base PostgreSQL en une fois.
    **Blueprint**.
 2. Connecter le dépôt `FranckNz05/orchi`, branche `main`.
 3. Render détecte `render.yaml` et affiche ce qu'il va créer : un service web
-   `orchi` et une base `orchi-db`. Valider.
-4. Attendre le premier build (~3 min). Le service est en ligne quand
-   `/health/ready` répond `200`.
+   `orchi` et une base `orchi-db`.
+4. Il demande **deux valeurs** — les seules qui ne peuvent pas vivre dans le
+   dépôt :
 
-Aucune variable n'est à saisir à la main : `ENCRYPTION_KEY` et
-`API_KEY_PEPPER` sont générées par Render, `DATABASE_URL` est branchée sur la
-base, et `PUBLIC_BASE_URL` se déduit de `RENDER_EXTERNAL_URL`.
+   | Variable | Valeur |
+   |---|---|
+   | `BOOTSTRAP_ADMIN_EMAIL` | votre adresse |
+   | `BOOTSTRAP_ADMIN_PASSWORD` | 12 caractères minimum |
+
+   Elles créent le premier administrateur de la plateforme. Sans lui, personne
+   ne peut ouvrir `/admin`, donc aucun marchand ne peut être vérifié : le
+   déploiement serait fonctionnel mais inutilisable.
+
+5. Valider, puis attendre le premier build (~3 min). Le service est en ligne
+   quand `/health/ready` répond `200`.
+
+Le reste est automatique : `ENCRYPTION_KEY` et `API_KEY_PEPPER` sont générées
+par Render, `DATABASE_URL` est branchée sur la base, et `PUBLIC_BASE_URL` se
+déduit de `RENDER_EXTERNAL_URL`.
 
 ### Ce que fait le déploiement
 
 | Étape | Commande | Rôle |
 |---|---|---|
-| Build | `npm ci && npm run render:build` | dépendances, bascule du provider Prisma, génération du client, compilation TypeScript |
-| Start | `npm run render:start` | synchronisation du schéma, semis du catalogue, démarrage |
+| Build | `npm ci --include=dev && npm run render:build` | dépendances, bascule du provider Prisma, génération du client, compilation TypeScript |
+| Start | `npm run render:start` | synchronisation du schéma, semis du catalogue, amorçage de l'administrateur, démarrage |
 
 Le semis du catalogue (54 pays, devises, agrégateurs, règles de couverture) est
 en `upsert` : il est rejoué à chaque démarrage sans effet de bord. Une règle de
 couverture supprimée par erreur en production revient d'elle-même au
 redémarrage suivant.
 
+### Pourquoi `--include=dev`
+
+Parce que `NODE_ENV=production` est déclaré dans `render.yaml`, que Render
+expose les variables **dès le build**, et que npm en déduit qu'il doit omettre
+les `devDependencies`. Or `prisma` et `typescript` en font partie.
+
+Sans ce drapeau, le build échoue sur un `prisma: not found` qui ne désigne pas
+sa cause — on cherche une dépendance manquante alors que le problème est une
+variable d'environnement.
+
 ---
 
-## 2. SQLite en développement, PostgreSQL en production
+## 2. Le premier administrateur
+
+`scripts/create-admin.ts` s'exécute à chaque démarrage. Il ne fait rien si
+`BOOTSTRAP_ADMIN_EMAIL` et `BOOTSTRAP_ADMIN_PASSWORD` sont absentes, et rien non
+plus si le compte visé est déjà administrateur — sans quoi chaque redémarrage
+révoquerait les sessions ouvertes.
+
+**Ce n'est pas une brèche dans la règle « aucune route n'accorde
+l'administration ».** Poser une variable d'environnement demande la main sur le
+service, soit exactement le niveau de privilège qu'on accorderait de toute
+façon. Ce qui reste interdit, et le reste, c'est de devenir administrateur
+depuis l'API.
+
+**Une fois le compte créé, supprimez les deux variables** depuis le tableau de
+bord Render. Un mot de passe qui traîne dans la configuration d'un service est
+un mot de passe que voit toute personne ayant accès à ce service.
+
+Pour créer un autre administrateur ensuite, il faut un shell — donc un plan
+payant :
+
+```bash
+npx tsx scripts/create-admin.ts email@exemple.com "mot-de-passe-long"
+```
+
+---
+
+## 3. SQLite en développement, PostgreSQL en production
 
 Le schéma Prisma a été tenu portable dès le départ — pas d'enum natif, pas de
 type `Json`, pas de tableau, uniquement des `@@map`. La bascule d'un moteur à
@@ -70,14 +118,14 @@ passer à `postgresql`.
 
 ---
 
-## 3. Ce que ce déploiement n'est pas
+## 4. Ce que ce déploiement n'est pas
 
 ### Il ne traite pas de vrais paiements
 
-`PROVIDERS_ENABLED=sandbox`. Les adaptateurs FedaPay, CinetPay et GeniusPay sont
-écrits d'après la documentation publique de chaque agrégateur et **n'ont jamais
-été confrontés à un vrai compte sandbox**. Les activer reviendrait à envoyer de
-vraies transactions sur un contrat d'API supposé.
+`PROVIDERS_ENABLED=sandbox`. Les adaptateurs de nos partenaires sont écrits
+d'après leur documentation publique et **n'ont jamais été confrontés à un vrai
+compte sandbox**. Les activer reviendrait à envoyer de vraies transactions sur
+un contrat d'API supposé.
 
 C'est le seul vrai obstacle avant une mise en production, et il ne se lève pas
 par du code : il faut ouvrir un compte chez chaque agrégateur, puis confronter
@@ -111,12 +159,12 @@ verrou d'exécution.
 
 `CONSOLE_ENABLED=false`. La console d'exploitation invite à coller une clé API
 secrète dans un navigateur : acceptable sur `localhost`, pas sur une URL
-publique. Le tableau de bord marchand (`/app`), lui, fonctionne sur session
-serveur et reste accessible.
+publique. Le tableau de bord marchand (`/app`) et l'administration (`/admin`),
+eux, passent par une session serveur et restent accessibles.
 
 ---
 
-## 4. Les deux secrets à ne jamais perdre
+## 5. Les deux secrets à ne jamais perdre
 
 Render génère `ENCRYPTION_KEY` et `API_KEY_PEPPER` au premier déploiement et ne
 les réaffiche pas. Elles ne sont pas interchangeables avec celles du poste de
@@ -134,7 +182,7 @@ l'existant. Ce mécanisme de rotation n'est pas encore écrit.
 
 ---
 
-## 5. Domaine personnalisé
+## 6. Domaine personnalisé
 
 Ajouter le domaine dans Render, puis déclarer explicitement la variable dans
 `render.yaml` :
@@ -152,7 +200,7 @@ n'arrivent plus ») ne désignera pas sa cause.
 
 ---
 
-## 6. Après le déploiement
+## 7. Après le déploiement
 
 ```bash
 curl https://orchi.onrender.com/health/ready
@@ -160,6 +208,13 @@ curl https://orchi.onrender.com/health/ready
 
 Doit répondre `{"status":"ok","checks":{"database":"up"}}`.
 
-Créer ensuite un compte sur `/register`, puis une clé API depuis `/app`. Le
-compte sandbox est branché automatiquement à l'inscription : une session de
-paiement est possible dans la foulée, sans configuration.
+Ensuite :
+
+1. Se connecter sur `/login` avec l'adresse d'amorçage, **changer le mot de
+   passe**, puis supprimer les deux variables `BOOTSTRAP_ADMIN_*` dans Render.
+2. Ouvrir `/admin` : la file des dossiers d'accès au réel est vide.
+3. Créer un compte marchand sur `/register`. Le compte sandbox est branché
+   automatiquement : une session de paiement est possible dans la foulée, sans
+   configuration.
+4. Depuis ce compte marchand, déposer une demande d'accès au réel, puis la
+   traiter depuis `/admin`. C'est le chemin complet, de bout en bout.

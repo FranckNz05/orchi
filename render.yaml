@@ -23,14 +23,20 @@ services:
     plan: free
     region: frankfurt # le plus proche de l'Afrique de l'Ouest chez Render
     branch: main
-    buildCommand: npm ci && npm run render:build
+
+    # `--include=dev` est INDISPENSABLE, et la raison n'a rien d'evident :
+    # NODE_ENV=production est declare plus bas, Render expose les variables des
+    # le build, et npm en deduit qu'il doit omettre les devDependencies. Or
+    # `prisma` et `typescript` en font partie — sans ce drapeau, le build
+    # echoue sur un « prisma: not found » qui ne designe pas sa cause.
+    buildCommand: npm ci --include=dev && npm run render:build
     startCommand: npm run render:start
 
-    # /health/ready plutot que /health : le premier interroge la base, le
-    # second se contente de prouver que le processus repond. Un service qui
-    # ecoute mais ne peut plus lire ses donnees n'est pas en ligne, et Render
-    # doit le signaler comme un echec de deploiement plutot que le laisser
-    # servir des 500 aux marchands.
+    # /health/ready plutot que /health : le second prouve seulement que le
+    # processus repond, le premier interroge la base. Un service qui ecoute
+    # sans pouvoir lire ses donnees n'est pas en ligne, et Render doit le
+    # signaler comme un echec de deploiement plutot que le laisser servir des
+    # 500 aux marchands.
     healthCheckPath: /health/ready
 
     envVars:
@@ -59,15 +65,35 @@ services:
       # et src/core/env.ts s'en sert par defaut. Declarer la variable ici la
       # rendrait prioritaire — a faire uniquement pour un domaine personnalise.
 
-      # Le simulateur seul. FedaPay, CinetPay et GeniusPay sont ecrits d'apres
-      # leur documentation publique et n'ont jamais ete confrontes a un vrai
-      # compte sandbox : les activer ici enverrait de vraies transactions sur
-      # un contrat suppose.
+      # Premier administrateur de la plateforme.
+      #
+      # Sans lui, personne ne peut ouvrir /admin, donc aucun marchand ne peut
+      # etre verifie : le deploiement serait fonctionnel mais inutilisable. Le
+      # plan gratuit n'ouvre pas de shell, il n'y aurait aucun autre moyen de
+      # creer ce compte.
+      #
+      # Ce n'est pas une brèche dans la regle « aucune route n'accorde
+      # l'administration » : poser une variable d'environnement demande la main
+      # sur le service, soit exactement le niveau de privilege qu'on
+      # accorderait de toute facon. `sync: false` fait demander la valeur par
+      # Render au moment du deploiement plutot que de l'ecrire ici — un mot de
+      # passe n'a rien a faire dans un depot.
+      #
+      # A SUPPRIMER une fois le compte cree et le mot de passe change.
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+
+      # Le simulateur seul. Nos adaptateurs partenaires sont ecrits d'apres leur
+      # documentation et n'ont jamais ete confrontes a un vrai compte sandbox :
+      # les activer ici enverrait de vraies transactions sur un contrat suppose.
       - key: PROVIDERS_ENABLED
         value: sandbox
 
       # La console d'exploitation invite a coller une cle API secrete dans un
-      # navigateur. Acceptable en local, pas sur une URL publique.
+      # navigateur. Acceptable en local, pas sur une URL publique. Le tableau de
+      # bord marchand et /admin passent, eux, par une session serveur.
       - key: CONSOLE_ENABLED
         value: "false"
 
