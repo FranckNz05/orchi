@@ -170,12 +170,42 @@ describe('encaissement', () => {
     expect(headers['x-api-secret']).toBe('sk_sandbox_xxx');
   });
 
-  it('refuse d’appeler l’API sans les deux cles', async () => {
+  it('appelle l’API avec la seule cle, sans secret', async () => {
+    // Verifie contre le sandbox reel : `X-API-Key` seule authentifie. Exiger un
+    // secret empechait de connecter un compte qui n'en recoit qu'une.
+    reply('POST /gp/payments', {
+      success: true,
+      data: { reference: 'MTX-solo', status: 'pending', payment_url: 'https://pay/solo' },
+    });
+
+    await geniuspayProvider.createCharge(charge(), { ...ctx, credentials: { api_key: 'pk_x' } });
+
+    const headers = called('POST', '/gp/payments')!.headers;
+    expect(headers['x-api-key']).toBe('pk_x');
+    expect(headers['x-api-secret']).toBeUndefined();
+  });
+
+  it('refuse d’appeler l’API sans cle du tout', async () => {
     const error = (await geniuspayProvider
-      .createCharge(charge(), { ...ctx, credentials: { api_key: 'pk_x' } })
+      .createCharge(charge(), { ...ctx, credentials: {} })
       .catch((e) => e)) as ProviderError;
     expect(error.code).toBe('authentication');
     expect(calls).toHaveLength(0);
+  });
+
+  it('traite une creation sans statut comme une attente client', async () => {
+    // Le sandbox reel renvoie `"status": null` a la creation, et "pending" a la
+    // lecture du meme paiement. Sans defaut, la checkout_url etait jetee et le
+    // paiement naissait dans l'etat indetermine.
+    reply('POST /gp/payments', {
+      success: true,
+      data: { reference: 'SANDBOX_NULLSTATUS', status: null, checkout_url: 'https://pay/null' },
+    });
+
+    const result = await geniuspayProvider.createCharge(charge(), ctx);
+
+    expect(result.status).toBe('awaiting_customer');
+    expect(result.action).toEqual({ type: 'redirect', url: 'https://pay/null' });
   });
 
   it('traduit le reseau en gateway et en code operateur PawaPay', async () => {

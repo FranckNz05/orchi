@@ -20,20 +20,40 @@ import type {
  * Adaptateur GeniusPay.
  *
  * ┌─ CONTRAT API ────────────────────────────────────────────────────────────┐
- * │ Ecrit d'apres la documentation publique (geniuspay.ci/docs/api),          │
- * │ consultee le 29/08/2026. AUCUN appel n'a ete verifie contre un compte     │
- * │ sandbox reel.                                                            │
+ * │ VERIFIE CONTRE UN COMPTE SANDBOX REEL le 30/08/2026 (cle sk_sandbox_*).  │
+ * │ Encaissement seulement : creation et lecture. Le reste vient encore de   │
+ * │ la documentation publique (geniuspay.ci/docs/api).                       │
  * │                                                                          │
- * │ CONFIRME par la documentation :                                          │
+ * │ VERIFIE PAR APPEL REEL :                                                 │
  * │   - base https://geniuspay.ci/api/v1/merchant                            │
- * │   - authentification par DEUX en-tetes : X-API-Key + X-API-Secret        │
- * │   - POST /payments ; omettre `payment_method` renvoie une `checkout_url` │
- * │   - GET /payments/{reference}, reference au format MTX-XXXXXXXXXX        │
- * │   - statuts : pending, processing, completed, failed, cancelled,         │
- * │     refunded, expired                                                    │
- * │   - `fees` et `net_amount` presents dans les reponses                    │
- * │   - webhooks signes HMAC-SHA256 sur `timestamp + "." + payload`          │
- * │   - montant minimum 200 XOF                                              │
+ * │   - POST /payments -> 201 ; sans `payment_method`, `checkout_url` est    │
+ * │     bien renvoyee                                                        │
+ * │   - GET /payments/{reference} -> 200                                     │
+ * │   - `X-API-Key` SEULE authentifie. Pas de secret. L'API le dit :         │
+ * │     « Provide it via X-API-Key header or Bearer token ».                 │
+ * │   - le sandbox est choisi par la CLE, pas par un hote distinct           │
+ * │   - enveloppe { success, data } / { success, error: { code, message } }  │
+ * │   - `metadata` est bien restitue tel quel (notre reference y voyage)     │
+ * │                                                                          │
+ * │ DEMENTI PAR L'APPEL REEL — la doc etait fausse :                         │
+ * │   - PAS de couple X-API-Key + X-API-Secret (voir `headers`)              │
+ * │   - reference au format SANDBOX_XXXXXXXXXXXXXXXX, pas MTX-XXXXXXXXXX.    │
+ * │     Rien ne s'appuyait sur ce format, mais ne pas s'y fier.              │
+ * │   - `status` vaut null A LA CREATION, et "pending" a la lecture du meme  │
+ * │     paiement. Voir `toResult` : c'est le defaut qui rendait l'adaptateur │
+ * │     inutilisable.                                                        │
+ * │   - `fees` et `net_amount` sont ABSENTS de la creation, presents a la    │
+ * │     lecture. La part Orchi retombe donc sur l'estimation catalogue tant  │
+ * │     que le paiement n'a pas ete relu.                                    │
+ * │                                                                          │
+ * │ OBSERVE, NON DOCUMENTE :                                                 │
+ * │   - `scenario` (« success ») : le sandbox a ses propres scenarios        │
+ * │   - `tokens_remaining` : le sandbox est rationne                         │
+ * │                                                                          │
+ * │ TOUJOURS NON VERIFIE :                                                   │
+ * │   - la signature des webhooks (aucun webhook recu a ce jour)             │
+ * │   - le cycle complet jusqu'a `completed`                                 │
+ * │   - le comportement en LIVE, notamment si une cle secrete y est imposee  │
  * │                                                                          │
  * │ NON DOCUMENTE PUBLIQUEMENT :                                             │
  * │   - l'API de DECAISSEMENT. Les evenements `cashout.*` existent, mais     │
@@ -212,17 +232,23 @@ function baseUrl(): string {
 
 function headers(ctx: ProviderContext): Record<string, string> {
   const key = ctx.credentials.api_key;
-  const secret = ctx.credentials.api_secret;
-  if (!key || !secret) {
+  if (!key) {
     throw new ProviderError({
       providerId: GENIUSPAY_PROVIDER_ID,
       code: 'authentication',
-      message: 'Credentials api_key et api_secret requis.',
+      message: 'Credential api_key requis.',
     });
   }
-  // GeniusPay authentifie par DEUX en-tetes, pas par un jeton porteur : la cle
-  // publique identifie, la cle secrete prouve.
-  return { 'X-API-Key': key, 'X-API-Secret': secret };
+
+  // VERIFIE CONTRE LE SANDBOX REEL (30/08/2026) : `X-API-Key` SEULE authentifie.
+  // La documentation laissait croire a un couple cle/secret ; l'API repond
+  // elle-meme « Provide it via X-API-Key header or Bearer token ». Exiger un
+  // secret rendait impossible de connecter un compte qui n'en a qu'une.
+  //
+  // Le secret reste transmis s'il existe : rien n'indique qu'il gene, et un
+  // compte live pourrait en imposer un.
+  const secret = ctx.credentials.api_secret;
+  return { 'X-API-Key': key, ...(secret ? { 'X-API-Secret': secret } : {}) };
 }
 
 function unwrap(body: string): GeniusPayPayment {
@@ -260,7 +286,21 @@ function unwrap(body: string): GeniusPayPayment {
   return parsed.data;
 }
 
-function toResult(payment: GeniusPayPayment, fallbackAction: CustomerAction): AttemptResult {
+function toResult(
+  payment: GeniusPayPayment,
+  fallbackAction: CustomerAction,
+  /**
+   * Statut a retenir quand la reponse n'en porte pas.
+   *
+   * VERIFIE CONTRE LE SANDBOX REEL (30/08/2026) : la reponse de CREATION
+   * renvoie `"status": null`, alors que la lecture du meme paiement renvoie
+   * `"pending"`. Sans ce defaut, `mapStatus('')` donnait `unknown` — donc, par
+   * la regle de l'action, `{ type: 'none' }` : la `checkout_url` etait jetee,
+   * le client n'etait jamais redirige, et chaque paiement naissait dans l'etat
+   * indetermine qui interdit toute relance. Un adaptateur inutilisable.
+   */
+  defaultStatus?: string,
+): AttemptResult {
   const reference = payment.reference;
   if (!reference) {
     throw new ProviderError({
@@ -270,7 +310,7 @@ function toResult(payment: GeniusPayPayment, fallbackAction: CustomerAction): At
     });
   }
 
-  const status = mapStatus(String(payment.status ?? ''));
+  const status = mapStatus(String(payment.status ?? defaultStatus ?? ''));
 
   return {
     providerReference: reference,
@@ -292,7 +332,9 @@ function toResult(payment: GeniusPayPayment, fallbackAction: CustomerAction): At
 export const geniuspayProvider: PaymentProvider = {
   id: GENIUSPAY_PROVIDER_ID,
   name: 'GeniusPay',
-  requiredCredentials: ['api_key', 'api_secret', 'webhook_secret'],
+  // `api_secret` a ete retire : le sandbox reel authentifie sur `api_key`
+  // seule. L'exiger empechait de connecter un compte qui n'en recoit qu'une.
+  requiredCredentials: ['api_key', 'webhook_secret'],
 
   supports(country: string, channel: Channel, direction: Direction): boolean {
     // Le decaissement n'est pas documente publiquement : on ne route pas de
@@ -367,11 +409,17 @@ export const geniuspayProvider: PaymentProvider = {
       });
     }
 
-    return toResult(payment, {
-      type: 'redirect',
-      url,
-      ...(payment.expires_at ? { expiresAt: payment.expires_at } : {}),
-    });
+    // Une creation qui porte une URL de paiement attend le client, par
+    // definition. C'est ce que la lecture du meme paiement confirme.
+    return toResult(
+      payment,
+      {
+        type: 'redirect',
+        url,
+        ...(payment.expires_at ? { expiresAt: payment.expires_at } : {}),
+      },
+      'pending',
+    );
   },
 
   async getCharge(providerReference: string, ctx: ProviderContext): Promise<AttemptResult> {
