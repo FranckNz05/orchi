@@ -3,30 +3,31 @@
 # Render lit ce fichier et cree le service web et ses secrets. Voir
 # docs/DEPLOIEMENT.md pour la procedure et ses limites.
 #
-# LA BASE N'EST PAS CREEE ICI, ET C'EST DELIBERE
+# UNE SEULE BASE GRATUITE PAR COMPTE
 #
-# Render n'autorise qu'UNE SEULE base PostgreSQL gratuite par compte. Un
-# blueprint qui en declare une echoue donc des qu'il en existe deja une
-# ailleurs — et il echoue en entrainant le service web avec lui, sur un
-# message (« cannot have more than one active free tier database ») qui laisse
-# croire a un probleme de configuration alors qu'il s'agit d'un quota.
+# Render n'en autorise pas davantage. Si une autre base gratuite existe deja
+# sur le compte, ce blueprint echoue — et il entraine le service web avec lui,
+# sur un message (« cannot have more than one active free tier database ») qui
+# laisse croire a un probleme de configuration alors qu'il s'agit d'un quota.
 #
-# DATABASE_URL est donc demandee au deploiement. Trois facons de la remplir,
-# detaillees dans docs/DEPLOIEMENT.md :
-#   - une base PostgreSQL Render existante, avec `?schema=orchi` ajoute a
-#     l'URL pour que les tables d'Orchi ne se melangent pas a celles d'un
-#     autre projet ;
-#   - une base hebergee ailleurs (Neon, Supabase) ;
-#   - une base Render creee a la main, gratuite ou payante.
-#
-# Pour revenir a une creation automatique le jour ou le quota est libre :
-# retablir un bloc `databases:` et remplacer la valeur `sync: false` de
-# DATABASE_URL par `fromDatabase: { name: orchi-db, property: connectionString }`.
+# Dans ce cas : supprimer l'autre base, ou remplacer le bloc `databases:` par
+# une variable `DATABASE_URL` en `sync: false`, renseignee avec l'URL d'une
+# base existante suffixee de `?schema=orchi` — PostgreSQL cloisonne
+# nativement, les tables d'Orchi ne toucheraient pas celles de l'autre projet.
 #
 # NOTE SUR LE MOTEUR — le developpement se fait sur SQLite, la production sur
 # PostgreSQL. Le schema Prisma a ete tenu portable des le depart, et
 # scripts/set-db-provider.mjs aligne le provider sur DATABASE_URL au moment du
 # build. Aucune reecriture du schema n'est necessaire.
+
+databases:
+  - name: orchi-db
+    databaseName: orchi
+    user: orchi
+    region: frankfurt
+    # `free` expire au bout de 30 jours chez Render : suffisant pour une
+    # demonstration, a remplacer par `basic-256mb` des que des donnees comptent.
+    plan: free
 
 services:
   - type: web
@@ -55,12 +56,13 @@ services:
       - key: NODE_ENV
         value: production
 
-      # URL de connexion PostgreSQL, demandee au deploiement (voir l'en-tete).
-      # Sur une base partagee avec un autre projet, terminer par
-      # `?schema=orchi` : Prisma cree le schema s'il n'existe pas, et les
-      # tables restent cloisonnees.
+      # Branchee sur la base declaree plus haut. Render y met l'URL interne,
+      # qui ne sort pas de son reseau prive : la base n'est joignable que par
+      # ce service.
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: orchi-db
+          property: connectionString
 
       # Chiffrement AES-256-GCM des credentials agregateurs, et poivre du
       # hachage des cles API. Render les genere une fois et ne les reaffiche

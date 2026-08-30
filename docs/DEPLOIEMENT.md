@@ -6,12 +6,36 @@ importante des deux.
 
 ---
 
-## 1. D'abord, la base de données
+## 1. Procédure
 
-**Le blueprint ne crée pas la base.** Render n'autorise qu'**une seule base
-PostgreSQL gratuite par compte** ; un blueprint qui en déclare une échoue dès
-qu'il en existe déjà une ailleurs — et il entraîne le service web dans sa
-chute :
+Tout est décrit dans [`render.yaml`](../render.yaml) à la racine. Render le lit
+et crée le service web *et* la base PostgreSQL en une fois.
+
+1. Sur [dashboard.render.com](https://dashboard.render.com) → **New** →
+   **Blueprint**.
+2. Connecter le dépôt `FranckNz05/orchi`, branche `main`.
+3. Render détecte `render.yaml` et affiche ce qu'il va créer : un service web
+   `orchi` et une base `orchi-db`.
+4. Il demande **deux valeurs** — les seules qui ne peuvent pas vivre dans le
+   dépôt :
+
+   | Variable | Valeur |
+   |---|---|
+   | `BOOTSTRAP_ADMIN_EMAIL` | votre adresse |
+   | `BOOTSTRAP_ADMIN_PASSWORD` | 12 caractères minimum |
+
+   Elles créent le premier administrateur de la plateforme. Sans lui, personne
+   ne peut ouvrir `/admin`, donc aucun marchand ne peut être vérifié : le
+   déploiement serait fonctionnel mais inutilisable.
+
+5. Valider, puis attendre le premier build (~3 min). Le service est en ligne
+   quand `/health/ready` répond `200`.
+
+Le reste est automatique : `ENCRYPTION_KEY` et `API_KEY_PEPPER` sont générées
+par Render, `DATABASE_URL` est branchée sur la base, et `PUBLIC_BASE_URL` se
+déduit de `RENDER_EXTERNAL_URL`.
+
+### Si le déploiement échoue sur la base
 
 ```
 Create database orchi-db
@@ -20,65 +44,24 @@ Create web service orchi
 (canceled: another action failed)
 ```
 
-Le message parle de base de données ; la cause est un quota de compte. On
-fournit donc `DATABASE_URL` au déploiement. Trois façons de l'obtenir.
+**Render n'autorise qu'une seule base PostgreSQL gratuite par compte.** Le
+message parle de base de données ; la cause est un quota. Et l'échec de la base
+annule le service web avec elle, ce qui donne l'impression que tout le
+blueprint est invalide.
 
-### a. Réutiliser une base Render existante — gratuit, immédiat
+Trois issues :
 
-Copier son **Internal Database URL** et **y ajouter `?schema=orchi`** :
-
-```
-postgresql://user:pass@dpg-xxxx/basename?schema=orchi
-```
-
-Prisma crée ce schéma s'il n'existe pas, et toutes les tables d'Orchi y vivent.
-Les tables de l'autre projet, restées dans `public`, ne sont ni lues ni
-touchées. C'est le cloisonnement que PostgreSQL offre nativement, et il évite
-d'avoir à choisir entre deux projets.
-
-> Sans `?schema=orchi`, Orchi écrirait dans `public`, au milieu des tables de
-> l'autre projet. Rien ne casserait tout de suite — jusqu'au premier nom de
-> table en commun.
-
-### b. Héberger la base ailleurs — gratuit, sans limite de 30 jours
-
-Neon ou Supabase donnent une base PostgreSQL gratuite qui n'expire pas au bout
-d'un mois, contrairement au plan gratuit de Render. Il faut y ouvrir un compte,
-puis coller l'URL de connexion fournie.
-
-### c. Libérer le quota Render
-
-Supprimer ou passer en payant la base gratuite existante, puis rétablir la
-création automatique dans `render.yaml` (la marche à suivre est en tête du
-fichier). À ne faire qu'en sachant à quoi sert la base déjà en place.
-
----
-
-## 2. Procédure
-
-1. Sur [dashboard.render.com](https://dashboard.render.com) → **New** →
-   **Blueprint**.
-2. Connecter le dépôt `FranckNz05/orchi`, branche `main`.
-3. Render détecte `render.yaml` et affiche ce qu'il va créer : le service web
-   `orchi`.
-4. Il demande **trois valeurs** — les seules qui ne peuvent pas vivre dans le
-   dépôt :
-
-   | Variable | Valeur |
-   |---|---|
-   | `DATABASE_URL` | l'URL obtenue à l'étape précédente |
-   | `BOOTSTRAP_ADMIN_EMAIL` | votre adresse |
-   | `BOOTSTRAP_ADMIN_PASSWORD` | 12 caractères minimum |
-
-   Les deux dernières créent le premier administrateur de la plateforme. Sans
-   lui, personne ne peut ouvrir `/admin`, donc aucun marchand ne peut être
-   vérifié : le déploiement serait fonctionnel mais inutilisable.
-
-5. Valider, puis attendre le premier build (~3 min). Le service est en ligne
-   quand `/health/ready` répond `200`.
-
-Le reste est automatique : `ENCRYPTION_KEY` et `API_KEY_PEPPER` sont générées
-par Render, et `PUBLIC_BASE_URL` se déduit de `RENDER_EXTERNAL_URL`.
+- **supprimer l'autre base gratuite**, si elle ne sert plus ;
+- **réutiliser cette base** : remplacer le bloc `databases:` de `render.yaml`
+  par une variable `DATABASE_URL` en `sync: false`, et y coller l'**Internal
+  Database URL** de la base existante **suffixée de `?schema=orchi`**. Prisma
+  crée ce schéma s'il n'existe pas ; les tables de l'autre projet, restées dans
+  `public`, ne sont ni lues ni touchées. Sans ce suffixe, les deux projets
+  écriraient dans le même espace de noms — rien ne casserait tout de suite,
+  jusqu'au premier nom de table en commun ;
+- **héberger la base ailleurs** (Neon, Supabase), avec le même
+  `DATABASE_URL: sync: false`. Ces offres gratuites n'ont pas l'échéance de
+  30 jours du plan gratuit Render.
 
 ### Ce que fait le déploiement
 
@@ -104,7 +87,7 @@ variable d'environnement.
 
 ---
 
-## 3. Le premier administrateur
+## 2. Le premier administrateur
 
 `scripts/create-admin.ts` s'exécute à chaque démarrage. Il ne fait rien si
 `BOOTSTRAP_ADMIN_EMAIL` et `BOOTSTRAP_ADMIN_PASSWORD` sont absentes, et rien non
@@ -130,7 +113,7 @@ npx tsx scripts/create-admin.ts email@exemple.com "mot-de-passe-long"
 
 ---
 
-## 4. SQLite en développement, PostgreSQL en production
+## 3. SQLite en développement, PostgreSQL en production
 
 Le schéma Prisma a été tenu portable dès le départ — pas d'enum natif, pas de
 type `Json`, pas de tableau, uniquement des `@@map`. La bascule d'un moteur à
@@ -163,7 +146,7 @@ passer à `postgresql`.
 
 ---
 
-## 5. Ce que ce déploiement n'est pas
+## 4. Ce que ce déploiement n'est pas
 
 ### Il ne traite pas de vrais paiements
 
@@ -189,10 +172,10 @@ payant n'est pas un confort mais une condition de correction.
 
 ### Une base Render gratuite expire au bout de 30 jours
 
-Render supprime les bases PostgreSQL du plan gratuit après 30 jours. Cela ne
-concerne que l'option (a) ou (c) ci-dessus : une base Neon ou Supabase n'a pas
-cette échéance. Dans tous les cas, une base payante s'impose dès que des
-données comptent.
+Render supprime les bases PostgreSQL du plan gratuit après 30 jours — c'est le
+plan que déclare `render.yaml`. Passer à `basic-256mb` dès que des données
+comptent, ou héberger la base ailleurs : les offres gratuites de Neon et
+Supabase n'ont pas cette échéance.
 
 ### Un seul processus
 
@@ -211,7 +194,7 @@ eux, passent par une session serveur et restent accessibles.
 
 ---
 
-## 6. Les deux secrets à ne jamais perdre
+## 5. Les deux secrets à ne jamais perdre
 
 Render génère `ENCRYPTION_KEY` et `API_KEY_PEPPER` au premier déploiement et ne
 les réaffiche pas. Elles ne sont pas interchangeables avec celles du poste de
@@ -229,7 +212,7 @@ l'existant. Ce mécanisme de rotation n'est pas encore écrit.
 
 ---
 
-## 7. Domaine personnalisé
+## 6. Domaine personnalisé
 
 Ajouter le domaine dans Render, puis déclarer explicitement la variable dans
 `render.yaml` :
@@ -247,7 +230,7 @@ n'arrivent plus ») ne désignera pas sa cause.
 
 ---
 
-## 8. Après le déploiement
+## 7. Après le déploiement
 
 ```bash
 curl https://orchi.onrender.com/health/ready
