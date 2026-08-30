@@ -179,26 +179,38 @@ describe('encaissement — cycle nominal', () => {
     expect(body.fees.platform).toBe(750);
     expect(body.fees.provider).toBe(0);
 
+    // En mode `invoice` (defaut), le flux et la commission sont deux journaux
+    // distincts, ecrits dans la meme transaction.
     const journals = await prisma.ledgerJournal.findMany({ where: { refId: id } });
-    expect(journals.map((j) => j.type)).toEqual(['payin.succeeded']);
+    expect(journals.map((j) => j.type).sort()).toEqual(['fee.accrued', 'payin.succeeded']);
     await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
   });
 
-  it('retient la commission sur le flux', async () => {
+  it('ne retient pas la commission sur le flux : elle devient une creance', async () => {
     if (!seeded) return;
     const created = await post('/v1/payments', payinBody({ amount: 20000 }), ref('idem'));
     const id = created.json().id;
     await get(`/v1/payments/${id}`);
 
-    const entries = await prisma.ledgerEntry.findMany({
+    const flux = await prisma.ledgerEntry.findMany({
       where: { journal: { refId: id, type: 'payin.succeeded' } },
     });
-    const byAccount = Object.fromEntries(entries.map((e) => [e.account, { side: e.side, amount: e.amount }]));
+    const byAccount = Object.fromEntries(flux.map((e) => [e.account, { side: e.side, amount: e.amount }]));
 
     expect(byAccount['provider:sandbox:clearing']).toEqual({ side: 'DEBIT', amount: 20000 });
-    // 20 000 − 0 (simulateur) − 1 000 (5 %) : le marchand recoit le solde.
-    expect(byAccount[`merchant:${merchantId}:receivable`]).toEqual({ side: 'CREDIT', amount: 19000 });
-    expect(byAccount['orchi:revenue']).toEqual({ side: 'CREDIT', amount: 1000 });
+    // Le simulateur ne prend rien : le marchand recoit L'INTEGRALITE de ce que
+    // verse l'agregateur. C'est tout le principe du modele A.
+    expect(byAccount[`merchant:${merchantId}:receivable`]).toEqual({ side: 'CREDIT', amount: 20000 });
+    expect(byAccount['orchi:revenue']).toBeUndefined();
+
+    // La part Orchi, 5 % de 20 000, vit dans le second journal.
+    const creance = await prisma.ledgerEntry.findMany({
+      where: { journal: { refId: id, type: 'fee.accrued' } },
+    });
+    const byBilling = Object.fromEntries(creance.map((e) => [e.account, { side: e.side, amount: e.amount }]));
+
+    expect(byBilling[`merchant:${merchantId}:billing`]).toEqual({ side: 'DEBIT', amount: 1000 });
+    expect(byBilling['orchi:revenue']).toEqual({ side: 'CREDIT', amount: 1000 });
   });
 
   it('conserve un ledger equilibre apres plusieurs transactions', async () => {
@@ -421,9 +433,20 @@ describe('decaissement', () => {
       where: { journal: { refId: body.id, type: 'payout.succeeded' } },
     });
     const byAccount = Object.fromEntries(entries.map((e) => [e.account, { side: e.side, amount: e.amount }]));
-    // Un decaissement de 50 000 a 5 % coute 52 500 au marchand.
-    expect(byAccount[`merchant:${merchantId}:payable`]).toEqual({ side: 'DEBIT', amount: 52500 });
+    // Un decaissement de 50 000 a 5 % coute toujours 52 500 au marchand, mais en
+    // mode `invoice` seuls 50 000 sortent de son compte agregateur : la part
+    // Orchi ne transite pas, elle devient une creance.
+    expect(byAccount[`merchant:${merchantId}:payable`]).toEqual({ side: 'DEBIT', amount: 50000 });
     expect(byAccount['provider:sandbox:clearing']).toEqual({ side: 'CREDIT', amount: 50000 });
+    expect(byAccount['orchi:revenue']).toBeUndefined();
+
+    const creance = await prisma.ledgerEntry.findMany({
+      where: { journal: { refId: body.id, type: 'fee.accrued' } },
+    });
+    const byBilling = Object.fromEntries(creance.map((e) => [e.account, { side: e.side, amount: e.amount }]));
+    expect(byBilling[`merchant:${merchantId}:billing`]).toEqual({ side: 'DEBIT', amount: 2500 });
+    expect(byBilling['orchi:revenue']).toEqual({ side: 'CREDIT', amount: 2500 });
+
     await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
   });
 

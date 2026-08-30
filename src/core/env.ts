@@ -86,15 +86,21 @@ const schema = z.object({
   /**
    * Mode de perception de la part Orchi.
    *
+   *   invoice  la part est constatee en creance et facturee separement
    *   split    l'agregateur reverse directement la part Orchi (accord requis)
    *   on_top   la part est ajoutee au montant paye par le client final
-   *   invoice  la part est constatee et facturee separement
    *
-   * Ce reglage ne change PAS le calcul : il documente comment l'argent arrive
-   * reellement. Le confondre avec le calcul serait la meilleure facon de
-   * facturer deux fois.
+   * Ce reglage ne change PAS le calcul de la part Orchi — `pricing.ts` produit
+   * le meme montant dans les trois cas. Il change UNIQUEMENT le chemin par
+   * lequel cette part arrive, donc les ecritures du grand livre. Le confondre
+   * avec le calcul serait la meilleure facon de facturer deux fois.
+   *
+   * `invoice` est le defaut parce que c'est le seul mode compatible avec le
+   * modele A : Orchi ne detient pas les fonds, il ne peut donc rien retenir
+   * dessus. `split` suppose un accord sub-merchant avec chaque agregateur, et
+   * n'est utilisable que la ou cet accord existe.
    */
-  PLATFORM_FEE_COLLECTION: z.enum(['split', 'on_top', 'invoice']).default('split'),
+  PLATFORM_FEE_COLLECTION: z.enum(['split', 'on_top', 'invoice']).default('invoice'),
 
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
@@ -132,6 +138,21 @@ function load(): Env {
     console.error(`Configuration invalide.\n${details}\n\nVoir .env.example`);
     process.exit(1);
   }
+
+  // `on_top` figure dans l'enum parce que c'est une option de perception
+  // reelle, mais la mettre en oeuvre suppose de majorer le montant DEMANDE au
+  // client final — donc de toucher a la creation de paiement et a chaque
+  // adaptateur, pas au grand livre. Tant que ce n'est pas fait, mieux vaut
+  // refuser de demarrer que de percevoir silencieusement comme en `split`.
+  if (parsed.data.PLATFORM_FEE_COLLECTION === 'on_top') {
+    console.error(
+      "PLATFORM_FEE_COLLECTION=on_top n'est pas implemente : il exige de majorer le\n" +
+        'montant demande au client final, ce que la creation de paiement ne fait pas.\n' +
+        'Utilisez `invoice` (defaut) ou `split`.',
+    );
+    process.exit(1);
+  }
+
   return parsed.data;
 }
 

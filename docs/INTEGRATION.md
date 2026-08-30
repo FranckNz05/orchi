@@ -503,13 +503,18 @@ Encaissement de 15 000 XOF au Bénin, agrégateur à 2,0 % :
 ```
 Le client paie                    15 000 XOF
 Commission agrégateur (2,0 %)       −300 XOF
-Commission Orchi (3,0 %)            −450 XOF
-Vous recevez                      14 250 XOF
+Vous encaissez                    14 700 XOF   ← immédiatement
+Commission Orchi (3,0 %)             450 XOF   ← facturée ensuite
 Coût total                            750 XOF · 5,00 %
 ```
 
 Le même encaissement via un agrégateur à 4,0 % : celui-ci prend 600 XOF, Orchi
-prend 150 XOF, et vous recevez toujours **14 250 XOF**.
+prend 150 XOF, et votre coût total reste **750 XOF**.
+
+Notez la différence entre les deux lignes : seule la commission de l'agrégateur
+est déduite de votre encaissement. La part d'Orchi ne transite jamais par le
+flux — elle vous est facturée après coup, ce qui joue en faveur de votre
+trésorerie.
 
 Chaque transaction expose son détail :
 
@@ -519,21 +524,24 @@ Chaque transaction expose son détail :
 
 ### Prélèvement
 
-La commission est **retenue sur le flux, transaction par transaction** — elle
-n'est pas facturée séparément. Le mode de perception effectif est réglé par
+La commission Orchi n'est **pas retenue sur le flux** : elle est constatée à
+chaque transaction réussie, puis facturée. Vos encaissements vous parviennent
+intégralement, diminués de la seule commission de votre agrégateur.
+
+C'est une conséquence directe du modèle : Orchi ne détient jamais vos fonds, il
+ne peut donc rien y prélever. Le mode de perception est réglé par
 `PLATFORM_FEE_COLLECTION` :
 
-| Valeur | Mécanisme |
-|---|---|
-| `split` | L'agrégateur reverse directement la part Orchi (accord requis) |
-| `on_top` | La part est ajoutée au montant payé par le client final |
-| `invoice` | La part est constatée puis facturée séparément |
+| Valeur | Mécanisme | État |
+|---|---|---|
+| `invoice` | La part est constatée puis facturée séparément | **Défaut** |
+| `split` | L'agrégateur reverse directement la part Orchi | Nécessite un accord sub-merchant |
+| `on_top` | La part est ajoutée au montant payé par le client final | Non implémenté |
 
-> **Conséquence à connaître.** Prélever sur le flux signifie qu'Orchi se trouve
-> dans le chemin des fonds. C'est le modèle **collecteur**, qui suppose un
-> accord sub-merchant avec chaque agrégateur et une trajectoire réglementaire
-> (statut d'agent ou d'EME). Le mode `invoice` est la seule variante qui reste
-> hors flux.
+> **Ce que cela change pour vous.** Vous recevez plus tôt et payez plus tard :
+> sur l'exemple ci-dessus, 14 700 XOF arrivent sur votre compte agrégateur au
+> lieu de 14 250, et les 450 XOF d'Orchi vous sont réclamés ensuite. Votre coût
+> total est identique, votre trésorerie non.
 
 ### Transactions échouées
 

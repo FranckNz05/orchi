@@ -1,3 +1,4 @@
+import { env } from '../core/env.js';
 import { ID_PREFIX, newId } from '../core/ids.js';
 import { prisma } from '../db/client.js';
 import type { Prisma } from '@prisma/client';
@@ -18,6 +19,16 @@ import type { Prisma } from '@prisma/client';
  *   merchant:{id}:payable      du par le marchand sur un decaissement
  *   merchant:{id}:billing      commissions Orchi a facturer
  *   orchi:revenue              produit d'Orchi
+ *
+ * OU ATTERRIT LA COMMISSION ORCHI
+ *
+ * Cela depend de `PLATFORM_FEE_COLLECTION`, et de rien d'autre. En `invoice`
+ * (defaut) elle est portee par `merchant:{id}:billing` : c'est une creance, et
+ * le solde de ce compte est exactement ce qu'une facture devra reclamer. En
+ * `split` elle est retenue sur le flux par l'agregateur lui-meme, et
+ * `merchant:{id}:billing` n'est jamais mouvemente.
+ *
+ * Le montant, lui, est identique dans les deux cas — il vient de `pricing.ts`.
  */
 
 export type Side = 'DEBIT' | 'CREDIT';
@@ -118,22 +129,78 @@ export interface PayinPostingInput {
 }
 
 /**
+ * Constatation de la part Orchi en creance.
+ *
+ * Appele en mode `invoice` UNIQUEMENT, et toujours dans la meme transaction
+ * que le journal du flux : les deux ecritures vivent ou meurent ensemble.
+ *
+ * C'est le journal qui rend la passerelle honnete. Orchi ne detenant pas les
+ * fonds, sa commission ne peut pas etre retenue — elle est due par le marchand
+ * et reste a facturer. `merchant:{id}:billing` porte ce solde, et son montant
+ * est exactement ce qu'une facture devra reclamer.
+ */
+async function postFeeAccrued(
+  input: {
+    merchantId: string;
+    refType: 'payment' | 'payout';
+    refId: string;
+    currency: string;
+    providerId: string;
+    platformFee: number;
+  },
+  tx: Prisma.TransactionClient,
+): Promise<void> {
+  if (input.platformFee <= 0) return;
+
+  await postJournal(
+    {
+      merchantId: input.merchantId,
+      type: 'fee.accrued',
+      refType: input.refType,
+      refId: input.refId,
+      currency: input.currency,
+      description: `Commission Orchi a facturer (${input.providerId})`,
+      entries: [
+        { account: accounts.merchantBilling(input.merchantId), side: 'DEBIT', amount: input.platformFee },
+        { account: accounts.orchiRevenue(), side: 'CREDIT', amount: input.platformFee },
+      ],
+    },
+    tx,
+  );
+}
+
+/**
  * Encaissement reussi.
  *
- * La commission Orchi est prelevee SUR LE FLUX : le marchand recoit
- * `montant − frais agregateur − commission Orchi`. Un seul journal suffit donc,
- * et c'est plus sur qu'en deux : un unique journal ne peut pas etre a moitie
- * ecrit.
+ * DEUX ECRITURES POSSIBLES, SELON `PLATFORM_FEE_COLLECTION` :
  *
- * (Une version anterieure separait la commission dans un journal
- * `fee.accrued`, parce qu'elle etait facturee hors flux. Ce n'est plus le
- * modele : la retenue est immediate.)
+ *   invoice  (defaut, modele A) — le marchand recoit `montant − frais
+ *            agregateur`, c'est-a-dire TOUT ce que verse l'agregateur. La part
+ *            Orchi part dans un second journal `fee.accrued`, en creance.
+ *
+ *   split    — l'agregateur reverse directement la part Orchi. Elle est donc
+ *            reellement retenue sur le flux, et un seul journal la constate.
+ *            Suppose un accord sub-merchant.
+ *
+ * Le reglage ne change pas le MONTANT de la commission, seulement le compte qui
+ * la porte. Confondre les deux facturerait deux fois.
+ *
+ * L'objection « un seul journal ne peut pas etre a moitie ecrit » tenait quand
+ * il n'y avait pas de transaction englobante. Les appelants en fournissent une :
+ * deux journaux y sont aussi atomiques qu'un seul.
  */
 export async function postPayinSucceeded(
   input: PayinPostingInput,
   tx: Prisma.TransactionClient = prisma,
 ): Promise<void> {
-  const net = input.amount - input.providerFee - input.platformFee;
+  const accrued = env.PLATFORM_FEE_COLLECTION === 'invoice';
+
+  // En `invoice` la commission ne sort pas du flux : le marchand est credite du
+  // montant moins la seule commission de l'agregateur.
+  const net = accrued
+    ? input.amount - input.providerFee
+    : input.amount - input.providerFee - input.platformFee;
+
   if (net < 0) {
     throw new Error(
       `Commissions (${input.providerFee} + ${input.platformFee}) superieures au montant encaisse (${input.amount}).`,
@@ -160,13 +227,27 @@ export async function postPayinSucceeded(
               },
             ]
           : []),
-        ...(input.platformFee > 0
+        ...(!accrued && input.platformFee > 0
           ? [{ account: accounts.orchiRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
           : []),
       ],
     },
     tx,
   );
+
+  if (accrued) {
+    await postFeeAccrued(
+      {
+        merchantId: input.merchantId,
+        refType: 'payment',
+        refId: input.paymentId,
+        currency: input.currency,
+        providerId: input.providerId,
+        platformFee: input.platformFee,
+      },
+      tx,
+    );
+  }
 }
 
 export interface PayoutPostingInput {
@@ -179,12 +260,19 @@ export interface PayoutPostingInput {
   platformFee: number;
 }
 
+/**
+ * Decaissement reussi. Meme regle de perception qu'a l'encaissement.
+ *
+ * Le cout total pour le marchand est identique dans les deux modes — un
+ * decaissement de 50 000 a 5 % lui coute 52 500 — mais en `invoice` les 2 500
+ * d'Orchi ne sortent pas de son compte agregateur : ils deviennent une creance.
+ */
 export async function postPayoutSucceeded(
   input: PayoutPostingInput,
   tx: Prisma.TransactionClient = prisma,
 ): Promise<void> {
-  // Le marchand est debite du montant verse ET de toutes les commissions : un
-  // decaissement de 50 000 a 5 % lui coute 52 500 au total.
+  const accrued = env.PLATFORM_FEE_COLLECTION === 'invoice';
+
   await postJournal(
     {
       merchantId: input.merchantId,
@@ -197,7 +285,9 @@ export async function postPayoutSucceeded(
         {
           account: accounts.merchantPayable(input.merchantId),
           side: 'DEBIT',
-          amount: input.amount + input.providerFee + input.platformFee,
+          amount: accrued
+            ? input.amount + input.providerFee
+            : input.amount + input.providerFee + input.platformFee,
         },
         { account: accounts.providerClearing(input.providerId), side: 'CREDIT', amount: input.amount },
         ...(input.providerFee > 0
@@ -209,13 +299,27 @@ export async function postPayoutSucceeded(
               },
             ]
           : []),
-        ...(input.platformFee > 0
+        ...(!accrued && input.platformFee > 0
           ? [{ account: accounts.orchiRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
           : []),
       ],
     },
     tx,
   );
+
+  if (accrued) {
+    await postFeeAccrued(
+      {
+        merchantId: input.merchantId,
+        refType: 'payout',
+        refId: input.payoutId,
+        currency: input.currency,
+        providerId: input.providerId,
+        platformFee: input.platformFee,
+      },
+      tx,
+    );
+  }
 }
 
 /* -------------------------------------------------------------------------- */
