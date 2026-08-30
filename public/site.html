@@ -647,8 +647,11 @@
         entries.forEach((e, i) => {
           if (!e.isIntersecting) return;
           // Leger decalage entre elements voisins : l'apparition en bloc fait
-          // « pop », l'echelonnement fait respirer.
-          e.target.style.setProperty('--rd', (i * 0.08) + 's');
+          // « pop », l'echelonnement fait respirer. Plafonne a six rangs : sur
+          // un grand ecran, une vingtaine d'elements entrent dans le champ d'un
+          // coup, et un decalage non borne laissait le bas de la page invisible
+          // pendant deux secondes.
+          e.target.style.setProperty('--rd', (Math.min(i, 6) * 0.08) + 's');
           e.target.classList.add('in');
           observer.unobserve(e.target);
         });
