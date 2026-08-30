@@ -102,8 +102,28 @@ const schema = z.object({
 
 export type Env = z.infer<typeof schema>;
 
+/**
+ * Valeurs deduites de l'hebergeur quand elles n'ont pas ete fournies.
+ *
+ * PUBLIC_BASE_URL sert a construire les URL de callback et les liens de
+ * paiement : une valeur fausse rend toute notification entrante impossible et
+ * produit des liens inutilisables. Or sur un PaaS, l'URL publique n'est connue
+ * qu'apres la creation du service — la saisir a la main est donc une etape
+ * qu'on oublie exactement une fois, et le symptome (« les webhooks n'arrivent
+ * pas ») ne designe pas sa cause.
+ *
+ * Render expose RENDER_EXTERNAL_URL. On ne s'en sert que par defaut : une
+ * valeur explicite, notamment un domaine personnalise, reste prioritaire.
+ */
+function inferred(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (!source.PUBLIC_BASE_URL && source.RENDER_EXTERNAL_URL) {
+    return { ...source, PUBLIC_BASE_URL: source.RENDER_EXTERNAL_URL };
+  }
+  return source;
+}
+
 function load(): Env {
-  const parsed = schema.safeParse(process.env);
+  const parsed = schema.safeParse(inferred(process.env));
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((i) => `  - ${i.path.join('.') || '(racine)'} : ${i.message}`)

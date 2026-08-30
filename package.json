@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/src/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,7 +19,10 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "seed": "tsx scripts/seed-catalog.ts && tsx scripts/seed.ts",
-    "seed:catalog": "tsx scripts/seed-catalog.ts"
+    "seed:catalog": "tsx scripts/seed-catalog.ts",
+    "db:provider": "node scripts/set-db-provider.mjs",
+    "render:build": "npm run db:provider && prisma generate && npm run build",
+    "render:start": "npm run db:provider && prisma db push --skip-generate && node dist/scripts/seed-catalog.js && node dist/src/index.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
