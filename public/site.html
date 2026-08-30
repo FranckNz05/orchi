@@ -460,10 +460,16 @@
   <div class="wrap">
     <h2 class="reveal"><span id="total-rate" class="grad">5 %</span> au total. Toujours.</h2>
     <p class="sub reveal">
-      Pas d'abonnement, pas de frais fixe, pas de facture en fin de mois. Un taux
-      unique prélevé sur chaque transaction réussie — et la part d'Orchi n'est
-      que <strong>le solde après la commission de votre agrégateur</strong>.
-      S'il prend 2 %, nous prenons 3. S'il prend 4 %, nous prenons 1.
+      Pas d'abonnement, pas de frais fixe. Un taux unique sur chaque transaction
+      réussie — et la part d'Orchi n'est que <strong>le solde après la commission
+      de votre agrégateur</strong>. S'il prend 2 %, nous prenons 3. S'il prend
+      4 %, nous prenons 1.
+    </p>
+    <p class="sub reveal">
+      Cette part n'est <strong>jamais retenue sur vos encaissements</strong>. Vos
+      fonds ne transitent pas par nous : ils vont de l'agrégateur à votre compte,
+      sans détour. Nous vous facturons ensuite. Vous encaissez plus tôt et vous
+      payez plus tard.
     </p>
 
     <div class="sim reveal">
@@ -963,14 +969,17 @@
       const total = Math.floor((amount * totalBps + 5000) / 10000);
       const provider = Math.floor((amount * providerBps + 5000) / 10000);
       const platform = Math.max(0, total - provider);
-      const net = amount - provider - platform;
+      // Seule la commission de l'agregateur sort du flux : la part Orchi est
+      // facturee ensuite, elle ne diminue pas ce que le marchand encaisse.
+      const encaisse = amount - provider;
+      const cout = provider + platform;
 
       receipt.innerHTML = `
         <div class="line"><span class="muted">Le client paie</span><span>${fmt(amount)} F</span></div>
         <div class="line"><span class="muted">Commission agrégateur</span><span>− ${fmt(provider)} F</span></div>
-        <div class="line"><span class="muted">Commission Orchi</span><span>− ${fmt(platform)} F</span></div>
-        <div class="line sep net"><span>Vous recevez</span><span>${fmt(net)} F</span></div>
-        <div class="line"><span class="muted">Coût total</span><span class="muted">${fmt(amount - net)} F · ${pct(amount ? Math.round(((amount - net) / amount) * 10000) : 0)}</span></div>
+        <div class="line sep net"><span>Vous encaissez</span><span>${fmt(encaisse)} F</span></div>
+        <div class="line"><span class="muted">Commission Orchi, facturée ensuite</span><span>${fmt(platform)} F</span></div>
+        <div class="line sep"><span class="muted">Coût total</span><span class="muted">${fmt(cout)} F · ${pct(amount ? Math.round((cout / amount) * 10000) : 0)}</span></div>
         ${platform === 0 ? `<p class="warn">À ce niveau de commission, l'agrégateur absorbe la totalité du taux : la part d'Orchi tombe à zéro. Quelques pays du catalogue sont dans ce cas.</p>` : ''}`;
     }
 
