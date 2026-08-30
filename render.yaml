@@ -116,6 +116,21 @@ services:
       - key: WORKERS_ENABLED
         value: "true"
 
+      # Jeu de demonstration : six marchands, environ 160 transactions, des
+      # dossiers d'acces au reel dans les quatre etats, et deux decaissements
+      # bloques en issue inconnue pour que la vue de reconciliation ait de quoi
+      # montrer.
+      #
+      # Passer a "true" pour un environnement de demonstration. Le jeu n'est
+      # genere qu'une fois : le reveil d'une instance endormie rejoue la
+      # commande de demarrage, et regenerer 160 transactions a chaque reveil
+      # couterait une minute pour rien.
+      #
+      # A laisser a "false" partout ou de vraies transactions existeront : le
+      # script commence par effacer les marchands `mch_demo_*`.
+      - key: SEED_DEMO
+        value: "false"
+
       - key: PLATFORM_TOTAL_PAYIN_BPS
         value: "500"
       - key: PLATFORM_TOTAL_PAYOUT_BPS

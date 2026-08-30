@@ -22,7 +22,8 @@
     "seed:catalog": "tsx scripts/seed-catalog.ts",
     "db:provider": "node scripts/set-db-provider.mjs",
     "render:build": "npm run db:provider && prisma generate && npm run build",
-    "render:start": "npm run db:provider && prisma db push --skip-generate && node dist/scripts/seed-catalog.js && node dist/scripts/create-admin.js && node dist/src/index.js"
+    "render:start": "npm run db:provider && prisma db push --skip-generate && node dist/scripts/seed-catalog.js && node dist/scripts/create-admin.js && node dist/scripts/seed-demo.js --auto && node dist/src/index.js",
+    "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
