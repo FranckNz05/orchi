@@ -2,6 +2,7 @@ import { env } from '../core/env.js';
 import { logger } from '../core/logger.js';
 import { purgeExpiredIdempotencyKeys } from '../core/idempotency.js';
 import { purgeExpiredSessions } from '../modules/auth.js';
+import { runPartnerSettlements } from '../modules/partners.js';
 import { sweepStaleAttempts } from '../modules/reconciliation.js';
 import { deliverDueEvents } from '../modules/webhooks/outbound.js';
 import { persistHealthSnapshot } from '../routing/instrument.js';
@@ -42,6 +43,20 @@ const LOOPS: Loop[] = [
       const result = await deliverDueEvents();
       if (result.delivered > 0 || result.failed > 0 || result.exhausted > 0) {
         logger.info(result, 'Livraison des evenements sortants');
+      }
+      return result;
+    },
+  },
+  {
+    name: 'partner-settlements',
+    // Un versement groupe par cycle et par partenaire. La periode est courte
+    // devant le delai de reglement (24 h par defaut) : ce qui commande la date
+    // de versement, c'est `dueAt`, pas la frequence de ce balayage.
+    intervalMs: 900_000,
+    run: async () => {
+      const result = await runPartnerSettlements();
+      if (result.groupes > 0) {
+        logger.info(result, 'Reglements partenaires');
       }
       return result;
     },

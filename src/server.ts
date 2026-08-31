@@ -19,6 +19,7 @@ import { liveAccessRoutes } from './api/routes/live-access.js';
 import { meRoutes } from './api/routes/me.js';
 import { paymentRoutes } from './api/routes/payments.js';
 import { payoutRoutes } from './api/routes/payouts.js';
+import { partnerRoutes } from './api/routes/partners.js';
 import { providerAccountRoutes } from './api/routes/provider-accounts.js';
 import { routingRoutes } from './api/routes/routing.js';
 import { webhookEndpointRoutes } from './api/routes/webhook-endpoints.js';
@@ -56,6 +57,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(liveAccessRoutes);
   await app.register(catalogRoutes);
   await app.register(providerAccountRoutes);
+  await app.register(partnerRoutes);
   await app.register(paymentRoutes);
   await app.register(checkoutRoutes);
   await app.register(payoutRoutes);

@@ -21,6 +21,9 @@ export const ID_PREFIX = {
   routingDecision: 'rtd',
   webhookEvent: 'evt',
   ledgerJournal: 'jrn',
+  partner: 'ptn',
+  partnerAccrual: 'pacr',
+  partnerSettlement: 'pstl',
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];

@@ -13,6 +13,7 @@ import { recordDecision, runInstrumented } from '../routing/instrument.js';
 import { selectCandidates, type RoutingPlan } from '../routing/select.js';
 import { postPayinSucceeded } from './ledger.js';
 import { emitEvent, type EventType } from './webhooks/outbound.js';
+import { accruePartnerShares } from './partners.js';
 import { platformPayinFee } from './pricing.js';
 import { buildProviderContext } from './provider-accounts.js';
 
@@ -458,6 +459,24 @@ async function settleSuccess(
         amount: payment.amount,
         providerFee,
         platformFee: fee.amount,
+      },
+      tx,
+    );
+
+    // Ce qui est du aux partenaires est ECRIT ICI, dans la meme transaction que
+    // le succes — mais rien n'est verse : les fonds ne sont pas encore chez
+    // l'agregateur du marchand. Le versement groupe intervient plus tard
+    // (src/modules/partners.ts).
+    await accruePartnerShares(
+      {
+        merchantId: payment.merchantId,
+        paymentId: payment.id,
+        environment: payment.environment,
+        currency: payment.currency,
+        amount: payment.amount,
+        providerFee,
+        platformFee: fee.amount,
+        succeededAt: updated.succeededAt ?? new Date(),
       },
       tx,
     );

@@ -361,6 +361,62 @@ seul journal la constate : `merchant:mch_x:receivable` est crédité de 14 250 e
 `postJournal` refuse toute écriture déséquilibrée — une erreur doit échouer là
 où elle est produite, pas être découverte six mois plus tard.
 
+### Répartition aux partenaires
+
+Un marchand peut déclarer des **partenaires** — des tiers à qui une part de
+chaque encaissement réussi est due. `POST /v1/partners` enregistre une
+destination de versement et une part en points de base.
+
+Rien n'est versé au moment du paiement, et ce n'est pas un raccourci
+d'implémentation :
+
+- **Les fonds ne sont pas là.** Un encaissement « réussi » signifie que le
+  client a payé, pas que l'argent est disponible sur le compte agrégateur du
+  marchand — les agrégateurs règlent à J+1 ou J+2. Un versement immédiat
+  échouerait pour solde insuffisant.
+- **Chaque versement coûte.** Un décaissement supporte le taux complet. Verser à
+  trois partenaires à chaque transaction, c'est trois frais par transaction.
+
+D'où deux temps distincts. À chaque encaissement, `accruePartnerShares` **écrit
+ce qui est dû** dans la même transaction que le succès du paiement. Puis une
+boucle de fond regroupe toutes les accumulations échues d'un partenaire en **un
+seul décaissement**. Trois cents encaissements produisent un versement par jour,
+pas trois cents.
+
+```
+PARTNER_SETTLEMENT_DELAY_MS    délai avant qu'une part devienne réglable (24 h)
+PARTNER_SETTLEMENT_MIN_MINOR   seuil sous lequel le versement est REPORTÉ (1000)
+```
+
+**L'arrondi, et qui absorbe le reste.** Chaque part est arrondie à
+l'**inférieur**, et le reste demeure au marchand. La somme versée ne peut donc
+jamais dépasser l'assiette, et un partenaire n'est jamais payé au-delà de sa
+part. C'est une règle de contrat autant que de code : elle doit figurer dans
+l'accord avec le partenaire.
+
+**L'assiette.** Par défaut `net` — ce que le marchand garde réellement, après
+commission agrégateur *et* commission Orchi. C'est la seule définition qui ne
+l'engage pas au-delà de ce qu'il encaisse. `gross` reste disponible et porte sur
+le montant payé par le client final.
+
+**Les trois issues d'un versement**, et la troisième commande toute la
+structure :
+
+| Issue du décaissement | Règlement | Accumulations |
+|---|---|---|
+| `SUCCEEDED` | `PAID` | Consommées |
+| `FAILED` — échec explicite, rien n'a bougé | `FAILED` | **Relâchées**, repartent au cycle suivant |
+| `UNKNOWN` — on ignore si l'argent est parti | `BLOCKED` | **Jamais relâchées** |
+
+Les accumulations sont marquées consommées **avant** l'appel sortant. Relâcher
+sur un état indéterminé enverrait un second versement sur des fonds peut-être
+déjà partis — exactement le double paiement que tout le reste du système
+s'emploie à rendre impossible.
+
+Désactiver un partenaire arrête les nouvelles accumulations mais **n'annule pas**
+ce qui lui est déjà dû : couper une configuration et effacer une dette sont deux
+gestes différents.
+
 ### Coffre de clés
 
 `POST /v1/provider-accounts` enregistre les clés du marchand chez un agrégateur,

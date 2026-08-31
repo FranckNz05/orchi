@@ -102,6 +102,27 @@ const schema = z.object({
    */
   PLATFORM_FEE_COLLECTION: z.enum(['split', 'on_top', 'invoice']).default('invoice'),
 
+  /**
+   * Delai avant qu'une part partenaire ne devienne reglable.
+   *
+   * Un encaissement « reussi » ne signifie PAS que les fonds sont disponibles
+   * sur le compte agregateur du marchand : les agregateurs reglent souvent a
+   * J+1 ou J+2. Verser au partenaire immediatement, c'est verser des fonds qui
+   * ne sont pas encore arrives — et voir le decaissement echouer pour solde
+   * insuffisant. 24 h par defaut.
+   */
+  PARTNER_SETTLEMENT_DELAY_MS: z.coerce.number().int().min(0).default(86_400_000),
+
+  /**
+   * Montant minimal d'un versement groupe, en unites mineures.
+   *
+   * Sous ce seuil, le versement est REPORTE et non annule : les accumulations
+   * restent en attente et grossissent. Verser 50 XOF a un partenaire couterait
+   * plus cher en frais que la somme versee, et certains agregateurs refusent
+   * les petits montants (GeniusPay impose 200 XOF).
+   */
+  PARTNER_SETTLEMENT_MIN_MINOR: z.coerce.number().int().min(0).default(1000),
+
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 });

@@ -23,7 +23,7 @@ Ce que cela change concrètement pour vous :
 |---|---|
 | Règlement | Vous êtes réglé par votre agrégateur, selon vos conditions avec lui |
 | Commission agrégateur | Prélevée par lui, sur le flux, comme aujourd'hui |
-| Commission Orchi | Retenue sur le flux, transaction par transaction (voir §10) |
+| Commission Orchi | **Jamais** retenue sur le flux : constatée à chaque transaction, puis facturée (voir §10) |
 | Réglementation | Vous restez le marchand de référence ; Orchi n'est pas dans la chaîne de détention de fonds |
 
 ---
@@ -560,6 +560,98 @@ Le champ `fees.platform` vaut alors `0`.
 en points de base (500 = 5,00 %). Une tarification négociée par marchand est
 prévue mais pas encore implémentée.
 
+## 10bis. Reverser une part à des partenaires
+
+Si une part de chaque encaissement revient à des tiers — apporteurs d'affaires,
+vendeurs d'une place de marché, co-contractants — déclarez-les comme
+**partenaires**. Orchi calcule ce qui leur est dû à chaque vente et le leur verse
+automatiquement.
+
+```bash
+curl -X POST https://api.orchi.africa/v1/partners   -H "Authorization: Bearer sk_test_..."   -H "Content-Type: application/json"   -d '{
+    "reference": "transporteur-nord",
+    "name": "Transports Sahel SARL",
+    "country": "BJ",
+    "currency": "XOF",
+    "channel": "mobile_money",
+    "share_bps": 1000,
+    "recipient": { "phone": "+22997000001", "network": "MTN_BENIN", "name": "Transports Sahel" }
+  }'
+```
+
+`share_bps` est en points de base : `1000` = 10 %. La `reference` est la vôtre —
+rejouer le même appel met à jour le partenaire au lieu d'en créer un second.
+
+### Le versement est différé, et groupé
+
+**C'est le point à comprendre avant de vendre cette fonction à votre propre
+client.** Rien n'est versé à l'instant du paiement, pour deux raisons :
+
+- **Les fonds ne sont pas encore là.** Un encaissement « réussi » signifie que le
+  client a payé, pas que l'argent est disponible sur votre compte agrégateur :
+  ceux-ci règlent généralement à J+1 ou J+2. Verser immédiatement échouerait pour
+  solde insuffisant.
+- **Chaque versement coûte.** Un décaissement supporte le taux complet. Verser à
+  trois partenaires à chaque transaction, ce serait trois frais par transaction —
+  la répartition coûterait vite plus cher que ce qu'elle distribue.
+
+Orchi **accumule** donc ce qui est dû à chaque vente, puis regroupe toutes les
+sommes échues d'un partenaire en **un seul versement**. Trois cents ventes
+produisent un versement par jour et par partenaire, pas trois cents.
+
+La promesse tenable auprès de votre client est donc « le lendemain », pas
+« instantanément ». C'est une contrainte du règlement des agrégateurs, pas
+d'Orchi.
+
+### Sur quoi la part est calculée
+
+Par défaut sur le **net** : ce que vous gardez réellement, après commission
+agrégateur *et* commission Orchi. C'est la seule assiette qui ne peut pas vous
+engager au-delà de ce que vous encaissez.
+
+```
+Vente de 15 000 XOF, agrégateur à 0 %, partenaire à 10 %
+
+Le client paie              15 000 XOF
+Commission Orchi (5 %)         750 XOF   ← facturée ensuite
+Net                         14 250 XOF
+Part du partenaire (10 %)    1 425 XOF   ← versée le lendemain, groupée
+```
+
+Passez `"share_base": "gross"` pour calculer sur le montant payé par le client
+final. La somme des parts actives ne peut pas dépasser **90 %** : au-delà, il ne
+vous resterait rien pour régler la commission Orchi.
+
+**L'arrondi** se fait toujours à l'inférieur, et le reste vous demeure. Un
+partenaire n'est donc jamais payé au-delà de sa part. Faites figurer cette règle
+dans votre accord avec lui.
+
+### Suivre ce qui est dû
+
+```bash
+curl -H "Authorization: Bearer sk_test_..." https://api.orchi.africa/v1/partners/pending
+```
+
+Répond, partenaire par partenaire, ce qui est accumulé et pas encore versé.
+`GET /v1/partner-settlements` liste les versements groupés déjà déclenchés, avec
+leur statut et l'identifiant du décaissement correspondant.
+
+Un règlement peut porter l'état **`BLOCKED`** : le décaissement s'est terminé
+dans un état indéterminé, et Orchi refuse de le rejouer tant que la
+réconciliation n'a pas tranché. Les sommes concernées ne sont ni perdues ni
+versées deux fois — elles attendent. C'est la même règle que pour vos propres
+décaissements, décrite au chapitre 7.
+
+Désactiver un partenaire (`DELETE /v1/partners/{id}`) arrête les nouvelles
+accumulations mais **n'annule pas** ce qui lui est déjà dû.
+
+### Limite à connaître
+
+Le pays du partenaire doit supporter le décaissement, et sa devise doit être
+celle de l'encaissement — Orchi ne convertit pas. Une part configurée dans une
+autre devise que la vente est ignorée, et l'événement est journalisé. Vérifiez la
+couverture avant de vous engager auprès de votre client.
+
 ## 11. Environnement de test
 
 Avec une clé `sk_test_`, le simulateur couvre **tous les pays et tous les
@@ -650,6 +742,11 @@ curl -H "Authorization: Bearer sk_test_..." \
 | `POST` | `/v1/payouts` | Créer un décaissement |
 | `GET` | `/v1/payouts/:id` | Consulter et rafraîchir |
 | `POST` | `/v1/payouts/:id/retry` | Relancer (refusé si `UNKNOWN`) |
+| `POST` | `/v1/partners` | Déclarer ou mettre à jour un partenaire |
+| `GET` | `/v1/partners` | Lister ses partenaires |
+| `DELETE` | `/v1/partners/:id` | Désactiver un partenaire (sans effacer ce qui lui est dû) |
+| `GET` | `/v1/partners/pending` | Ce qui est dû et pas encore versé |
+| `GET` | `/v1/partner-settlements` | Versements groupés et leur statut |
 | `POST` | `/v1/webhook-endpoints` | Déclarer un endpoint de notification |
 | `GET` | `/v1/webhook-endpoints` | Lister ses endpoints |
 | `DELETE` | `/v1/webhook-endpoints/:id` | Désactiver un endpoint |

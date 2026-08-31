@@ -73,6 +73,7 @@ model Merchant {
   webhookEndpoints WebhookEndpoint[]
   users            User[]
   checkoutSessions CheckoutSession[]
+  partners         Partner[]
 
   @@index([status])
   @@map("merchants")
@@ -884,4 +885,144 @@ model CheckoutSession {
   @@unique([merchantId, reference])
   @@index([status, expiresAt])
   @@map("checkout_sessions")
+}
+
+/// Un partenaire d'un marchand : un tiers a qui une part de chaque encaissement
+/// reussi est due.
+///
+/// POURQUOI CE N'EST PAS UN MARCHAND
+///
+/// Un partenaire ne s'authentifie pas, n'appelle pas l'API, et n'a pas de
+/// compte agregateur. Il n'est qu'une DESTINATION de versement plus une regle
+/// de calcul. Le modeliser en marchand aurait impose une identite, une
+/// verification KYB et des cles a un tiers qui n'en a pas besoin.
+model Partner {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// Reference choisie par le marchand. Unique chez lui : rejouer la
+  /// configuration ne cree pas un doublon.
+  reference String
+  name      String
+
+  /// test | live. Un partenaire de test ne doit jamais recevoir de vrais fonds.
+  environment String @default("test")
+
+  /// Destination du versement. Mêmes champs que Payout : c'est exactement ce
+  /// qu'on lui passera.
+  country                String
+  currency               String
+  /// mobile_money | bank_transfer
+  channel                String
+  recipientPhone         String? @map("recipient_phone")
+  recipientNetwork       String? @map("recipient_network")
+  recipientAccountNumber String? @map("recipient_account_number")
+  recipientBankCode      String? @map("recipient_bank_code")
+  recipientName          String? @map("recipient_name")
+
+  /// Part due, en points de base (250 = 2,50 %).
+  shareBps Int @map("share_bps")
+
+  /// gross | net — l'assiette du calcul.
+  ///   gross : le montant paye par le client final
+  ///   net   : ce que le marchand garde reellement, apres commission
+  ///           agregateur ET commission Orchi
+  /// `net` par defaut : c'est la seule assiette qui ne peut pas engager le
+  /// marchand au-dela de ce qu'il encaisse.
+  shareBase String @default("net") @map("share_base")
+
+  /// ACTIVE | DISABLED. Desactiver arrete les nouvelles accumulations sans
+  /// toucher a celles qui restent a regler.
+  status String @default("ACTIVE")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accruals    PartnerAccrual[]
+  settlements PartnerSettlement[]
+
+  @@unique([merchantId, reference, environment])
+  @@index([merchantId, environment, status])
+  @@map("partners")
+}
+
+/// Ce qu'un encaissement precis doit a un partenaire precis.
+///
+/// Ecrit DANS LA MEME TRANSACTION que le succes du paiement : une accumulation
+/// ne peut pas exister sans son paiement, ni l'inverse.
+model PartnerAccrual {
+  id String @id
+
+  partnerId  String  @map("partner_id")
+  partner    Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  merchantId String  @map("merchant_id")
+  paymentId  String  @map("payment_id")
+
+  currency String
+  /// Assiette effectivement retenue, conservee pour pouvoir refaire le calcul.
+  baseAmount Int @map("base_amount")
+  amount     Int
+  shareBps   Int @map("share_bps")
+
+  /// PENDING | SETTLED | CANCELLED
+  status String @default("PENDING")
+
+  settlementId String?            @map("settlement_id")
+  settlement   PartnerSettlement? @relation(fields: [settlementId], references: [id])
+
+  /// Date a partir de laquelle cette accumulation peut etre reglee : le succes
+  /// du paiement plus le delai de reglement de l'agregateur. Verser avant, ce
+  /// serait verser des fonds qui ne sont pas encore arrives.
+  dueAt DateTime @map("due_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// Un paiement n'est accru qu'UNE FOIS par partenaire. C'est le filet contre
+  /// la double accumulation si un succes etait rejoue.
+  @@unique([partnerId, paymentId])
+  @@index([status, dueAt])
+  @@index([merchantId, status])
+  @@map("partner_accruals")
+}
+
+/// Un versement groupe : toutes les accumulations echues d'un partenaire, dans
+/// une devise, reglees en UN SEUL decaissement.
+///
+/// C'est tout l'interet du differe : trois cents encaissements produisent un
+/// versement par jour, pas trois cents. Le cout de decaissement est divise
+/// d'autant.
+model PartnerSettlement {
+  id String @id
+
+  partnerId  String  @map("partner_id")
+  partner    Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  merchantId String  @map("merchant_id")
+
+  environment String @default("test")
+  currency    String
+  amount      Int
+  /// Nombre d'accumulations regroupees. Sert au rapprochement.
+  accrualCount Int @map("accrual_count")
+
+  /// PENDING | PAID | FAILED | BLOCKED
+  ///
+  /// BLOCKED est l'etat le plus important : il traduit un decaissement d'issue
+  /// INDETERMINEE. Les accumulations restent consommees et ne sont JAMAIS
+  /// relachees, faute de quoi un second versement partirait sur des fonds
+  /// peut-etre deja partis.
+  status String @default("PENDING")
+
+  payoutId      String? @unique @map("payout_id")
+  failureReason String? @map("failure_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  accruals PartnerAccrual[]
+
+  @@index([merchantId, status])
+  @@index([status, createdAt])
+  @@map("partner_settlements")
 }
