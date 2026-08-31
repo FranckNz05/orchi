@@ -3,6 +3,7 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { env, isProduction } from './core/env.js';
+import { hashApiKey } from './core/crypto.js';
 import { logger } from './core/logger.js';
 import { newId } from './core/ids.js';
 import { auth } from './api/plugins/auth.js';
@@ -42,8 +43,26 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(rateLimit, {
     max: env.RATE_LIMIT_MAX,
     timeWindow: env.RATE_LIMIT_WINDOW,
-    // Limite par cle API quand elle est connue, sinon par IP.
-    keyGenerator: (request) => request.auth?.apiKeyId ?? request.ip,
+    /**
+     * Limite par cle API quand il y en a une, sinon par IP.
+     *
+     * Le jeton est relu DEPUIS L'EN-TETE et non depuis `request.auth` : la
+     * limitation s'execute en `onRequest`, tandis que l'authentification est un
+     * `preHandler`. `request.auth` n'y est donc jamais renseigne — la version
+     * precedente retombait silencieusement sur l'IP pour tout le monde, et deux
+     * marchands derriere un meme NAT partageaient un seul quota.
+     *
+     * C'est l'empreinte du jeton qui sert de cle, jamais le jeton : le
+     * compteur vit en memoire et n'a aucune raison d'y conserver un secret.
+     */
+    keyGenerator: (request) => {
+      const header = request.headers.authorization;
+      if (header && header.slice(0, 7).toLowerCase() === 'bearer ') {
+        const token = header.slice(7).trim();
+        if (token.length > 0) return `k:${hashApiKey(token)}`;
+      }
+      return `ip:${request.ip}`;
+    },
   });
 
   await app.register(errorHandler);

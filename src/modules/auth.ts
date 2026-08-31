@@ -176,8 +176,17 @@ export interface RegisterInput {
   companyName: string;
   country: string;
   legalType?: 'COMPANY' | 'INDIVIDUAL';
-  registrationNumber?: string;
 }
+
+/**
+ * L'immatriculation n'est PAS demandee ici.
+ *
+ * L'inscription n'ouvre qu'un compte de test, ou aucun fonds ne circule. Exiger
+ * un numero RCCM a ce moment-la ecartait des marchands qui voulaient seulement
+ * essayer l'API, sans rien proteger : le champ n'etait ni verifie, ni oppose a
+ * quoi que ce soit. La piece est demandee la ou elle sert reellement, au depot
+ * du dossier d'acces reel (src/modules/live-access.ts), avec le reste.
+ */
 
 export const authErrors = {
   emailTaken: () =>
@@ -254,7 +263,6 @@ export async function register(input: RegisterInput): Promise<SessionContext & {
       name: input.companyName.trim(),
       legalType: input.legalType ?? 'COMPANY',
       country: input.country.toUpperCase(),
-      registrationNumber: input.registrationNumber?.trim() || null,
       contactEmail: email,
     },
   });

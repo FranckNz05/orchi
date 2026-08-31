@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { assertDeliverableUrl } from '../../core/ssrf.js';
 import { decryptSecret, encryptSecret } from '../../core/crypto.js';
 import { env } from '../../core/env.js';
 import { errors } from '../../core/errors.js';
@@ -57,6 +58,11 @@ export async function createEndpoint(input: {
   events?: string[];
   description?: string;
 }): Promise<EndpointView & { secret: string }> {
+  // Refuse ici ce qui ne pourra jamais etre livre sans risque : une adresse
+  // interne, un schema exotique, des identifiants dans l'URL. Echouer a la
+  // declaration vaut mieux qu'accumuler des livraisons en echec.
+  await assertDeliverableUrl(input.url);
+
   // Le secret n'est montre qu'ici. Il est chiffre au repos comme les
   // credentials agregateurs : une fuite de la base ne doit pas permettre de
   // forger un evenement credible vers un marchand.
@@ -273,6 +279,10 @@ export async function deliverDueEvents(limit = 20, now = new Date()): Promise<De
     let error: string | null = null;
 
     try {
+      // Rejouee a chaque envoi, et pas seulement a la declaration : le DNS peut
+      // avoir change depuis (« DNS rebinding »).
+      await assertDeliverableUrl(delivery.endpoint.url);
+
       const response = await fetch(delivery.endpoint.url, {
         method: 'POST',
         headers: {
@@ -284,6 +294,9 @@ export async function deliverDueEvents(limit = 20, now = new Date()): Promise<De
         },
         body: delivery.payload,
         signal: controller.signal,
+        // Sans cela, une URL publique parfaitement valide peut repondre 302
+        // vers 169.254.169.254 et contourner tout le controle ci-dessus.
+        redirect: 'manual',
       });
       statusCode = response.status;
       if (!response.ok) error = `HTTP ${response.status}`;

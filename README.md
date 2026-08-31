@@ -541,6 +541,53 @@ src/
 - Le processus refuse de démarrer si une variable d'environnement est absente ou
   malformée.
 
+### SSRF : les URL fournies par un marchand
+
+Un marchand déclare librement l'URL de son endpoint de webhook, et c'est **notre
+serveur** qui va la joindre. Sans contrôle, `https://…` accepte aussi bien
+`http://169.254.169.254/` — le service de métadonnées de l'hébergeur, souvent
+porteur de credentials — que `http://127.0.0.1:3000/v1/…`, c'est-à-dire notre
+propre API vue de l'intérieur. Le marchand ne lit pas la réponse, mais le code de
+statut et le délai suffisent à cartographier un réseau interne.
+
+[`assertDeliverableUrl`](src/core/ssrf.ts) refuse tout ce qui n'est pas
+joignable sans risque : schéma autre que http/https, identifiants dans l'URL,
+et surtout **adresse résolue** privée, boucle locale, lien-local, CGNAT,
+multicast ou réservée. C'est l'adresse qui est vérifiée, pas le nom :
+`interne.exemple.com` peut pointer sur `10.0.0.5`.
+
+Trois précautions valent d'être notées :
+
+- La vérification est **rejouée avant chaque livraison**, pas seulement à la
+  déclaration : le DNS peut changer entre les deux (*DNS rebinding*).
+- La livraison utilise `redirect: 'manual'`. Sans cela, une URL publique
+  parfaitement valide peut répondre `302` vers une adresse interne.
+- **Toutes** les adresses résolues doivent être publiques. Un nom qui résout à la
+  fois sur une adresse publique et une adresse interne est exactement le montage
+  qu'on cherche à bloquer.
+
+Hors production, les adresses locales restent autorisées : la suite de tests fait
+tourner un serveur marchand sur `127.0.0.1`.
+
+### Force brute sur les mots de passe
+
+Le quota global (`RATE_LIMIT_MAX`, 300/minute) est dimensionné pour du trafic de
+paiement. Appliqué tel quel à `/auth/login`, il laisserait 300 essais de mot de
+passe par minute et par IP. Ces routes ont donc leurs propres limites :
+`AUTH_RATE_LIMIT_MAX` (10 / 5 min) et `REGISTER_RATE_LIMIT_MAX` (20 / heure).
+
+La limite porte sur l'IP, **pas sur le compte visé** : verrouiller un compte
+après N échecs offrirait à n'importe qui le moyen d'enfermer dehors le titulaire
+d'une adresse connue. Un attaquant disposant de nombreuses IP reste donc
+possible — la vraie réponse à ce cas est une seconde authentification, qui
+n'existe pas encore.
+
+Le `keyGenerator` du quota global relit le jeton **depuis l'en-tête**, et non
+depuis `request.auth` : la limitation s'exécute en `onRequest` alors que
+l'authentification est un `preHandler`. La version précédente retombait donc
+silencieusement sur l'IP pour tout le monde, et deux marchands derrière un même
+NAT partageaient un seul quota.
+
 ## Montants
 
 Tous les montants circulent en **unités mineures entières**, jamais en

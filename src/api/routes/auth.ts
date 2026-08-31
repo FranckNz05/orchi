@@ -20,7 +20,6 @@ const registerBody = z.object({
   company_name: z.string().min(2).max(160),
   country: z.string().length(2),
   legal_type: z.enum(['COMPANY', 'INDIVIDUAL']).default('COMPANY'),
-  registration_number: z.string().max(80).optional(),
 });
 
 const loginBody = z.object({
@@ -49,13 +48,34 @@ function setSessionCookie(reply: FastifyReply, token: string, expiresAt: Date) {
   });
 }
 
+/**
+ * Limites strictes sur les routes qui manipulent un mot de passe.
+ *
+ * Le quota global (300/minute) est dimensionne pour du trafic de paiement : il
+ * laisserait 300 essais de mot de passe par minute et par IP, ce qui ne freine
+ * aucune attaque par dictionnaire. Ces routes-ci meritent un ordre de grandeur
+ * different.
+ *
+ * La limite porte sur l'IP, pas sur le compte vise. C'est un choix : verrouiller
+ * un compte apres N echecs offrirait a n'importe qui le moyen d'enfermer
+ * dehors le titulaire d'une adresse connue. Un attaquant disposant de
+ * nombreuses IP reste donc possible — la vraie reponse a ce cas est une
+ * seconde authentification, qui n'existe pas encore.
+ */
+const LIMITE_CONNEXION = {
+  rateLimit: { max: env.AUTH_RATE_LIMIT_MAX, timeWindow: env.AUTH_RATE_LIMIT_WINDOW },
+};
+const LIMITE_INSCRIPTION = {
+  rateLimit: { max: env.REGISTER_RATE_LIMIT_MAX, timeWindow: env.REGISTER_RATE_LIMIT_WINDOW },
+};
+
 export async function authRoutes(app: FastifyInstance) {
   /**
    * Inscription. Cree l'entreprise et son premier utilisateur, puis ouvre la
    * session : demander a l'utilisateur de se reconnecter juste apres s'etre
    * inscrit n'apporte rien.
    */
-  app.post('/auth/register', async (request, reply) => {
+  app.post('/auth/register', { config: LIMITE_INSCRIPTION }, async (request, reply) => {
     const body = registerBody.parse(request.body);
 
     const country = getCountry(body.country);
@@ -70,7 +90,6 @@ export async function authRoutes(app: FastifyInstance) {
       companyName: body.company_name,
       country: body.country,
       legalType: body.legal_type,
-      ...(body.registration_number ? { registrationNumber: body.registration_number } : {}),
     });
 
     setSessionCookie(reply, session.token, new Date(Date.now() + 7 * 24 * 3600 * 1000));
@@ -83,7 +102,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post('/auth/login', async (request, reply) => {
+  app.post('/auth/login', { config: LIMITE_CONNEXION }, async (request, reply) => {
     const body = loginBody.parse(request.body);
 
     const { token, context } = await login(body.email, body.password, {

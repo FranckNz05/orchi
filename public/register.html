@@ -100,27 +100,21 @@
         </label>
       </div>
 
-      <div class="row">
-        <label>
-          Forme
-          <select name="legal_type">
-            <option value="COMPANY">Entreprise</option>
-            <option value="INDIVIDUAL">Particulier / micro-entrepreneur</option>
-          </select>
-        </label>
-        <label>
-          Immatriculation
-          <span class="hint" id="reg-hint">RCCM, CAC, NINEA…</span>
-          <input name="registration_number" autocomplete="off" />
-        </label>
-      </div>
+      <label>
+        Forme
+        <select name="legal_type">
+          <option value="COMPANY">Entreprise</option>
+          <option value="INDIVIDUAL">Particulier / micro-entrepreneur</option>
+        </select>
+      </label>
 
       <button type="submit" class="btn solid lg" id="submit">Créer mon compte</button>
     </form>
 
     <div class="note">
-      L'immatriculation n'est pas vérifiée à l'inscription : elle est transmise à
-      l'agrégateur au moment où vous connectez un compte réel.
+      L'inscription ouvre un compte de test, sans aucune pièce justificative.
+      Votre immatriculation ne vous sera demandée qu'au moment de passer en
+      production, avec le reste du dossier.
     </div>
 
     <p class="alt">Déjà inscrit ? <a href="/login">Se connecter</a></p>
@@ -138,16 +132,8 @@
   const meter = document.getElementById('meter');
   const password = document.getElementById('password');
   const country = document.getElementById('country');
-  const regHint = document.getElementById('reg-hint');
 
   let catalog = [];
-
-  const KYC_LABELS = {
-    RCCM_REQUIRED: 'RCCM requis',
-    LOCAL_REGISTRATION: 'Immatriculation locale',
-    STATE_AUTHORIZATION: 'Autorisation d’État requise',
-    LIGHT_KYC: 'KYC allégé',
-  };
 
   // La jauge suit la LONGUEUR, pas la presence de symboles : imposer un
   // caractere special sur huit caracteres produit `Passw0rd!`, que tout
@@ -156,13 +142,6 @@
     const n = password.value.length;
     meter.style.width = Math.min(100, Math.round((n / 20) * 100)) + '%';
     meter.style.background = n < 12 ? 'var(--warn)' : 'var(--accent)';
-  };
-
-  country.onchange = () => {
-    const c = catalog.find((x) => x.iso2 === country.value);
-    if (!c) return;
-    regHint.textContent = (KYC_LABELS[c.kyc_requirement] || 'Immatriculation')
-      + (c.allows_individual ? ' — particuliers acceptés sous plafond' : '');
   };
 
   (async () => {
@@ -176,7 +155,6 @@
         .map((c) => `<option value="${c.iso2}">${c.name}</option>`)
         .join('');
       country.value = 'BJ';
-      country.onchange();
     } catch {
       country.innerHTML = '<option value="BJ">Bénin</option>';
     }
@@ -189,7 +167,6 @@
     submit.textContent = 'Création…';
 
     const data = Object.fromEntries(new FormData(form));
-    if (!data.registration_number) delete data.registration_number;
 
     try {
       const res = await fetch('/auth/register', {

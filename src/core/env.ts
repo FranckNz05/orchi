@@ -123,6 +123,19 @@ const schema = z.object({
    */
   PARTNER_SETTLEMENT_MIN_MINOR: z.coerce.number().int().min(0).default(1000),
 
+  /**
+   * Limites propres aux routes qui manipulent un mot de passe.
+   *
+   * Le quota global est dimensionne pour du trafic de paiement : applique tel
+   * quel a /auth/login, il laisserait 300 essais par minute et par IP, ce qui
+   * ne freine aucune attaque par dictionnaire. Configurables parce que la suite
+   * de tests, qui vient toute d'une meme adresse, a besoin de les relever.
+   */
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  AUTH_RATE_LIMIT_WINDOW: z.string().default('5 minutes'),
+  REGISTER_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  REGISTER_RATE_LIMIT_WINDOW: z.string().default('1 hour'),
+
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   RATE_LIMIT_WINDOW: z.string().default('1 minute'),
 });

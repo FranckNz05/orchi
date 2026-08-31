@@ -41,7 +41,10 @@ async function serve(reply: FastifyReply, name: string, request: FastifyRequest)
         // existe.
         "default-src 'none'; style-src 'self' 'unsafe-inline'; " +
           "script-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
-          "connect-src 'self'; form-action 'self'",
+          "connect-src 'self'; form-action 'self'; " +
+          // Le tableau de bord declenche des decaissements : l'encadrer dans un
+          // iframe tiers permettrait de faire cliquer l'utilisateur a l'aveugle.
+          "frame-ancestors 'none'; base-uri 'none'",
       )
       .send(html);
   } catch (e) {
