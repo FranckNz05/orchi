@@ -170,18 +170,19 @@ describe('encaissement', () => {
     expect(headers['x-api-secret']).toBe('sk_sandbox_xxx');
   });
 
-  it('appelle l’API avec la seule cle, sans secret', async () => {
-    // Verifie contre le sandbox reel : `X-API-Key` seule authentifie. Exiger un
-    // secret empechait de connecter un compte qui n'en recoit qu'une.
+  it('accepte une cle SECRETE seule, sans en-tete de secret', async () => {
+    // C'est ce qui a ete verifie contre le sandbox reel : une cle `sk_` placee
+    // dans `X-API-Key` authentifie a elle seule. Une cle PUBLIQUE seule, elle,
+    // est refusee — voir le bloc « couple cle publique / cle secrete ».
     reply('POST /gp/payments', {
       success: true,
       data: { reference: 'MTX-solo', status: 'pending', payment_url: 'https://pay/solo' },
     });
 
-    await geniuspayProvider.createCharge(charge(), { ...ctx, credentials: { api_key: 'pk_x' } });
+    await geniuspayProvider.createCharge(charge(), { ...ctx, credentials: { api_key: 'sk_x' } });
 
     const headers = called('POST', '/gp/payments')!.headers;
-    expect(headers['x-api-key']).toBe('pk_x');
+    expect(headers['x-api-key']).toBe('sk_x');
     expect(headers['x-api-secret']).toBeUndefined();
   });
 
@@ -433,5 +434,35 @@ describe('webhooks', () => {
       ctx,
     );
     expect(verdict).toEqual({ valid: false, reason: 'Corps non JSON.' });
+  });
+});
+
+describe('couple cle publique / cle secrete', () => {
+  it('refuse une cle publique seule, avant tout appel sortant', async () => {
+    // Le schema documente par GeniusPay est pk_ dans X-API-Key + sk_ dans
+    // X-API-Secret. Un pk_ seul serait refuse par eux a la premiere vraie
+    // transaction : autant echouer ici, avec un message qui dit quoi faire.
+    const error = (await geniuspayProvider
+      .createCharge(charge(), { ...ctx, credentials: { api_key: 'pk_live_xxx' } })
+      .catch((e) => e)) as ProviderError;
+
+    expect(error.code).toBe('authentication');
+    expect(error.message).toContain('api_secret');
+  });
+
+  it('envoie les deux en-tetes quand les deux cles sont fournies', async () => {
+    reply('POST /gp/payments', {
+      success: true,
+      data: { reference: 'MTX-duo', status: 'pending', payment_url: 'https://pay/duo' },
+    });
+
+    await geniuspayProvider.createCharge(charge(), {
+      ...ctx,
+      credentials: { api_key: 'pk_live_abc', api_secret: 'sk_live_def' },
+    });
+
+    const headers = called('POST', '/gp/payments')!.headers;
+    expect(headers['x-api-key']).toBe('pk_live_abc');
+    expect(headers['x-api-secret']).toBe('sk_live_def');
   });
 });

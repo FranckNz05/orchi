@@ -35,8 +35,10 @@ import type {
  * │   - enveloppe { success, data } / { success, error: { code, message } }  │
  * │   - `metadata` est bien restitue tel quel (notre reference y voyage)     │
  * │                                                                          │
- * │ DEMENTI PAR L'APPEL REEL — la doc etait fausse :                         │
- * │   - PAS de couple X-API-Key + X-API-Secret (voir `headers`)              │
+ * │ DEMENTI PAR L'APPEL REEL :                                               │
+ * │   - le couple X-API-Key + X-API-Secret n'est PAS obligatoire : une cle   │
+ * │     SECRETE placee dans X-API-Key authentifie seule. Une cle PUBLIQUE    │
+ * │     seule ne le peut pas — `headers` la refuse avant l'appel.            │
  * │   - reference au format SANDBOX_XXXXXXXXXXXXXXXX, pas MTX-XXXXXXXXXX.    │
  * │     Rien ne s'appuyait sur ce format, mais ne pas s'y fier.              │
  * │   - `status` vaut null A LA CREATION, et "pending" a la lecture du meme  │
@@ -50,8 +52,16 @@ import type {
  * │   - `scenario` (« success ») : le sandbox a ses propres scenarios        │
  * │   - `tokens_remaining` : le sandbox est rationne                         │
  * │                                                                          │
+ * │ CONFIRME PAR LA DOC MARCHAND (31/08/2026), non encore observe :          │
+ * │   - webhooks : HMAC-SHA256 sur `timestamp + "." + payload`, en-tetes     │
+ * │     X-Webhook-Signature / X-Webhook-Timestamp, fenetre de 5 minutes.     │
+ * │     C'est exactement ce que `verifyWebhook` implemente. Leur exemple PHP │
+ * │     resigne un JSON RESERIALISE ; nous signons les octets recus, ce qui  │
+ * │     resiste a un changement d'ordre des cles.                            │
+ * │   - la couverture regionale publiee redonne bien les memes 21 pays.      │
+ * │                                                                          │
  * │ TOUJOURS NON VERIFIE :                                                   │
- * │   - la signature des webhooks (aucun webhook recu a ce jour)             │
+ * │   - la reception d'un vrai webhook (aucun recu a ce jour)                │
  * │   - le cycle complet jusqu'a `completed`                                 │
  * │   - le comportement en LIVE, notamment si une cle secrete y est imposee  │
  * │                                                                          │
@@ -240,14 +250,26 @@ function headers(ctx: ProviderContext): Record<string, string> {
     });
   }
 
-  // VERIFIE CONTRE LE SANDBOX REEL (30/08/2026) : `X-API-Key` SEULE authentifie.
-  // La documentation laissait croire a un couple cle/secret ; l'API repond
-  // elle-meme « Provide it via X-API-Key header or Bearer token ». Exiger un
-  // secret rendait impossible de connecter un compte qui n'en a qu'une.
-  //
-  // Le secret reste transmis s'il existe : rien n'indique qu'il gene, et un
-  // compte live pourrait en imposer un.
+  // VERIFIE CONTRE LE SANDBOX REEL (30/08/2026) : une cle SECRETE placee dans
+  // `X-API-Key` authentifie a elle seule. L'API le dit elle-meme :
+  // « Provide it via X-API-Key header or Bearer token ». Exiger systematiquement
+  // un couple rendait impossible de connecter un compte qui n'a qu'une valeur.
   const secret = ctx.credentials.api_secret;
+
+  // MAIS une cle PUBLIQUE ne prouve rien. Le schema documente par GeniusPay est
+  // `X-API-Key: pk_...` + `X-API-Secret: sk_...` : laisser partir un `pk_` seul
+  // produirait un refus d'authentification a la premiere transaction reelle,
+  // avec un message venant d'eux et non de nous. Autant le dire ici.
+  if (key.startsWith('pk_') && !secret) {
+    throw new ProviderError({
+      providerId: GENIUSPAY_PROVIDER_ID,
+      code: 'authentication',
+      message:
+        'Une cle publique GeniusPay (pk_...) ne peut pas authentifier seule : ' +
+        'ajoutez `api_secret` (sk_...) aux credentials du compte.',
+    });
+  }
+
   return { 'X-API-Key': key, ...(secret ? { 'X-API-Secret': secret } : {}) };
 }
 
