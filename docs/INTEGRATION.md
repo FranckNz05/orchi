@@ -4,8 +4,9 @@ Guide d'intégration de l'API Orchi : encaisser (*pay-in*) et décaisser (*payou
 en Afrique à travers une interface unique, quel que soit l'agrégateur.
 
 > **État actuel.** Webhooks entrants et sortants, balayeur et réconciliation
-> sont en place. Seul le simulateur est activé côté agrégateurs. Les adaptateurs de nos
-> premiers partenaires sont écrits mais **non validés** contre un compte sandbox réel — voir
+> sont en place. Deux agrégateurs sont activés : le **simulateur** et
+> **GeniusPay**, dont l'encaissement a été validé contre un compte sandbox réel.
+> FedaPay et CinetPay sont écrits mais **non validés**, donc désactivés — voir
 > [Agrégateurs disponibles](#agrégateurs-disponibles). Vous pouvez développer et
 > tester intégralement votre intégration dès aujourd'hui.
 
@@ -762,7 +763,7 @@ curl -H "Authorization: Bearer sk_test_..." \
 | Agrégateur | Pays | Sens | État de l'intégration |
 |---|---|---|---|
 | `sandbox` | Tous (test uniquement) | pay-in + payout | **Actif** |
-| `geniuspay` | 21 pays — UEMOA, CEMAC, Afrique de l'Est et australe | **pay-in seul** | Écrit d'après la doc publique — **non validé en sandbox réel** |
+| `geniuspay` | 21 pays — UEMOA, CEMAC, Afrique de l'Est et australe | **pay-in seul** | **Actif** — encaissement validé en sandbox réel. Aucun décaissement : leur API de cashout n'est pas publiée |
 | `fedapay` | BJ, TG, CI, SN, NE | pay-in + payout | Écrit d'après la doc publique — **non validé en sandbox réel** |
 | `cinetpay` | CI, BJ, TG, ML, BF, NE, SN, GW, GN, CM, CD | pay-in + payout | Écrit d'après la doc publique — **non validé en sandbox réel** |
 

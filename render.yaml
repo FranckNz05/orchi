@@ -101,11 +101,18 @@ services:
       - key: BOOTSTRAP_ADMIN_PASSWORD
         sync: false
 
-      # Le simulateur seul. Nos adaptateurs partenaires sont ecrits d'apres leur
-      # documentation et n'ont jamais ete confrontes a un vrai compte sandbox :
-      # les activer ici enverrait de vraies transactions sur un contrat suppose.
+      # Le simulateur, plus GeniusPay dont l'ENCAISSEMENT a ete valide contre un
+      # vrai compte sandbox le 30/08/2026 — creation, lecture, authentification
+      # et enveloppe d'erreur. Son decaissement reste refuse par l'adaptateur :
+      # aucun endpoint de cashout n'est publie.
+      #
+      # FedaPay et CinetPay restent dehors. Ils sont ecrits d'apres la doc
+      # publique et n'ont jamais ete confrontes a un compte reel : les activer
+      # enverrait de vraies transactions sur un contrat suppose. GeniusPay a
+      # d'ailleurs montre ce que vaut une doc non verifiee — deux erreurs, dont
+      # une qui rendait l'adaptateur inutilisable.
       - key: PROVIDERS_ENABLED
-        value: sandbox
+        value: sandbox,geniuspay
 
       # La console d'exploitation invite a coller une cle API secrete dans un
       # navigateur. Acceptable en local, pas sur une URL publique. Le tableau de

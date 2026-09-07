@@ -126,7 +126,7 @@ sur une *création* est indéterminé (l'agrégateur a pu traiter avant de tombe
 | Agrégateur | Pays | Sens | État |
 |---|---|---|---|
 | `sandbox` | Tous (test uniquement) | pay-in + payout | **Actif** |
-| `geniuspay` | 21 pays | **pay-in seul** | Écrit d'après la doc publique — **non validé** |
+| `geniuspay` | 21 pays | **pay-in seul** | **Actif** — encaissement validé en sandbox réel (30/08/2026) |
 | `fedapay` | BJ, TG, CI, SN, NE | pay-in + payout | Écrit d'après la doc publique — **non validé** |
 | `cinetpay` | 11 pays UEMOA/CEMAC | pay-in + payout | Écrit d'après la doc publique — **non validé** |
 
@@ -135,7 +135,7 @@ enregistré ne dessert pas forcément le pays consulté. GeniusPay est branché 
 sa documentation ne couvre pas le Tchad — l'annoncer disponible là-bas
 produirait un échec au premier paiement.
 
-`PROVIDERS_ENABLED` contrôle les adaptateurs enregistrés (`sandbox` par défaut).
+`PROVIDERS_ENABLED` contrôle les adaptateurs enregistrés (`sandbox,geniuspay`).
 Être présent dans le code ne suffit pas à recevoir du trafic : activer un
 adaptateur non validé enverrait de vraies transactions sur un contrat supposé.
 Ce qui reste à confirmer en sandbox est listé en tête de chaque fichier

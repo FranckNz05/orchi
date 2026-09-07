@@ -59,10 +59,10 @@ export function resetRegistry(): void {
  * Adaptateurs disponibles dans le code, indexes par identifiant.
  *
  * Etre present ici ne suffit PAS a recevoir du trafic : seuls les agregateurs
- * listes dans PROVIDERS_ENABLED sont enregistres. FedaPay et CinetPay sont
- * ecrits d'apres la documentation publique et n'ont jamais ete confrontes a un
- * compte sandbox reel — les activer avant cette verification enverrait de
- * vraies transactions sur un contrat suppose.
+ * listes dans PROVIDERS_ENABLED sont enregistres. FedaPay et CinetPay y sont
+ * disponibles mais n'ont jamais ete confrontes a un compte sandbox reel — les
+ * activer avant cette verification enverrait de vraies transactions sur un
+ * contrat suppose. GeniusPay, lui, l'a ete pour l'encaissement.
  */
 const AVAILABLE: Readonly<Record<string, PaymentProvider>> = {
   [sandboxProvider.id]: sandboxProvider,

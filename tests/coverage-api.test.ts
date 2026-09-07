@@ -148,8 +148,28 @@ describe('GET /v1/coverage', () => {
     if (!catalogSeeded) return;
     const res = await get('/v1/coverage?country=CM', liveKey);
     const body = res.json();
+    // L'invariant absolu : le simulateur ne doit JAMAIS apparaitre sur une cle
+    // reelle, quel que soit le pays et quels que soient les adaptateurs actifs.
     expect(body.providers.map((p: { id: string }) => p.id)).not.toContain('sandbox');
-    // Aucun adaptateur reel n'est encore branche : la reponse doit le dire.
+  });
+
+  it('declare le Cameroun routable en reel depuis l activation de GeniusPay', async () => {
+    if (!catalogSeeded) return;
+    // Ce test remplace une assertion qui affirmait `routable_now === false`,
+    // vraie tant qu'aucun adaptateur reel n'etait branche. GeniusPay dessert le
+    // Cameroun : la reponse doit desormais le dire, sans le simulateur.
+    const res = await get('/v1/coverage?country=CM', liveKey);
+    const body = res.json();
+    expect(body.providers.map((p: { id: string }) => p.id)).toContain('geniuspay');
+    expect(body.routable_now).toBe(true);
+  });
+
+  it('ne declare pas routable un pays hors couverture GeniusPay', async () => {
+    if (!catalogSeeded) return;
+    // Le Tchad est au catalogue mais absent de la documentation GeniusPay.
+    // Aucun adaptateur actif ne le dessert en reel.
+    const res = await get('/v1/coverage?country=TD', liveKey);
+    const body = res.json();
     expect(body.routable_now).toBe(false);
   });
 

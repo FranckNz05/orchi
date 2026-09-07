@@ -88,11 +88,19 @@ function called(method: string, path: string): Recorded | undefined {
 /* -------------------------------------------------------------------------- */
 
 describe('activation des adaptateurs', () => {
-  it("n'active que le simulateur par defaut", () => {
-    // FedaPay et CinetPay existent dans le code mais ne sont pas branches :
-    // les activer avant validation en sandbox enverrait de vraies transactions
-    // sur un contrat suppose.
-    expect(listProviderAdapterIds()).toEqual(['sandbox']);
+  it("n'active aucun adaptateur non valide", () => {
+    // L'invariant n'est pas « seul le simulateur tourne » — GeniusPay a rejoint
+    // la liste apres validation contre un vrai compte sandbox. C'est qu'aucun
+    // adaptateur ECRIT D'APRES LA SEULE DOCUMENTATION ne recoit de trafic :
+    // l'activer enverrait de vraies transactions sur un contrat suppose.
+    const actifs = listProviderAdapterIds();
+    expect(actifs).not.toContain('fedapay');
+    expect(actifs).not.toContain('cinetpay');
+  });
+
+  it('active le simulateur et GeniusPay', () => {
+    expect(listProviderAdapterIds()).toContain('sandbox');
+    expect(listProviderAdapterIds()).toContain('geniuspay');
   });
 });
 
