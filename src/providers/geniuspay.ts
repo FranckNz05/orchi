@@ -81,6 +81,18 @@ const DEFAULT_HOST = 'https://geniuspay.ci/api/v1/merchant';
 const MIN_AMOUNT_XOF = 200;
 
 /**
+ * Devises que GeniusPay accepte REELLEMENT.
+ *
+ * Verifie contre leur sandbox le 09/10/2026 : une creation en XAF est refusee
+ * par une redirection HTML, en Cameroun comme au Congo. Leur documentation
+ * annonce neuf devises converties automatiquement vers XOF ; l'API n'en
+ * accepte que trois. Les pays en XAF, CDF, KES, RWF, SLE, UGX et ZMW restent
+ * donc dans `COUNTRIES` — ils decrivent la couverture annoncee — mais
+ * `supports` les ecarte.
+ */
+const ACCEPTED_CURRENCIES: ReadonlySet<string> = new Set(['XOF', 'EUR', 'USD']);
+
+/**
  * Pays desservis, d'apres la couverture regionale publiee.
  *
  * La documentation annonce « 23 pays » en tete de page mais n'en detaille que
@@ -363,7 +375,22 @@ export const geniuspayProvider: PaymentProvider = {
     // l'argent sortant vers un endpoint suppose.
     if (direction === 'payout') return false;
     if (channel === 'bank_transfer') return false;
-    return COUNTRIES[country.toUpperCase()] !== undefined;
+
+    const def = COUNTRIES[country.toUpperCase()];
+    if (!def) return false;
+
+    // VERIFIE CONTRE LE SANDBOX REEL (09/10/2026) : GeniusPay REFUSE XAF, quel
+    // que soit le pays. Teste sur le Cameroun et le Congo : les deux renvoient
+    // une redirection HTML au lieu d'une reponse JSON. Leur documentation
+    // annonce pourtant XAF parmi neuf devises « avec conversion automatique
+    // vers XOF ». Elle a tort.
+    //
+    // Les declarer desservis ferait choisir GeniusPay par le routage, puis
+    // echouer la transaction chez eux — exactement ce que `supports` existe
+    // pour eviter.
+    if (!ACCEPTED_CURRENCIES.has(def.currency)) return false;
+
+    return true;
   },
 
   async createCharge(request: ChargeRequest, ctx: ProviderContext): Promise<AttemptResult> {

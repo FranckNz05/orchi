@@ -153,15 +153,21 @@ describe('GET /v1/coverage', () => {
     expect(body.providers.map((p: { id: string }) => p.id)).not.toContain('sandbox');
   });
 
-  it('declare le Cameroun routable en reel depuis l activation de GeniusPay', async () => {
+  it('declare la Cote d Ivoire routable en reel depuis l activation de GeniusPay', async () => {
     if (!catalogSeeded) return;
-    // Ce test remplace une assertion qui affirmait `routable_now === false`,
-    // vraie tant qu'aucun adaptateur reel n'etait branche. GeniusPay dessert le
-    // Cameroun : la reponse doit desormais le dire, sans le simulateur.
-    const res = await get('/v1/coverage?country=CM', liveKey);
+    // La Cote d'Ivoire est en XOF, la seule devise africaine que GeniusPay
+    // accepte reellement. Ce test visait le Cameroun jusqu'a ce que leur
+    // sandbox refuse XAF.
+    const res = await get('/v1/coverage?country=CI', liveKey);
     const body = res.json();
     expect(body.providers.map((p: { id: string }) => p.id)).toContain('geniuspay');
     expect(body.routable_now).toBe(true);
+  });
+
+  it('ne declare pas le Cameroun routable : GeniusPay refuse le XAF', async () => {
+    if (!catalogSeeded) return;
+    const res = await get('/v1/coverage?country=CM', liveKey);
+    expect(res.json().routable_now).toBe(false);
   });
 
   it('ne declare pas routable un pays hors couverture GeniusPay', async () => {

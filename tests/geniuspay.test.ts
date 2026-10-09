@@ -122,10 +122,23 @@ describe('couverture', () => {
     expect(geniuspayProvider.supports('ET', 'mobile_money', 'payin')).toBe(false);
   });
 
-  it('dessert bien les pays documentes', () => {
-    expect(geniuspayProvider.supports('CI', 'mobile_money', 'payin')).toBe(true);
-    expect(geniuspayProvider.supports('KE', 'mobile_money', 'payin')).toBe(true);
-    expect(geniuspayProvider.supports('ZA', 'card', 'payin')).toBe(true);
+  it('dessert les pays en XOF', () => {
+    for (const iso of ['CI', 'SN', 'ML', 'BF', 'BJ', 'TG', 'NE', 'GW']) {
+      expect(geniuspayProvider.supports(iso, 'mobile_money', 'payin'), iso).toBe(true);
+    }
+  });
+
+  it('ecarte les pays dont la devise est refusee par GeniusPay', () => {
+    // Verifie contre leur sandbox : une creation en XAF est refusee, au
+    // Cameroun comme au Congo, alors que leur documentation annonce la devise.
+    // Les declarer desservis ferait choisir GeniusPay par le routage, puis
+    // echouer la transaction chez eux.
+    for (const iso of ['CM', 'GA', 'CG', 'CF']) {
+      expect(geniuspayProvider.supports(iso, 'mobile_money', 'payin'), `${iso} (XAF)`).toBe(false);
+    }
+    expect(geniuspayProvider.supports('CD', 'mobile_money', 'payin')).toBe(false); // CDF
+    expect(geniuspayProvider.supports('KE', 'mobile_money', 'payin')).toBe(false); // KES
+    expect(geniuspayProvider.supports('ZA', 'card', 'payin')).toBe(false); // ZAR
   });
 
   it('refuse tout decaissement', async () => {
