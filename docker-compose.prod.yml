@@ -1,0 +1,65 @@
+# Deploiement Afripaie sur un serveur unique.
+#
+# Deux services, et rien de plus : l'API et sa base. Le reverse proxy et TLS
+# sont assures par le nginx de l'hote, qui sert deja d'autres applications —
+# ajouter un conteneur proxy ici entrerait en conflit avec lui sur les ports
+# 80 et 443.
+#
+# L'API n'est PUBLIEE QUE SUR 127.0.0.1. Rien de ce qui est ici n'est joignable
+# depuis Internet autrement que par nginx. C'est ce qui permet de se passer de
+# pare-feu sur ces ports precis — mais pas de s'en passer tout court.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: afripaie
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
+      POSTGRES_DB: afripaie
+    volumes:
+      - afripaie_pgdata:/var/lib/postgresql/data
+    # Aucun port publie : seule l'API, sur le reseau interne, parle a la base.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U afripaie -d afripaie"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      args:
+        # Suffit a `set-db-provider.mjs` pour figer le provider sur postgresql
+        # au moment de la generation du client. Ce n'est pas un secret : la
+        # vraie URL vient de l'environnement a l'execution.
+        DATABASE_URL: postgresql://build/placeholder
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://afripaie:${POSTGRES_PASSWORD}@db:5432/afripaie
+      HOST: 0.0.0.0
+      PORT: 3000
+    # Lie a la boucle locale de l'hote, jamais a 0.0.0.0.
+    ports:
+      - "127.0.0.1:8040:3000"
+    # `prisma db push` est idempotent : il aligne la base sur le schema et ne
+    # fait rien si elle l'est deja. Le catalogue se rejoue de meme.
+    command: >
+      sh -c "npx prisma db push --skip-generate --accept-data-loss
+      && node dist/scripts/seed-catalog.js
+      && node dist/scripts/create-admin.js
+      && node dist/src/index.js"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  afripaie_pgdata:
