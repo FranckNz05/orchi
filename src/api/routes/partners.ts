@@ -27,7 +27,7 @@ const upsertBody = z.object({
   share_bps: z.number().int().positive(),
   /**
    * `net` (defaut) : part calculee sur ce que le marchand garde reellement,
-   * apres commission agregateur et commission Orchi.
+   * apres commission agregateur et commission Afripaie.
    * `gross` : part calculee sur le montant paye par le client final.
    */
   share_base: z.enum(['gross', 'net']).optional(),

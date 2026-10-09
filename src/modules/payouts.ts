@@ -396,7 +396,7 @@ async function settleSuccess(
   if (fee.capped) {
     logger.warn(
       { payout_id: payout.id, provider: attempt.providerId, provider_fee: providerFee },
-      'Commission agregateur superieure au taux total : marge Orchi nulle',
+      'Commission agregateur superieure au taux total : marge Afripaie nulle',
     );
   }
 

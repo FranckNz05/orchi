@@ -95,7 +95,7 @@ function charge(over: Partial<ChargeRequest> = {}): ChargeRequest {
     channel: 'mobile_money',
     network: 'ORANGE_CI',
     customer: { phone: '+2250700000000', name: 'Amadou Diallo' },
-    callbackUrl: 'https://orchi.local/hooks/geniuspay',
+    callbackUrl: 'https://afripaie.local/hooks/geniuspay',
     ...over,
   };
 }
@@ -142,7 +142,7 @@ describe('couverture', () => {
           country: 'CI',
           channel: 'mobile_money',
           recipient: { phone: '+2250700000000' },
-          callbackUrl: 'https://orchi.local/hooks',
+          callbackUrl: 'https://afripaie.local/hooks',
         },
         ctx,
       )
@@ -232,7 +232,7 @@ describe('encaissement', () => {
     await geniuspayProvider.createCharge(charge(), ctx);
     const sent = JSON.parse(called('POST', '/gp/payments')!.body);
     // Sans elle, impossible de rapprocher un settlement GeniusPay de nos ecritures.
-    expect(sent.metadata.orchi_reference).toBe('cmd-1');
+    expect(sent.metadata.afripaie_reference).toBe('cmd-1');
   });
 
   it('demande le guichet hebergé quand aucun reseau n’est choisi', async () => {
@@ -279,7 +279,7 @@ describe('encaissement', () => {
 
     const result = await geniuspayProvider.getCharge('MTX-9', ctx);
     expect(result.status).toBe('succeeded');
-    // Cette valeur prime sur le taux catalogue dans le calcul de la part Orchi.
+    // Cette valeur prime sur le taux catalogue dans le calcul de la part Afripaie.
     expect(result.providerFeeAmount).toBe(450);
   });
 

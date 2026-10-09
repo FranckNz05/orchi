@@ -32,7 +32,7 @@ const SESSION_TTL_MS = 7 * 24 * 3600 * 1000;
 /** Au-dela, la session est prolongee a l'usage plutot que reecrite a chaque appel. */
 const SESSION_SLIDE_MS = 12 * 3600 * 1000;
 
-export const SESSION_COOKIE = 'orchi_session';
+export const SESSION_COOKIE = 'afripaie_session';
 
 /* -------------------------------------------------------------------------- */
 /* Mots de passe                                                              */

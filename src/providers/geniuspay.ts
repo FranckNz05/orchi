@@ -45,7 +45,7 @@ import type {
  * │     paiement. Voir `toResult` : c'est le defaut qui rendait l'adaptateur │
  * │     inutilisable.                                                        │
  * │   - `fees` et `net_amount` sont ABSENTS de la creation, presents a la    │
- * │     lecture. La part Orchi retombe donc sur l'estimation catalogue tant  │
+ * │     lecture. La part Afripaie retombe donc sur l'estimation catalogue tant  │
  * │     que le paiement n'a pas ete relu.                                    │
  * │                                                                          │
  * │ OBSERVE, NON DOCUMENTE :                                                 │
@@ -119,7 +119,7 @@ const COUNTRIES: Readonly<Record<string, { currency: string; networks: string[] 
 export const GENIUSPAY_COUNTRIES = Object.keys(COUNTRIES);
 
 /**
- * Reseau Orchi -> code operateur PawaPay.
+ * Reseau Afripaie -> code operateur PawaPay.
  *
  * Point de correction n°1 : tout est ici. Un reseau absent de cette table
  * n'echoue pas — on laisse GeniusPay router lui-meme depuis le numero, ce que
@@ -152,7 +152,7 @@ const MMO_BY_NETWORK: Readonly<Record<string, string>> = {
   ZAMTEL: 'ZAMTEL_ZMB',
 };
 
-/** Reseau Orchi -> `payment_method` GeniusPay, quand un gateway direct existe. */
+/** Reseau Afripaie -> `payment_method` GeniusPay, quand un gateway direct existe. */
 const METHOD_BY_NETWORK: Readonly<Record<string, string>> = {
   WAVE_CI: 'wave',
   WAVE_SN: 'wave',
@@ -339,7 +339,7 @@ function toResult(
     status,
     action: status === 'awaiting_customer' ? fallbackAction : { type: 'none' },
     // `fees` est la commission REELLE de GeniusPay : elle prime sur toute
-    // estimation catalogue dans le calcul de la part Orchi.
+    // estimation catalogue dans le calcul de la part Afripaie.
     ...(typeof payment.fees === 'number' ? { providerFeeAmount: Math.round(payment.fees) } : {}),
     ...(payment.status ? { providerCode: String(payment.status) } : {}),
     ...(payment.gateway ? { providerMessage: `gateway: ${payment.gateway}` } : {}),
@@ -416,7 +416,7 @@ export const geniuspayProvider: PaymentProvider = {
         ...(request.returnUrl ? { success_url: request.returnUrl, error_url: request.returnUrl } : {}),
         // Notre reference voyage avec la transaction : c'est ce qui permet de
         // rapprocher un settlement GeniusPay de nos propres ecritures.
-        metadata: { orchi_reference: request.reference, ...request.metadata },
+        metadata: { afripaie_reference: request.reference, ...request.metadata },
       }),
     });
 

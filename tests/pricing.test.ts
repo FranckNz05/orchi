@@ -3,14 +3,14 @@ import { platformPayinFee, platformPayoutFee, quote } from '../src/modules/prici
 
 /**
  * La regle tient en une phrase : le marchand paie toujours 5 % au total, et la
- * part Orchi est le solde apres la commission de l'agregateur.
+ * part Afripaie est le solde apres la commission de l'agregateur.
  *
  * Ces tests l'epinglent aux deux bouts — y compris la ou elle cesse d'etre
  * rentable, ce qui est une information de pilotage et non un cas theorique.
  */
 const M = 'mch_test';
 
-describe('la part Orchi est le solde du taux total', () => {
+describe('la part Afripaie est le solde du taux total', () => {
   it('prend 3 % quand l’agregateur prend 2 %', () => {
     const fee = platformPayinFee(M, { amountMinor: 100_000, providerFeeBps: 200 });
     expect(fee.providerAmount).toBe(2_000);
@@ -67,7 +67,7 @@ describe('bornes', () => {
   });
 
   it('traite un taux agregateur inconnu comme nul, sans surfacturer', () => {
-    // `providerFeeBps` absent signifie « non fige » : la part Orchi vaut alors
+    // `providerFeeBps` absent signifie « non fige » : la part Afripaie vaut alors
     // le taux total. C'est precisement pourquoi il est enregistre sur la
     // tentative au moment du routage.
     const fee = platformPayinFee(M, { amountMinor: 100_000 });
@@ -78,7 +78,7 @@ describe('bornes', () => {
 
 describe('devises a zero decimale', () => {
   it('reste juste sur un montant en francs CFA', () => {
-    // 15 000 F CFA, agregateur a 2 % : 300 pour lui, 450 pour Orchi.
+    // 15 000 F CFA, agregateur a 2 % : 300 pour lui, 450 pour Afripaie.
     const fee = platformPayinFee(M, { amountMinor: 15_000, providerFeeBps: 200 });
     expect(fee.providerAmount).toBe(300);
     expect(fee.amount).toBe(450);

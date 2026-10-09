@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Orchi — Console</title>
+<title>Afripaie — Console</title>
 <style>
   :root {
     --bg: #f7f7f5;
@@ -141,7 +141,7 @@
 <body>
 
 <header id="bar" hidden>
-  <div class="brand">Orchi <span id="merchant">—</span></div>
+  <div class="brand">Afripaie <span id="merchant">—</span></div>
   <span class="pill" id="env">—</span>
   <div class="grow"></div>
   <label class="muted" style="font-size:12.5px">
@@ -157,7 +157,7 @@
     <form class="body" id="setup-form">
       <p style="margin:0;font-size:13px" class="muted">
         Collez une clé API. Elle est conservée dans ce navigateur uniquement et
-        n'est jamais envoyée ailleurs qu'à cette instance d'Orchi.
+        n'est jamais envoyée ailleurs qu'à cette instance d'Afripaie.
       </p>
       <input type="password" id="key" placeholder="sk_test_..." autocomplete="off" spellcheck="false" />
       <div class="err" id="setup-err" hidden></div>
@@ -261,7 +261,7 @@
 (() => {
   'use strict';
 
-  const STORE = 'orchi.console.key';
+  const STORE = 'afripaie.console.key';
   let key = localStorage.getItem(STORE) || '';
   let kind = 'payments';
   let timer = null;

@@ -45,7 +45,7 @@ async function register(over: Record<string, unknown> = {}) {
 }
 
 function cookieFrom(res: { cookies: Array<{ name: string; value: string }> }) {
-  return res.cookies.find((c) => c.name === 'orchi_session')?.value;
+  return res.cookies.find((c) => c.name === 'afripaie_session')?.value;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -124,7 +124,7 @@ describe('inscription', () => {
 
   it('pose un cookie httpOnly, invisible au JavaScript', async () => {
     const res = await register();
-    const cookie = res.cookies.find((c) => c.name === 'orchi_session');
+    const cookie = res.cookies.find((c) => c.name === 'afripaie_session');
     // Une cle rangee dans localStorage serait exfiltrable par un script injecte.
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.sameSite?.toLowerCase()).toBe('lax');
@@ -225,7 +225,7 @@ describe('authentification par session sur l’API', () => {
     const list = await app.inject({
       method: 'GET',
       url: '/v1/payments',
-      cookies: { orchi_session: token },
+      cookies: { afripaie_session: token },
     });
     expect(list.statusCode).toBe(200);
   });
@@ -237,7 +237,7 @@ describe('authentification par session sur l’API', () => {
     const attack = await app.inject({
       method: 'POST',
       url: '/v1/api-keys',
-      cookies: { orchi_session: token },
+      cookies: { afripaie_session: token },
       headers: { origin: 'https://site-malveillant.example' },
       payload: { label: 'vol' },
     });
@@ -256,7 +256,7 @@ describe('authentification par session sur l’API', () => {
     const ok = await app.inject({
       method: 'POST',
       url: '/v1/api-keys',
-      cookies: { orchi_session: token },
+      cookies: { afripaie_session: token },
       headers: { 'sec-fetch-site': 'same-origin' },
       payload: { label: 'Backend' },
     });
@@ -271,7 +271,7 @@ describe('authentification par session sur l’API', () => {
     const created = await app.inject({
       method: 'POST',
       url: '/v1/api-keys',
-      cookies: { orchi_session: token },
+      cookies: { afripaie_session: token },
       headers: { 'sec-fetch-site': 'same-origin' },
       payload: { label: 'Premiere' },
     });
@@ -295,7 +295,7 @@ describe('pages publiques', () => {
     const client = await app.inject({ method: 'GET', url: '/' });
 
     expect(browser.headers['content-type']).toContain('text/html');
-    expect(client.json().service).toBe('orchi');
+    expect(client.json().service).toBe('afripaie');
   });
 
   it('expose le catalogue sans authentification', async () => {

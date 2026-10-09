@@ -10,7 +10,7 @@ import { connectProviderAccount } from '../src/modules/provider-accounts.js';
 import { newId, ID_PREFIX } from '../src/core/ids.js';
 import { prisma } from '../src/db/client.js';
 
-const DEMO_EMAIL = 'demo@orchi.africa';
+const DEMO_EMAIL = 'demo@afripaie.online';
 
 async function main() {
   let merchant = await prisma.merchant.findFirst({ where: { contactEmail: DEMO_EMAIL } });

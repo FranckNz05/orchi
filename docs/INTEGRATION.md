@@ -1,6 +1,6 @@
-# Intégrer Orchi
+# Intégrer Afripaie
 
-Guide d'intégration de l'API Orchi : encaisser (*pay-in*) et décaisser (*payout*)
+Guide d'intégration de l'API Afripaie : encaisser (*pay-in*) et décaisser (*payout*)
 en Afrique à travers une interface unique, quel que soit l'agrégateur.
 
 > **État actuel.** Webhooks entrants et sortants, balayeur et réconciliation
@@ -12,10 +12,10 @@ en Afrique à travers une interface unique, quel que soit l'agrégateur.
 
 ---
 
-## 1. Le principe : Orchi ne détient pas vos fonds
+## 1. Le principe : Afripaie ne détient pas vos fonds
 
 Vous ouvrez vos propres comptes chez les agrégateurs partenaires et
-vous confiez vos clés à Orchi, qui les conserve **chiffrées**. Orchi route,
+vous confiez vos clés à Afripaie, qui les conserve **chiffrées**. Afripaie route,
 réconcilie, et prélève sa commission sur chaque transaction réussie.
 
 Ce que cela change concrètement pour vous :
@@ -24,8 +24,8 @@ Ce que cela change concrètement pour vous :
 |---|---|
 | Règlement | Vous êtes réglé par votre agrégateur, selon vos conditions avec lui |
 | Commission agrégateur | Prélevée par lui, sur le flux, comme aujourd'hui |
-| Commission Orchi | **Jamais** retenue sur le flux : constatée à chaque transaction, puis facturée (voir §10) |
-| Réglementation | Vous restez le marchand de référence ; Orchi n'est pas dans la chaîne de détention de fonds |
+| Commission Afripaie | **Jamais** retenue sur le flux : constatée à chaque transaction, puis facturée (voir §10) |
+| Réglementation | Vous restez le marchand de référence ; Afripaie n'est pas dans la chaîne de détention de fonds |
 
 ---
 
@@ -34,7 +34,7 @@ Ce que cela change concrètement pour vous :
 Toutes les requêtes portent une clé API en jeton porteur :
 
 ```bash
-curl -H "Authorization: Bearer sk_test_..." https://api.orchi.africa/v1/me
+curl -H "Authorization: Bearer sk_test_..." https://afripaie.online/v1/me
 ```
 
 Deux environnements, deux préfixes :
@@ -44,7 +44,7 @@ Deux environnements, deux préfixes :
 | `sk_test_…` | test | Le simulateur est disponible ; aucun mouvement réel |
 | `sk_live_…` | live | Agrégateurs réels uniquement ; le simulateur est **refusé** |
 
-La clé n'est affichée qu'une seule fois à sa création. Orchi n'en conserve
+La clé n'est affichée qu'une seule fois à sa création. Afripaie n'en conserve
 qu'une empreinte HMAC : elle ne peut pas être retrouvée, seulement révoquée et
 remplacée.
 
@@ -71,7 +71,7 @@ une `400` indiquant la devise attendue.
 
 ```bash
 curl -H "Authorization: Bearer sk_test_..." \
-  "https://api.orchi.africa/v1/coverage?country=BJ"
+  "https://afripaie.online/v1/coverage?country=BJ"
 ```
 
 ---
@@ -81,7 +81,7 @@ curl -H "Authorization: Bearer sk_test_..." \
 Sans compte agrégateur connecté, aucune transaction ne peut partir.
 
 ```bash
-curl -X POST https://api.orchi.africa/v1/provider-accounts \
+curl -X POST https://afripaie.online/v1/provider-accounts \
   -H "Authorization: Bearer sk_test_..." \
   -H "content-type: application/json" \
   -d '{
@@ -110,7 +110,7 @@ Credentials attendus par agrégateur :
 ## 5. Encaisser
 
 ```bash
-curl -X POST https://api.orchi.africa/v1/payments \
+curl -X POST https://afripaie.online/v1/payments \
   -H "Authorization: Bearer sk_test_..." \
   -H "Idempotency-Key: cmd-4821-a" \
   -H "content-type: application/json" \
@@ -127,7 +127,7 @@ curl -X POST https://api.orchi.africa/v1/payments \
 ### La réponse ne dit jamais « payé »
 
 Un paiement mobile money est **asynchrone par nature** : l'opérateur envoie une
-demande sur le téléphone du client, qui la valide avec son code PIN. Orchi vous
+demande sur le téléphone du client, qui la valide avec son code PIN. Afripaie vous
 renvoie donc un statut et **une action à faire exécuter** :
 
 ```json
@@ -182,7 +182,7 @@ redirigez votre client, et vous ne manipulez ni numéro de téléphone, ni choix
 d'opérateur, ni état de push USSD.
 
 ```bash
-curl -X POST https://api.orchi.africa/v1/checkout-sessions \
+curl -X POST https://afripaie.online/v1/checkout-sessions \
   -H "Authorization: Bearer sk_test_..." \
   -H "content-type: application/json" \
   -d '{
@@ -201,7 +201,7 @@ curl -X POST https://api.orchi.africa/v1/checkout-sessions \
   "object": "checkout_session",
   "id": "cs_mte4...",
   "status": "OPEN",
-  "url": "https://api.orchi.africa/pay/syY0QnCD1BUmzDvjJsVaqrL-U_8l71mj...",
+  "url": "https://afripaie.online/pay/syY0QnCD1BUmzDvjJsVaqrL-U_8l71mj...",
   "expires_at": "2026-08-29T13:00:00.000Z"
 }
 ```
@@ -210,7 +210,7 @@ Redirigez votre client vers `url`. C'est tout.
 
 ### Ce que voit le client
 
-Une page servie par Orchi affichant votre nom commercial, le montant, et
+Une page servie par Afripaie affichant votre nom commercial, le montant, et
 **les opérateurs réellement disponibles dans son pays** — MTN MoMo, Moov Money,
 Orange Money, carte bancaire selon le cas. Il choisit, saisit son numéro,
 valide sur son téléphone. La page suit l'état en direct et le renvoie sur votre
@@ -247,7 +247,7 @@ Recharger la page après paiement ne relance **aucune** transaction.
 ## 6. Décaisser
 
 ```bash
-curl -X POST https://api.orchi.africa/v1/payouts \
+curl -X POST https://afripaie.online/v1/payouts \
   -H "Authorization: Bearer sk_test_..." \
   -H "Idempotency-Key: po-9981-a" \
   -H "content-type: application/json" \
@@ -268,7 +268,7 @@ Statuts : `CREATED → PROCESSING → SUCCEEDED | FAILED | UNKNOWN`.
 ## 7. `UNKNOWN` : la règle la plus importante de cette API
 
 Quand un appel à l'agrégateur n'aboutit pas — délai dépassé, erreur serveur — il
-est **impossible de savoir si l'argent est parti**. Orchi ne devine pas :
+est **impossible de savoir si l'argent est parti**. Afripaie ne devine pas :
 
 ```json
 {
@@ -282,7 +282,7 @@ est **impossible de savoir si l'argent est parti**. Orchi ne devine pas :
 
 Dans cet état :
 
-- Orchi n'essaie **aucun autre agrégateur**.
+- Afripaie n'essaie **aucun autre agrégateur**.
 - `POST /v1/payouts/:id/retry` répond `409 payout_indeterminate` avec
   `retriable: false`.
 - Seule une interrogation de l'agrégateur (`GET /v1/payouts/:id`) peut lever le
@@ -296,13 +296,13 @@ virement rejoué dans le doute, c'est un virement payé deux fois.
 ## 7bis. Recevoir nos évènements (webhooks sortants)
 
 Interroger `GET /v1/payments/:id` en boucle fonctionne, mais ne passe pas à
-l'échelle. Déclarez un endpoint et Orchi vous notifie.
+l'échelle. Déclarez un endpoint et Afripaie vous notifie.
 
 ```bash
-curl -X POST https://api.orchi.africa/v1/webhook-endpoints \
+curl -X POST https://afripaie.online/v1/webhook-endpoints \
   -H "Authorization: Bearer sk_test_..." \
   -H "content-type: application/json" \
-  -d '{"url":"https://votre-site.com/orchi/hooks","events":["*"]}'
+  -d '{"url":"https://votre-site.com/afripaie/hooks","events":["*"]}'
 ```
 
 La réponse contient un `secret` (`whsec_…`) **montré une seule fois**.
@@ -335,7 +335,7 @@ ininterprétable si les évènements arrivent inversés.
 
 ### Vérifier la signature
 
-En-tête `Orchi-Signature: t=<horodatage>,v1=<hmac>`. Le HMAC-SHA256 porte sur
+En-tête `Afripaie-Signature: t=<horodatage>,v1=<hmac>`. Le HMAC-SHA256 porte sur
 `<t>.<corps brut>`, calculé avec votre secret.
 
 ```js
@@ -374,7 +374,7 @@ journal complet, avec le code HTTP et l'erreur de chaque tentative.
 `callback_url` :
 
 ```
-https://api.orchi.africa/v1/hooks/fedapay/xK9mP2vQ...
+https://afripaie.online/v1/hooks/fedapay/xK9mP2vQ...
 ```
 
 **Copiez-la dans le tableau de bord de votre agrégateur.** Le jeton final n'est
@@ -483,9 +483,9 @@ Communiquez toujours le `request_id` au support : il figure dans nos journaux.
 **Vous payez 5 % au total sur chaque transaction réussie.** Pas d'abonnement,
 pas de frais fixe, pas de facture en fin de mois.
 
-La commission Orchi n'est que **le solde après celle de votre agrégateur** :
+La commission Afripaie n'est que **le solde après celle de votre agrégateur** :
 
-| Commission agrégateur | Commission Orchi | Votre coût total |
+| Commission agrégateur | Commission Afripaie | Votre coût total |
 |---|---|---|
 | 1,0 % | 4,0 % | **5 %** |
 | 2,0 % | 3,0 % | **5 %** |
@@ -493,7 +493,7 @@ La commission Orchi n'est que **le solde après celle de votre agrégateur** :
 | 4,5 % | 0,5 % | **5 %** |
 | 5,0 % et plus | 0 | **égal à celui de l'agrégateur** |
 
-C'est ce qui rend le routage automatique acceptable pour vous : quand Orchi
+C'est ce qui rend le routage automatique acceptable pour vous : quand Afripaie
 bascule vers un agrégateur plus cher parce que le premier est tombé, **votre
 facture ne bouge pas**.
 
@@ -505,15 +505,15 @@ Encaissement de 15 000 XOF au Bénin, agrégateur à 2,0 % :
 Le client paie                    15 000 XOF
 Commission agrégateur (2,0 %)       −300 XOF
 Vous encaissez                    14 700 XOF   ← immédiatement
-Commission Orchi (3,0 %)             450 XOF   ← facturée ensuite
+Commission Afripaie (3,0 %)             450 XOF   ← facturée ensuite
 Coût total                            750 XOF · 5,00 %
 ```
 
-Le même encaissement via un agrégateur à 4,0 % : celui-ci prend 600 XOF, Orchi
+Le même encaissement via un agrégateur à 4,0 % : celui-ci prend 600 XOF, Afripaie
 prend 150 XOF, et votre coût total reste **750 XOF**.
 
 Notez la différence entre les deux lignes : seule la commission de l'agrégateur
-est déduite de votre encaissement. La part d'Orchi ne transite jamais par le
+est déduite de votre encaissement. La part d'Afripaie ne transite jamais par le
 flux — elle vous est facturée après coup, ce qui joue en faveur de votre
 trésorerie.
 
@@ -525,34 +525,34 @@ Chaque transaction expose son détail :
 
 ### Prélèvement
 
-La commission Orchi n'est **pas retenue sur le flux** : elle est constatée à
+La commission Afripaie n'est **pas retenue sur le flux** : elle est constatée à
 chaque transaction réussie, puis facturée. Vos encaissements vous parviennent
 intégralement, diminués de la seule commission de votre agrégateur.
 
-C'est une conséquence directe du modèle : Orchi ne détient jamais vos fonds, il
+C'est une conséquence directe du modèle : Afripaie ne détient jamais vos fonds, il
 ne peut donc rien y prélever. Le mode de perception est réglé par
 `PLATFORM_FEE_COLLECTION` :
 
 | Valeur | Mécanisme | État |
 |---|---|---|
 | `invoice` | La part est constatée puis facturée séparément | **Défaut** |
-| `split` | L'agrégateur reverse directement la part Orchi | Nécessite un accord sub-merchant |
+| `split` | L'agrégateur reverse directement la part Afripaie | Nécessite un accord sub-merchant |
 | `on_top` | La part est ajoutée au montant payé par le client final | Non implémenté |
 
 > **Ce que cela change pour vous.** Vous recevez plus tôt et payez plus tard :
 > sur l'exemple ci-dessus, 14 700 XOF arrivent sur votre compte agrégateur au
-> lieu de 14 250, et les 450 XOF d'Orchi vous sont réclamés ensuite. Votre coût
+> lieu de 14 250, et les 450 XOF d'Afripaie vous sont réclamés ensuite. Votre coût
 > total est identique, votre trésorerie non.
 
 ### Transactions échouées
 
-**Aucun frais.** Ni de l'agrégateur, ni d'Orchi.
+**Aucun frais.** Ni de l'agrégateur, ni d'Afripaie.
 
 ### Une limite honnête
 
 Quelques pays du catalogue ont des commissions agrégateur **supérieures à 5 %**
 — Érythrée, et le haut de fourchette en RCA et au Soudan. Dans ces cas la part
-d'Orchi tombe à zéro : la transaction passe, elle ne rapporte simplement rien.
+d'Afripaie tombe à zéro : la transaction passe, elle ne rapporte simplement rien.
 Le champ `fees.platform` vaut alors `0`.
 
 ### Taux configurable
@@ -565,11 +565,11 @@ prévue mais pas encore implémentée.
 
 Si une part de chaque encaissement revient à des tiers — apporteurs d'affaires,
 vendeurs d'une place de marché, co-contractants — déclarez-les comme
-**partenaires**. Orchi calcule ce qui leur est dû à chaque vente et le leur verse
+**partenaires**. Afripaie calcule ce qui leur est dû à chaque vente et le leur verse
 automatiquement.
 
 ```bash
-curl -X POST https://api.orchi.africa/v1/partners   -H "Authorization: Bearer sk_test_..."   -H "Content-Type: application/json"   -d '{
+curl -X POST https://afripaie.online/v1/partners   -H "Authorization: Bearer sk_test_..."   -H "Content-Type: application/json"   -d '{
     "reference": "transporteur-nord",
     "name": "Transports Sahel SARL",
     "country": "BJ",
@@ -596,32 +596,32 @@ client.** Rien n'est versé à l'instant du paiement, pour deux raisons :
   trois partenaires à chaque transaction, ce serait trois frais par transaction —
   la répartition coûterait vite plus cher que ce qu'elle distribue.
 
-Orchi **accumule** donc ce qui est dû à chaque vente, puis regroupe toutes les
+Afripaie **accumule** donc ce qui est dû à chaque vente, puis regroupe toutes les
 sommes échues d'un partenaire en **un seul versement**. Trois cents ventes
 produisent un versement par jour et par partenaire, pas trois cents.
 
 La promesse tenable auprès de votre client est donc « le lendemain », pas
 « instantanément ». C'est une contrainte du règlement des agrégateurs, pas
-d'Orchi.
+d'Afripaie.
 
 ### Sur quoi la part est calculée
 
 Par défaut sur le **net** : ce que vous gardez réellement, après commission
-agrégateur *et* commission Orchi. C'est la seule assiette qui ne peut pas vous
+agrégateur *et* commission Afripaie. C'est la seule assiette qui ne peut pas vous
 engager au-delà de ce que vous encaissez.
 
 ```
 Vente de 15 000 XOF, agrégateur à 0 %, partenaire à 10 %
 
 Le client paie              15 000 XOF
-Commission Orchi (5 %)         750 XOF   ← facturée ensuite
+Commission Afripaie (5 %)         750 XOF   ← facturée ensuite
 Net                         14 250 XOF
 Part du partenaire (10 %)    1 425 XOF   ← versée le lendemain, groupée
 ```
 
 Passez `"share_base": "gross"` pour calculer sur le montant payé par le client
 final. La somme des parts actives ne peut pas dépasser **90 %** : au-delà, il ne
-vous resterait rien pour régler la commission Orchi.
+vous resterait rien pour régler la commission Afripaie.
 
 **L'arrondi** se fait toujours à l'inférieur, et le reste vous demeure. Un
 partenaire n'est donc jamais payé au-delà de sa part. Faites figurer cette règle
@@ -630,7 +630,7 @@ dans votre accord avec lui.
 ### Suivre ce qui est dû
 
 ```bash
-curl -H "Authorization: Bearer sk_test_..." https://api.orchi.africa/v1/partners/pending
+curl -H "Authorization: Bearer sk_test_..." https://afripaie.online/v1/partners/pending
 ```
 
 Répond, partenaire par partenaire, ce qui est accumulé et pas encore versé.
@@ -638,7 +638,7 @@ Répond, partenaire par partenaire, ce qui est accumulé et pas encore versé.
 leur statut et l'identifiant du décaissement correspondant.
 
 Un règlement peut porter l'état **`BLOCKED`** : le décaissement s'est terminé
-dans un état indéterminé, et Orchi refuse de le rejouer tant que la
+dans un état indéterminé, et Afripaie refuse de le rejouer tant que la
 réconciliation n'a pas tranché. Les sommes concernées ne sont ni perdues ni
 versées deux fois — elles attendent. C'est la même règle que pour vos propres
 décaissements, décrite au chapitre 7.
@@ -649,7 +649,7 @@ accumulations mais **n'annule pas** ce qui lui est déjà dû.
 ### Limite à connaître
 
 Le pays du partenaire doit supporter le décaissement, et sa devise doit être
-celle de l'encaissement — Orchi ne convertit pas. Une part configurée dans une
+celle de l'encaissement — Afripaie ne convertit pas. Une part configurée dans une
 autre devise que la vente est ignorée, et l'événement est journalisé. Vérifiez la
 couverture avant de vous engager auprès de votre client.
 
@@ -680,7 +680,7 @@ l'argent réel en production.
 
 ## 12. Routage : ce qu'il faut savoir
 
-Orchi choisit l'agrégateur à la **création de chaque tentative**, d'après :
+Afripaie choisit l'agrégateur à la **création de chaque tentative**, d'après :
 
 ```
 score = 0,45 × santé + 0,25 × coût + 0,20 × latence + 0,10 × votre préférence
@@ -700,7 +700,7 @@ décision :
 
 ```bash
 curl -H "Authorization: Bearer sk_test_..." \
-  "https://api.orchi.africa/v1/routing/decisions?payment=pay_..."
+  "https://afripaie.online/v1/routing/decisions?payment=pay_..."
 ```
 
 ---

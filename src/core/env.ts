@@ -76,7 +76,7 @@ const schema = z.object({
   /**
    * Taux TOTAL supporte par le marchand, en points de base (500 = 5,00 %).
    *
-   * La part Orchi est le solde apres la commission de l'agregateur : le
+   * La part Afripaie est le solde apres la commission de l'agregateur : le
    * marchand paie le meme taux quel que soit l'agregateur retenu par le
    * routage. Voir src/modules/pricing.ts.
    */
@@ -84,19 +84,19 @@ const schema = z.object({
   PLATFORM_TOTAL_PAYOUT_BPS: z.coerce.number().int().min(0).max(10000).default(500),
 
   /**
-   * Mode de perception de la part Orchi.
+   * Mode de perception de la part Afripaie.
    *
    *   invoice  la part est constatee en creance et facturee separement
-   *   split    l'agregateur reverse directement la part Orchi (accord requis)
+   *   split    l'agregateur reverse directement la part Afripaie (accord requis)
    *   on_top   la part est ajoutee au montant paye par le client final
    *
-   * Ce reglage ne change PAS le calcul de la part Orchi — `pricing.ts` produit
+   * Ce reglage ne change PAS le calcul de la part Afripaie — `pricing.ts` produit
    * le meme montant dans les trois cas. Il change UNIQUEMENT le chemin par
    * lequel cette part arrive, donc les ecritures du grand livre. Le confondre
    * avec le calcul serait la meilleure facon de facturer deux fois.
    *
    * `invoice` est le defaut parce que c'est le seul mode compatible avec le
-   * modele A : Orchi ne detient pas les fonds, il ne peut donc rien retenir
+   * modele A : Afripaie ne detient pas les fonds, il ne peut donc rien retenir
    * dessus. `split` suppose un accord sub-merchant avec chaque agregateur, et
    * n'est utilisable que la ou cet accord existe.
    */

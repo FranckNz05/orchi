@@ -6,7 +6,7 @@ import type { Prisma } from '@prisma/client';
 /**
  * Ledger miroir, en partie double.
  *
- * Orchi ne detient pas les fonds : ces ecritures REFLETENT les flux constates
+ * Afripaie ne detient pas les fonds : ces ecritures REFLETENT les flux constates
  * chez les agregateurs. Pourquoi maintenir une partie double si l'on ne garde
  * pas d'argent ? Parce que c'est le seul dispositif qui rend un ecart visible :
  * si le settlement de l'agregateur ne correspond pas a la somme de nos
@@ -17,10 +17,10 @@ import type { Prisma } from '@prisma/client';
  *   provider:{id}:fees         frais preleves par l'agregateur
  *   merchant:{id}:receivable   du au marchand sur un encaissement
  *   merchant:{id}:payable      du par le marchand sur un decaissement
- *   merchant:{id}:billing      commissions Orchi a facturer
- *   orchi:revenue              produit d'Orchi
+ *   merchant:{id}:billing      commissions Afripaie a facturer
+ *   afripaie:revenue              produit d'Afripaie
  *
- * OU ATTERRIT LA COMMISSION ORCHI
+ * OU ATTERRIT LA COMMISSION AFRIPAIE
  *
  * Cela depend de `PLATFORM_FEE_COLLECTION`, et de rien d'autre. En `invoice`
  * (defaut) elle est portee par `merchant:{id}:billing` : c'est une creance, et
@@ -56,7 +56,7 @@ export const accounts = {
   merchantReceivable: (merchantId: string) => `merchant:${merchantId}:receivable`,
   merchantPayable: (merchantId: string) => `merchant:${merchantId}:payable`,
   merchantBilling: (merchantId: string) => `merchant:${merchantId}:billing`,
-  orchiRevenue: () => 'orchi:revenue',
+  afripaieRevenue: () => 'afripaie:revenue',
 } as const;
 
 export class UnbalancedJournalError extends Error {
@@ -129,12 +129,12 @@ export interface PayinPostingInput {
 }
 
 /**
- * Constatation de la part Orchi en creance.
+ * Constatation de la part Afripaie en creance.
  *
  * Appele en mode `invoice` UNIQUEMENT, et toujours dans la meme transaction
  * que le journal du flux : les deux ecritures vivent ou meurent ensemble.
  *
- * C'est le journal qui rend la passerelle honnete. Orchi ne detenant pas les
+ * C'est le journal qui rend la passerelle honnete. Afripaie ne detenant pas les
  * fonds, sa commission ne peut pas etre retenue — elle est due par le marchand
  * et reste a facturer. `merchant:{id}:billing` porte ce solde, et son montant
  * est exactement ce qu'une facture devra reclamer.
@@ -159,10 +159,10 @@ async function postFeeAccrued(
       refType: input.refType,
       refId: input.refId,
       currency: input.currency,
-      description: `Commission Orchi a facturer (${input.providerId})`,
+      description: `Commission Afripaie a facturer (${input.providerId})`,
       entries: [
         { account: accounts.merchantBilling(input.merchantId), side: 'DEBIT', amount: input.platformFee },
-        { account: accounts.orchiRevenue(), side: 'CREDIT', amount: input.platformFee },
+        { account: accounts.afripaieRevenue(), side: 'CREDIT', amount: input.platformFee },
       ],
     },
     tx,
@@ -176,9 +176,9 @@ async function postFeeAccrued(
  *
  *   invoice  (defaut, modele A) — le marchand recoit `montant − frais
  *            agregateur`, c'est-a-dire TOUT ce que verse l'agregateur. La part
- *            Orchi part dans un second journal `fee.accrued`, en creance.
+ *            Afripaie part dans un second journal `fee.accrued`, en creance.
  *
- *   split    — l'agregateur reverse directement la part Orchi. Elle est donc
+ *   split    — l'agregateur reverse directement la part Afripaie. Elle est donc
  *            reellement retenue sur le flux, et un seul journal la constate.
  *            Suppose un accord sub-merchant.
  *
@@ -228,7 +228,7 @@ export async function postPayinSucceeded(
             ]
           : []),
         ...(!accrued && input.platformFee > 0
-          ? [{ account: accounts.orchiRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
+          ? [{ account: accounts.afripaieRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
           : []),
       ],
     },
@@ -265,7 +265,7 @@ export interface PayoutPostingInput {
  *
  * Le cout total pour le marchand est identique dans les deux modes — un
  * decaissement de 50 000 a 5 % lui coute 52 500 — mais en `invoice` les 2 500
- * d'Orchi ne sortent pas de son compte agregateur : ils deviennent une creance.
+ * d'Afripaie ne sortent pas de son compte agregateur : ils deviennent une creance.
  */
 export async function postPayoutSucceeded(
   input: PayoutPostingInput,
@@ -300,7 +300,7 @@ export async function postPayoutSucceeded(
             ]
           : []),
         ...(!accrued && input.platformFee > 0
-          ? [{ account: accounts.orchiRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
+          ? [{ account: accounts.afripaieRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
           : []),
       ],
     },

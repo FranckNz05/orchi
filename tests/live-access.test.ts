@@ -395,7 +395,7 @@ describe('ce que le marchand voit du dossier', () => {
       kybStatus: 'REJECTED',
       liveRequestedAt: new Date(),
       liveReviewedAt: new Date(),
-      liveReviewedBy: 'sess_123 (agent@orchi.africa)',
+      liveReviewedBy: 'sess_123 (agent@afripaie.online)',
       liveReviewNote: 'Dossier incomplet.',
       liveActivity: 'Vente en ligne.',
       liveWebsite: null,
@@ -405,6 +405,6 @@ describe('ce que le marchand voit du dossier', () => {
     // regarde la plateforme. Les melanger expose un agent a la pression du
     // marchand qu'il vient de refuser.
     expect(state.note).toBe('Dossier incomplet.');
-    expect(JSON.stringify(state)).not.toContain('agent@orchi.africa');
+    expect(JSON.stringify(state)).not.toContain('agent@afripaie.online');
   });
 });

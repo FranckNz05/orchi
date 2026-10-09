@@ -228,7 +228,7 @@ describe('webhooks entrants', () => {
     const signed = buildSandboxWebhook(payment.provider.reference, WEBHOOK_SECRET);
     const before = await prisma.inboundWebhook.count({ where: { signatureValid: false } });
 
-    const res = await hook(signed.body, { 'x-orchi-sandbox-signature': 'faux' });
+    const res = await hook(signed.body, { 'x-afripaie-sandbox-signature': 'faux' });
 
     expect(res.json().outcome).toBe('REJECTED');
     // Une rafale de webhooks non signes est un signal de securite.
@@ -260,7 +260,7 @@ describe('webhooks entrants', () => {
   });
 
   it('repond 200 meme sur rejet, pour ne pas declencher de rafale de reprises', async () => {
-    const res = await hook('pas du json', { 'x-orchi-sandbox-signature': 'x' });
+    const res = await hook('pas du json', { 'x-afripaie-sandbox-signature': 'x' });
     expect(res.statusCode).toBe(200);
     expect(res.json().received).toBe(true);
   });

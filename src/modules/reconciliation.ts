@@ -148,7 +148,7 @@ async function expireStalePayments(now: Date): Promise<number> {
   for (const attempt of stale) {
     await prisma.paymentAttempt.update({
       where: { id: attempt.id },
-      data: { status: 'EXPIRED', completedAt: now, providerCode: 'orchi_expired' },
+      data: { status: 'EXPIRED', completedAt: now, providerCode: 'afripaie_expired' },
     });
     if (attempt.payment.status !== 'SUCCEEDED') {
       await prisma.payment.update({

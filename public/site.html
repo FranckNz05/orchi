@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Orchi — Une seule API pour encaisser et décaisser en Afrique</title>
-<meta name="description" content="Orchi unifie les agrégateurs de paiement africains derrière une API unique. Mobile money, carte et virement dans 54 pays." />
+<title>Afripaie — Une seule API pour encaisser et décaisser en Afrique</title>
+<meta name="description" content="Afripaie unifie les agrégateurs de paiement africains derrière une API unique. Mobile money, carte et virement dans 54 pays." />
 <link rel="stylesheet" href="/assets/theme.css" />
 <style>
   /* ------------------------------------------------------------------ hero */
@@ -230,7 +230,7 @@
 
 <nav class="top" id="nav">
   <div class="wrap">
-    <a class="logo" href="/"><span class="mark"></span> Orchi</a>
+    <a class="logo" href="/"><span class="mark"></span> Afripaie</a>
     <div class="links">
       <a href="#routage" class="hide-sm">Le routage</a>
       <a href="#comment" class="hide-sm">Intégration</a>
@@ -249,7 +249,7 @@
     <span class="eyebrow"><span class="live-dot"></span><span id="eyebrow">chargement du catalogue…</span></span>
     <h1 class="words">Une seule API pour encaisser <span class="mark-in">et décaisser</span> en Afrique</h1>
     <p class="lede">
-      Mobile money, carte, virement. Orchi masque la fragmentation des
+      Mobile money, carte, virement. Afripaie masque la fragmentation des
       agrégateurs régionaux derrière une interface unique — et bascule
       automatiquement quand l'un d'eux tombe.
     </p>
@@ -304,7 +304,7 @@
       </div>
       <div class="card lit glow tilt reveal">
         <h3>Vos fonds ne transitent pas</h3>
-        <p>Vous gardez vos propres comptes agrégateurs. Orchi route et réconcilie,
+        <p>Vous gardez vos propres comptes agrégateurs. Afripaie route et réconcilie,
         mais ne détient jamais votre argent. Vous restez le marchand de référence.</p>
       </div>
     </div>
@@ -420,7 +420,7 @@
         </div>
         <div class="card step glow reveal">
           <div class="n">02</div>
-          <div><h3>Appelez une seule API</h3><p>Un montant, un pays, un client. Orchi choisit l'agrégateur et vous renvoie l'action à faire exécuter par votre client.</p></div>
+          <div><h3>Appelez une seule API</h3><p>Un montant, un pays, un client. Afripaie choisit l'agrégateur et vous renvoie l'action à faire exécuter par votre client.</p></div>
         </div>
         <div class="card step glow reveal">
           <div class="n">03</div>
@@ -429,7 +429,7 @@
       </div>
       <div class="reveal">
         <div class="term">
-          <div class="bar"><i></i><i></i><i></i><span>orchi — bash</span></div>
+          <div class="bar"><i></i><i></i><i></i><span>afripaie — bash</span></div>
           <pre id="typed"></pre>
         </div>
         <p class="sub" style="margin:18px 0 0;font-size:14.5px">
@@ -461,7 +461,7 @@
     <h2 class="reveal"><span id="total-rate" class="grad">5 %</span> au total. Toujours.</h2>
     <p class="sub reveal">
       Pas d'abonnement, pas de frais fixe. Un taux unique sur chaque transaction
-      réussie — et la part d'Orchi n'est que <strong>le solde après la commission
+      réussie — et la part d'Afripaie n'est que <strong>le solde après la commission
       de votre agrégateur</strong>. S'il prend 2 %, nous prenons 3. S'il prend
       4 %, nous prenons 1.
     </p>
@@ -496,8 +496,8 @@
       <table class="pricing">
         <thead><tr><th>Prestation</th><th>Détail</th><th class="num">Tarif</th></tr></thead>
         <tbody>
-          <tr><td>Encaissement réussi</td><td>Agrégateur + Orchi, tout compris</td><td class="num" id="rate-payin">5,00 %</td></tr>
-          <tr><td>Décaissement réussi</td><td>Agrégateur + Orchi, tout compris</td><td class="num" id="rate-payout">5,00 %</td></tr>
+          <tr><td>Encaissement réussi</td><td>Agrégateur + Afripaie, tout compris</td><td class="num" id="rate-payin">5,00 %</td></tr>
+          <tr><td>Décaissement réussi</td><td>Agrégateur + Afripaie, tout compris</td><td class="num" id="rate-payout">5,00 %</td></tr>
           <tr><td>Transaction échouée</td><td>Aucun frais</td><td class="num">0</td></tr>
           <tr><td>Abonnement</td><td>Aucun</td><td class="num">0</td></tr>
           <tr><td>Environnement de test</td><td>Illimité, tous pays</td><td class="num">Gratuit</td></tr>
@@ -542,7 +542,7 @@
 
 <footer>
   <div class="wrap">
-    <a class="logo" href="/"><span class="mark"></span> Orchi</a>
+    <a class="logo" href="/"><span class="mark"></span> Afripaie</a>
     <span>Orchestrateur de paiement pan-africain</span>
     <span style="margin-left:auto"><a href="/login">Connexion</a> · <a href="/register">Créer un compte</a> · <a href="/docs">Documentation</a></span>
   </div>
@@ -697,7 +697,7 @@
   /* ---------------------------------------------------- Frappe simulee ---- */
   const SNIPPET = [
     ['c', '# Encaisser 15 000 FCFA au Bénin\n'],
-    ['', 'curl -X POST https://api.orchi.africa/v1/payments \\\n'],
+    ['', 'curl -X POST https://afripaie.online/v1/payments \\\n'],
     ['', '  -H '], ['s', '"Authorization: Bearer sk_live_..."'], ['', ' \\\n'],
     ['', '  -H '], ['s', '"Idempotency-Key: cmd-4821-a"'], ['', ' \\\n'],
     ['', '  -d \'{\n    '],
@@ -965,11 +965,11 @@
       providerLabel.textContent = pct(providerBps);
 
       // Meme calcul que src/modules/pricing.ts : arrondi au demi-superieur, et
-      // la part Orchi ne descend jamais sous zero.
+      // la part Afripaie ne descend jamais sous zero.
       const total = Math.floor((amount * totalBps + 5000) / 10000);
       const provider = Math.floor((amount * providerBps + 5000) / 10000);
       const platform = Math.max(0, total - provider);
-      // Seule la commission de l'agregateur sort du flux : la part Orchi est
+      // Seule la commission de l'agregateur sort du flux : la part Afripaie est
       // facturee ensuite, elle ne diminue pas ce que le marchand encaisse.
       const encaisse = amount - provider;
       const cout = provider + platform;
@@ -978,9 +978,9 @@
         <div class="line"><span class="muted">Le client paie</span><span>${fmt(amount)} F</span></div>
         <div class="line"><span class="muted">Commission agrégateur</span><span>− ${fmt(provider)} F</span></div>
         <div class="line sep net"><span>Vous encaissez</span><span>${fmt(encaisse)} F</span></div>
-        <div class="line"><span class="muted">Commission Orchi, facturée ensuite</span><span>${fmt(platform)} F</span></div>
+        <div class="line"><span class="muted">Commission Afripaie, facturée ensuite</span><span>${fmt(platform)} F</span></div>
         <div class="line sep"><span class="muted">Coût total</span><span class="muted">${fmt(cout)} F · ${pct(amount ? Math.round((cout / amount) * 10000) : 0)}</span></div>
-        ${platform === 0 ? `<p class="warn">À ce niveau de commission, l'agrégateur absorbe la totalité du taux : la part d'Orchi tombe à zéro. Quelques pays du catalogue sont dans ce cas.</p>` : ''}`;
+        ${platform === 0 ? `<p class="warn">À ce niveau de commission, l'agrégateur absorbe la totalité du taux : la part d'Afripaie tombe à zéro. Quelques pays du catalogue sont dans ce cas.</p>` : ''}`;
     }
 
     amountEl.oninput = render;

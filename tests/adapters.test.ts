@@ -120,7 +120,7 @@ const charge: ChargeRequest = {
   channel: 'mobile_money',
   network: 'MTN_BENIN',
   customer: { phone: '+22997000000', name: 'Jean Dupont', email: 'jean@test.bj' },
-  callbackUrl: 'https://orchi.local/hooks/fedapay',
+  callbackUrl: 'https://afripaie.local/hooks/fedapay',
   description: 'Commande 1',
 };
 
@@ -170,7 +170,7 @@ describe('FedaPay — encaissement mobile money', () => {
     await fedapayProvider.createCharge(charge, fedapayCtx);
     const sent = JSON.parse(called('POST', '/v1/transactions')!.body);
     // Sans cela, impossible de rapprocher un settlement FedaPay de nos ecritures.
-    expect(sent.custom_metadata.orchi_reference).toBe('cmd-1');
+    expect(sent.custom_metadata.afripaie_reference).toBe('cmd-1');
   });
 
   it('redirige au lieu de pousser en carte', async () => {
@@ -244,7 +244,7 @@ describe('FedaPay — decaissement', () => {
       country: 'BJ',
       channel: 'mobile_money',
       recipient: { phone: '+22997000000', network: 'MTN_BENIN', name: 'Jean Dupont' },
-      callbackUrl: 'https://orchi.local/hooks/fedapay',
+      callbackUrl: 'https://afripaie.local/hooks/fedapay',
     };
 
     const result = await fedapayProvider.createPayout(payout, fedapayCtx);
@@ -272,7 +272,7 @@ describe('FedaPay — decaissement', () => {
           country: 'BJ',
           channel: 'mobile_money',
           recipient: { phone: '+22997000000', network: 'MTN_BENIN' },
-          callbackUrl: 'https://orchi.local/hooks/fedapay',
+          callbackUrl: 'https://afripaie.local/hooks/fedapay',
         },
         fedapayCtx,
       )
@@ -421,7 +421,7 @@ describe('CinetPay — decaissement', () => {
     country: 'BJ',
     channel: 'mobile_money',
     recipient: { phone: '+22997000000', network: 'MTN_BENIN', name: 'Jean Dupont' },
-    callbackUrl: 'https://orchi.local/hooks/cinetpay',
+    callbackUrl: 'https://afripaie.local/hooks/cinetpay',
   };
 
   it('obtient un jeton puis envoie le transfert', async () => {

@@ -1,4 +1,4 @@
-# Orchi — deploiement Render (Blueprint)
+# Afripaie — deploiement Render (Blueprint)
 #
 # Render lit ce fichier et cree le service web et ses secrets. Voir
 # docs/DEPLOIEMENT.md pour la procedure et ses limites.
@@ -12,8 +12,8 @@
 #
 # Dans ce cas : supprimer l'autre base, ou remplacer le bloc `databases:` par
 # une variable `DATABASE_URL` en `sync: false`, renseignee avec l'URL d'une
-# base existante suffixee de `?schema=orchi` — PostgreSQL cloisonne
-# nativement, les tables d'Orchi ne toucheraient pas celles de l'autre projet.
+# base existante suffixee de `?schema=afripaie` — PostgreSQL cloisonne
+# nativement, les tables d'Afripaie ne toucheraient pas celles de l'autre projet.
 #
 # NOTE SUR LE MOTEUR — le developpement se fait sur SQLite, la production sur
 # PostgreSQL. Le schema Prisma a ete tenu portable des le depart, et
@@ -21,9 +21,9 @@
 # build. Aucune reecriture du schema n'est necessaire.
 
 databases:
-  - name: orchi-db
-    databaseName: orchi
-    user: orchi
+  - name: afripaie-db
+    databaseName: afripaie
+    user: afripaie
     region: frankfurt
     # `free` expire au bout de 30 jours chez Render : suffisant pour une
     # demonstration, a remplacer par `basic-256mb` des que des donnees comptent.
@@ -31,7 +31,7 @@ databases:
 
 services:
   - type: web
-    name: orchi
+    name: afripaie
     runtime: node
     plan: free
     region: frankfurt # le plus proche de l'Afrique de l'Ouest chez Render
@@ -61,7 +61,7 @@ services:
       # ce service.
       - key: DATABASE_URL
         fromDatabase:
-          name: orchi-db
+          name: afripaie-db
           property: connectionString
 
       # Chiffrement AES-256-GCM des credentials agregateurs, et poivre du

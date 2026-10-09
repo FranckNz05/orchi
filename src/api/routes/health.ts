@@ -8,7 +8,7 @@ import { env } from '../../core/env.js';
  */
 export function serviceIndex() {
   return ({
-    service: 'orchi',
+    service: 'afripaie',
     description: "Orchestrateur de paiement pan-africain — API unifiee pay-in / payout",
     version: '0.1.0',
     environment: env.NODE_ENV,
@@ -38,7 +38,7 @@ export async function healthRoutes(app: FastifyInstance) {
   /** Liveness : le processus repond-il ? Aucune dependance externe. */
   app.get('/health', async () => ({
     status: 'ok',
-    service: 'orchi',
+    service: 'afripaie',
     version: '0.1.0',
     environment: env.NODE_ENV,
     uptime_seconds: Math.round(process.uptime()),

@@ -36,7 +36,7 @@ async function main() {
   });
 
   await app.listen({ port: env.PORT, host: env.HOST });
-  logger.info(`Orchi ecoute sur http://${env.HOST}:${env.PORT} (${env.NODE_ENV})`);
+  logger.info(`Afripaie ecoute sur http://${env.HOST}:${env.PORT} (${env.NODE_ENV})`);
 }
 
 main().catch((e) => {

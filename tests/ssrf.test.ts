@@ -76,7 +76,7 @@ describe('validation d’URL', () => {
   });
 
   it('accepte une URL publique bien formee', async () => {
-    await expect(assertDeliverableUrl('https://exemple.com/hooks/orchi')).resolves.toBeUndefined();
+    await expect(assertDeliverableUrl('https://exemple.com/hooks/afripaie')).resolves.toBeUndefined();
   });
 
   it('laisse passer la boucle locale hors production', async () => {

@@ -1,4 +1,4 @@
-# Orchi — Orchestrateur de paiement pan-africain
+# Afripaie — Orchestrateur de paiement pan-africain
 
 API unique pour encaisser (pay-in) et décaisser (payout) en Afrique, en abstrayant
 les agrégateurs régionaux (FedaPay, CinetPay, GeniusPay, Flutterwave, Paystack,
@@ -17,7 +17,7 @@ de test et passage en production.
 ### Modèle A — passerelle technique (et non collecteur)
 
 Les fonds **ne transitent jamais** par l'orchestrateur. Chaque marchand apporte
-ses propres comptes agrégateurs ; Orchi stocke leurs identifiants chiffrés et
+ses propres comptes agrégateurs ; Afripaie stocke leurs identifiants chiffrés et
 route les transactions.
 
 Conséquences :
@@ -147,7 +147,7 @@ Deux décisions notables dans ces adaptateurs :
   un échec à tort autoriserait une relance sur une transaction peut-être aboutie.
 - **La notification CinetPay est traitée comme un simple signal.** Elle n'est
   pas signée de façon vérifiable et documentée ; plutôt que d'inventer un schéma
-  de signature, Orchi la lit pour en extraire l'identifiant, puis interroge
+  de signature, Afripaie la lit pour en extraire l'identifiant, puis interroge
   `/v2/payment/check`. L'état vient toujours d'un appel sortant authentifié.
   Une notification forgée ne peut donc pas faire passer un paiement en
   `SUCCEEDED`.
@@ -298,17 +298,17 @@ disjoncteur).
 ### Tarification
 
 **Le marchand paie toujours 5 % au total**, sur chaque transaction réussie. La
-part Orchi est le **solde après la commission de l'agrégateur** : s'il prend
-2 %, Orchi prend 3 % ; s'il prend 4 %, Orchi prend 1 %.
+part Afripaie est le **solde après la commission de l'agrégateur** : s'il prend
+2 %, Afripaie prend 3 % ; s'il prend 4 %, Afripaie prend 1 %.
 
 C'est ce qui rend le routage automatique acceptable pour le marchand : basculer
 vers un agrégateur plus cher ne change pas sa facture.
 
 Deux bornes, toutes deux atteintes par de vrais pays du catalogue :
 
-- **agrégateur à 5 % ou plus** (Érythrée, RCA, Soudan) — la part Orchi tombe à
+- **agrégateur à 5 % ou plus** (Érythrée, RCA, Soudan) — la part Afripaie tombe à
   zéro. Elle ne devient jamais négative : on ne paie pas pour transporter.
-- **taux agrégateur inconnu** — la part Orchi vaudrait alors le taux entier, ce
+- **taux agrégateur inconnu** — la part Afripaie vaudrait alors le taux entier, ce
   qui surfacturerait le marchand. Le taux est donc **figé sur la tentative** au
   moment du routage, et une modification ultérieure du catalogue ne recalcule
   pas rétroactivement une transaction passée.
@@ -323,16 +323,16 @@ grand livre :
 | Mode | Mécanisme | Prérequis |
 |---|---|---|
 | `invoice` **(défaut)** | La part est constatée en créance sur `merchant:{id}:billing`, puis facturée. | Aucun |
-| `split` | L'agrégateur reverse directement la part Orchi, réellement retenue sur le flux. | Accord sub-merchant |
+| `split` | L'agrégateur reverse directement la part Afripaie, réellement retenue sur le flux. | Accord sub-merchant |
 | `on_top` | *Non implémenté — le serveur refuse de démarrer.* | Majorer le montant demandé au client final |
 
 `invoice` est le défaut parce que c'est **le seul mode compatible avec le
-modèle A** : ne détenant pas les fonds, Orchi ne peut rien retenir dessus. Le
+modèle A** : ne détenant pas les fonds, Afripaie ne peut rien retenir dessus. Le
 marchand encaisse donc l'intégralité de ce que verse son agrégateur, et règle
-Orchi ensuite — ce qui joue en sa faveur en trésorerie.
+Afripaie ensuite — ce qui joue en sa faveur en trésorerie.
 
 `split` reste la cible : il supprime le risque d'impayé **sans** faire détenir
-un centime à Orchi. Il s'active agrégateur par agrégateur, à mesure que les
+un centime à Afripaie. Il s'active agrégateur par agrégateur, à mesure que les
 accords se signent.
 
 ### Ledger
@@ -346,17 +346,17 @@ payin.succeeded   DEBIT  provider:cinetpay:clearing  15000
                   CREDIT provider:cinetpay:fees        300
 
 fee.accrued       DEBIT  merchant:mch_x:billing        450
-                  CREDIT orchi:revenue                 450
+                  CREDIT afripaie:revenue                 450
 ```
 
 Les séparer n'est pas cosmétique : le marchand reçoit **l'intégralité** de ce
-que verse l'agrégateur (15 000 − 300), et la commission Orchi est une créance à
+que verse l'agrégateur (15 000 − 300), et la commission Afripaie est une créance à
 facturer, pas un prélèvement sur le flux. Le solde de `merchant:{id}:billing`
 est exactement ce qu'une facture devra réclamer.
 
-En mode `split`, la part Orchi étant réellement retenue par l'agrégateur, un
+En mode `split`, la part Afripaie étant réellement retenue par l'agrégateur, un
 seul journal la constate : `merchant:mch_x:receivable` est crédité de 14 250 et
-`orchi:revenue` de 450, sans `fee.accrued`.
+`afripaie:revenue` de 450, sans `fee.accrued`.
 
 `postJournal` refuse toute écriture déséquilibrée — une erreur doit échouer là
 où elle est produite, pas être découverte six mois plus tard.
@@ -395,7 +395,7 @@ part. C'est une règle de contrat autant que de code : elle doit figurer dans
 l'accord avec le partenaire.
 
 **L'assiette.** Par défaut `net` — ce que le marchand garde réellement, après
-commission agrégateur *et* commission Orchi. C'est la seule définition qui ne
+commission agrégateur *et* commission Afripaie. C'est la seule définition qui ne
 l'engage pas au-delà de ce qu'il encaisse. `gross` reste disponible et porte sur
 le montant payé par le client final.
 
@@ -446,7 +446,7 @@ La réponse est toujours `200` dès lors que la requête est bien formée, **mê
 sur rejet** : un agrégateur qui reçoit une erreur réessaie longtemps, et rejouer
 un évènement qu'on ne saura pas traiter n'aide personne.
 
-**Sortants.** `Orchi-Signature: t=…,v1=…`, HMAC-SHA256 sur `<t>.<corps>`.
+**Sortants.** `Afripaie-Signature: t=…,v1=…`, HMAC-SHA256 sur `<t>.<corps>`.
 Livraison *au moins une fois*, 5 tentatives (30 s → 6 h), **sans ordre garanti**
 — d'où l'état complet de la ressource dans chaque évènement plutôt qu'un delta.
 

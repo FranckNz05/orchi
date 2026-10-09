@@ -1,7 +1,7 @@
 /**
  * Registre des agregateurs, operateurs et banques cites dans le cadrage.
  *
- * `integration` decrit l'etat REEL de l'integration cote Orchi, pas la maturite
+ * `integration` decrit l'etat REEL de l'integration cote Afripaie, pas la maturite
  * du produit du partenaire. Un agregateur peut etre excellent et rester
  * `PLANNED` tant qu'aucun adaptateur n'existe dans `src/providers/`.
  *
@@ -133,7 +133,7 @@ export const PROVIDERS: readonly ProviderDef[] = [
   /* ------------------------------------------------------------ Interne -- */
   {
     id: 'sandbox',
-    name: 'Orchi Sandbox',
+    name: 'Afripaie Sandbox',
     type: 'AGGREGATOR',
     integration: 'LIVE',
     scope: 'Simulateur interne — tous pays, environnement de test uniquement',

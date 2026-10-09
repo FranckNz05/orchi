@@ -22,13 +22,13 @@ import { prisma } from '../src/db/client.js';
  * niveau de privilege qu'on accorderait.
  *
  * L'administrateur est rattache au marchand de la plateforme elle-meme. Ce
- * n'est pas un artifice : Orchi est un compte comme un autre, et son
+ * n'est pas un artifice : Afripaie est un compte comme un autre, et son
  * administrateur est un utilisateur ordinaire qui porte, en plus, une autorite
  * sur la plateforme. Le drapeau est separe du role (`OWNER` / `MEMBER`) parce
  * que les deux ne repondent pas a la meme question.
  */
 
-const PLATFORM_MERCHANT_ID = 'mch_orchi_platform';
+const PLATFORM_MERCHANT_ID = 'mch_afripaie_platform';
 
 async function main() {
   const [argEmail, argPassword, argName] = process.argv.slice(2);
@@ -61,7 +61,7 @@ async function main() {
     update: {},
     create: {
       id: PLATFORM_MERCHANT_ID,
-      name: 'Orchi — plateforme',
+      name: 'Afripaie — plateforme',
       legalType: 'COMPANY',
       country: 'BJ',
       contactEmail: email,

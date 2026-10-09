@@ -32,7 +32,7 @@ function charge(phone: string, over: Partial<ChargeRequest> = {}): ChargeRequest
     channel: 'mobile_money',
     network: 'MTN_BENIN',
     customer: { phone },
-    callbackUrl: 'https://orchi.local/hooks/sandbox',
+    callbackUrl: 'https://afripaie.local/hooks/sandbox',
     ...over,
   };
 }
@@ -46,7 +46,7 @@ function payout(phone: string, over: Partial<PayoutRequest> = {}): PayoutRequest
     country: 'BJ',
     channel: 'mobile_money',
     recipient: { phone, network: 'MTN_BENIN', name: 'Jean Dupont' },
-    callbackUrl: 'https://orchi.local/hooks/sandbox',
+    callbackUrl: 'https://afripaie.local/hooks/sandbox',
     ...over,
   };
 }

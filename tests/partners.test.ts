@@ -172,7 +172,7 @@ describe('accumulation', () => {
     const partnerId = created.json().id;
 
     // 15 000 XOF chez le simulateur : commission agregateur 0, commission
-    // Orchi 750 (5 %). Net = 14 250. Part de 10 % = 1 425.
+    // Afripaie 750 (5 %). Net = 14 250. Part de 10 % = 1 425.
     const paymentId = await encaisser(15000);
 
     const accrual = await prisma.partnerAccrual.findFirst({
@@ -191,7 +191,7 @@ describe('accumulation', () => {
     const created = await post('/v1/partners', partenaire({ share_bps: 333 }));
     const partnerId = created.json().id;
 
-    // 1 000 XOF : Orchi prend 50, net = 950. 950 * 3,33 % = 31,635 -> 31.
+    // 1 000 XOF : Afripaie prend 50, net = 950. 950 * 3,33 % = 31,635 -> 31.
     const paymentId = await encaisser(1000);
     const accrual = await prisma.partnerAccrual.findFirst({ where: { partnerId, paymentId } });
 

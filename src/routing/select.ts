@@ -12,7 +12,7 @@ import { scoreCandidates, type ScoreInput } from './scoring.js';
  *
  * Quatre conditions doivent etre reunies pour qu'un agregateur soit candidat :
  *   1. le catalogue le declare present sur (pays, canal, sens) ;
- *   2. Orchi possede un adaptateur pour lui ;
+ *   2. Afripaie possede un adaptateur pour lui ;
  *   3. le marchand a un compte actif chez lui, dans le bon environnement ;
  *   4. son disjoncteur n'est pas ouvert.
  *

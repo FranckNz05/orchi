@@ -1,6 +1,6 @@
 # Déploiement sur Render
 
-Ce document décrit le déploiement d'Orchi sur Render, **et ce qu'il ne faut pas
+Ce document décrit le déploiement d'Afripaie sur Render, **et ce qu'il ne faut pas
 en attendre**. La section « Ce que ce déploiement n'est pas » est la plus
 importante des deux.
 
@@ -15,7 +15,7 @@ et crée le service web *et* la base PostgreSQL en une fois.
    **Blueprint**.
 2. Connecter le dépôt `FranckNz05/orchi`, branche `main`.
 3. Render détecte `render.yaml` et affiche ce qu'il va créer : un service web
-   `orchi` et une base `orchi-db`.
+   `afripaie` et une base `afripaie-db`.
 4. Il demande **deux valeurs** — les seules qui ne peuvent pas vivre dans le
    dépôt :
 
@@ -38,9 +38,9 @@ déduit de `RENDER_EXTERNAL_URL`.
 ### Si le déploiement échoue sur la base
 
 ```
-Create database orchi-db
+Create database afripaie-db
 (cannot have more than one active free tier database)
-Create web service orchi
+Create web service afripaie
 (canceled: another action failed)
 ```
 
@@ -54,7 +54,7 @@ Trois issues :
 - **supprimer l'autre base gratuite**, si elle ne sert plus ;
 - **réutiliser cette base** : remplacer le bloc `databases:` de `render.yaml`
   par une variable `DATABASE_URL` en `sync: false`, et y coller l'**Internal
-  Database URL** de la base existante **suffixée de `?schema=orchi`**. Prisma
+  Database URL** de la base existante **suffixée de `?schema=afripaie`**. Prisma
   crée ce schéma s'il n'existe pas ; les tables de l'autre projet, restées dans
   `public`, ne sont ni lues ni touchées. Sans ce suffixe, les deux projets
   écriraient dans le même espace de noms — rien ne casserait tout de suite,
@@ -219,7 +219,7 @@ Ajouter le domaine dans Render, puis déclarer explicitement la variable dans
 
 ```yaml
 - key: PUBLIC_BASE_URL
-  value: https://api.orchi.africa
+  value: https://afripaie.online
 ```
 
 Elle est prioritaire sur `RENDER_EXTERNAL_URL`. C'est important : cette URL sert
@@ -233,7 +233,7 @@ n'arrivent plus ») ne désignera pas sa cause.
 ## 7. Après le déploiement
 
 ```bash
-curl https://orchi.onrender.com/health/ready
+curl https://afripaie.onrender.com/health/ready
 ```
 
 Doit répondre `{"status":"ok","checks":{"database":"up"}}`.

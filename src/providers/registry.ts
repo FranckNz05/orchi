@@ -11,7 +11,7 @@ import type { PaymentProvider } from './types.js';
  * Registre des adaptateurs reellement branches.
  *
  * A distinguer du catalogue : le catalogue dit qu'un agregateur DESSERT un
- * pays, le registre dit qu'Orchi sait LUI PARLER. Un agregateur present au
+ * pays, le registre dit qu'Afripaie sait LUI PARLER. Un agregateur present au
  * catalogue mais absent d'ici ne peut recevoir aucune transaction — c'est ce
  * que traduit le champ `routable_now` de GET /v1/coverage.
  */

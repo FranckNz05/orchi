@@ -8,7 +8,7 @@ import { logger } from '../../core/logger.js';
 import { prisma } from '../../db/client.js';
 
 /**
- * Webhooks sortants : Orchi vers le marchand.
+ * Webhooks sortants : Afripaie vers le marchand.
  *
  * Deux garanties, et une seule non-garantie assumee :
  *
@@ -22,7 +22,7 @@ import { prisma } from '../../db/client.js';
  *     marchand n'a pas a reconstituer une chronologie.
  */
 
-export const SIGNATURE_HEADER = 'orchi-signature';
+export const SIGNATURE_HEADER = 'afripaie-signature';
 
 /** Espacement des tentatives : 30 s, 2 min, 10 min, 1 h, 6 h. */
 const BACKOFF_MS = [30_000, 120_000, 600_000, 3_600_000, 21_600_000];
@@ -288,9 +288,9 @@ export async function deliverDueEvents(limit = 20, now = new Date()): Promise<De
         headers: {
           'content-type': 'application/json',
           [SIGNATURE_HEADER]: signPayload(delivery.payload, secret),
-          'orchi-event-id': delivery.eventId,
-          'orchi-event-type': delivery.eventType,
-          'orchi-delivery-attempt': String(attempt),
+          'afripaie-event-id': delivery.eventId,
+          'afripaie-event-type': delivery.eventType,
+          'afripaie-delivery-attempt': String(attempt),
         },
         body: delivery.payload,
         signal: controller.signal,

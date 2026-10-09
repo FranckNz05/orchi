@@ -97,7 +97,7 @@ function toView(p: Partner): PartnerView {
  *
  * Volontairement strictement inferieure a 100 % : un marchand qui aurait
  * engage 100 % de son encaissement ne garderait rien pour payer la commission
- * Orchi, qui lui est facturee hors flux. Il se retrouverait debiteur a chaque
+ * Afripaie, qui lui est facturee hors flux. Il se retrouverait debiteur a chaque
  * vente reussie — le genre de configuration qu'il vaut mieux refuser que
  * d'honorer.
  */
@@ -263,7 +263,7 @@ export async function accruePartnerShares(
   if (partners.length === 0) return 0;
 
   // L'assiette `net` retire TOUT ce que la transaction coute au marchand, y
-  // compris la commission Orchi qui lui sera facturee hors flux. C'est la seule
+  // compris la commission Afripaie qui lui sera facturee hors flux. C'est la seule
   // definition qui ne l'engage pas au-dela de ce qu'il garde reellement.
   const gross = input.amount;
   const net = Math.max(0, input.amount - input.providerFee - input.platformFee);
@@ -275,7 +275,7 @@ export async function accruePartnerShares(
     const amount = Math.floor((base * partner.shareBps) / 10_000);
     if (amount <= 0) continue;
 
-    // La devise du partenaire doit etre celle de l'encaissement : Orchi ne
+    // La devise du partenaire doit etre celle de l'encaissement : Afripaie ne
     // convertit pas. Un partenaire en XOF ne peut pas etre paye sur une vente
     // en KES, et l'inventer serait pire que de ne rien faire.
     if (partner.currency !== input.currency.toUpperCase()) {
@@ -426,7 +426,7 @@ async function payerReglement(
         ...(partner.recipientName ? { name: partner.recipientName } : {}),
       },
       description: `Repartition ${partner.name} (${settlement.accrualCount} encaissements)`,
-      metadata: { orchi_partner_settlement: settlement.id, orchi_partner: partner.reference },
+      metadata: { afripaie_partner_settlement: settlement.id, afripaie_partner: partner.reference },
     });
 
     if (payout.status === 'SUCCEEDED') {

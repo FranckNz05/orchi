@@ -167,7 +167,7 @@ function throwIfImmediateFailure(scenario: SandboxScenario): void {
 }
 
 function deterministicReference(direction: Direction, reference: string): string {
-  const digest = createHmac('sha256', 'orchi-sandbox').update(`${direction}:${reference}`).digest('hex');
+  const digest = createHmac('sha256', 'afripaie-sandbox').update(`${direction}:${reference}`).digest('hex');
   return `sbx_${direction === 'payin' ? 'ch' : 'po'}_${digest.slice(0, 20)}`;
 }
 
@@ -184,7 +184,7 @@ function initialAction(
   if (direction !== 'payin' || status !== 'awaiting_customer') return { type: 'none' };
   const expiresAt = new Date(Date.now() + ACTION_TTL_MS).toISOString();
   if (channel === 'card') {
-    return { type: 'redirect', url: `https://sandbox.orchi.local/pay/${Date.now()}`, expiresAt };
+    return { type: 'redirect', url: `https://sandbox.afripaie.local/pay/${Date.now()}`, expiresAt };
   }
   return {
     type: 'ussd_push',
@@ -316,7 +316,7 @@ function read(direction: Direction, providerReference: string, ctx: ProviderCont
 /* Webhooks                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export const SANDBOX_SIGNATURE_HEADER = 'x-orchi-sandbox-signature';
+export const SANDBOX_SIGNATURE_HEADER = 'x-afripaie-sandbox-signature';
 
 export function signSandboxPayload(payload: string, secret: string): string {
   return createHmac('sha256', secret).update(payload).digest('hex');
@@ -366,7 +366,7 @@ const WEBHOOK_STATUSES: readonly AttemptStatus[] = [
 
 export const sandboxProvider: PaymentProvider = {
   id: SANDBOX_PROVIDER_ID,
-  name: 'Orchi Sandbox',
+  name: 'Afripaie Sandbox',
   requiredCredentials: ['webhook_secret'],
 
   supports(_country: string, _channel: Channel, _direction: Direction): boolean {

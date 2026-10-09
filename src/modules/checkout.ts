@@ -350,7 +350,7 @@ export async function confirmCheckout(input: ConfirmInput) {
     ...(session.description ? { description: session.description } : {}),
     metadata: {
       ...(JSON.parse(session.metadata) as Record<string, string>),
-      orchi_checkout_session: session.id,
+      afripaie_checkout_session: session.id,
     },
     ...(session.successUrl ? { returnUrl: session.successUrl } : {}),
   });

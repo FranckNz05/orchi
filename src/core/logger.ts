@@ -22,7 +22,7 @@ const REDACT = [
 export const logger = pino({
   level: isTest ? 'silent' : env.LOG_LEVEL,
   redact: { paths: REDACT, censor: '[redacted]' },
-  base: { service: 'orchi' },
+  base: { service: 'afripaie' },
   ...(isProduction
     ? {}
     : {

@@ -1,4 +1,4 @@
-// Orchi - schema de donnees
+// Afripaie - schema de donnees
 //
 // Provider SQLite en developpement, PostgreSQL en production.
 // Le schema reste volontairement portable : pas d'enum natif, pas de type Json,
@@ -172,7 +172,7 @@ model Provider {
   name String
   /// AGGREGATOR | OPERATOR | BANK | SCHEME
   type String
-  /// LIVE | SANDBOX | PLANNED | DIRECT_AGREEMENT - etat de l'adaptateur Orchi.
+  /// LIVE | SANDBOX | PLANNED | DIRECT_AGREEMENT - etat de l'adaptateur Afripaie.
   integration String
   scope       String
 
@@ -224,7 +224,7 @@ model CoverageRule {
 /* -------------------------------------------------------------------------- */
 
 /// Modele A (passerelle technique) : le marchand apporte SES comptes chez les
-/// agregateurs. Orchi conserve les credentials chiffres et ne detient jamais
+/// agregateurs. Afripaie conserve les credentials chiffres et ne detient jamais
 /// les fonds. Un marchand doit avoir un compte actif chez un agregateur pour
 /// que le routage puisse l'y envoyer.
 model ProviderAccount {
@@ -350,7 +350,7 @@ model Payment {
 
   /// Frais preleves par l'agregateur, quand ils sont communiques.
   providerFeeAmount Int? @map("provider_fee_amount")
-  /// Commission Orchi, facturee hors flux en modele A.
+  /// Commission Afripaie, facturee hors flux en modele A.
   platformFeeAmount Int? @map("platform_fee_amount")
 
   succeededAt DateTime? @map("succeeded_at")
@@ -392,7 +392,7 @@ model PaymentAttempt {
   failureCode       String? @map("failure_code")
 
   /// Taux de l'agregateur retenu au moment du routage, en points de base.
-  /// Conserve ici parce que la commission Orchi s'en deduit : sans lui, une
+  /// Conserve ici parce que la commission Afripaie s'en deduit : sans lui, une
   /// modification du catalogue changerait retroactivement le calcul d'une
   /// transaction deja passee.
   providerFeeBps Int? @map("provider_fee_bps")
@@ -513,7 +513,7 @@ model PayoutAttempt {
 /* Ledger miroir                                                              */
 /* -------------------------------------------------------------------------- */
 
-/// En modele A, Orchi ne detient pas les fonds : ce ledger REFLETE les flux
+/// En modele A, Afripaie ne detient pas les fonds : ce ledger REFLETE les flux
 /// constates chez les agregateurs. Il sert au reporting, a la facturation et a
 /// la detection d'ecarts, pas a la garde de fonds. La partie double est
 /// conservee parce que c'est elle qui rend un ecart visible.
@@ -835,7 +835,7 @@ model Session {
 /// Elle existe pour une raison precise : permettre a un marchand d'encaisser
 /// SANS coder de tunnel de paiement, et surtout sans que son site manipule des
 /// numeros de telephone ou choisisse un operateur. Le client final arrive sur
-/// une page servie par Orchi, choisit son moyen de paiement, et paie.
+/// une page servie par Afripaie, choisit son moyen de paiement, et paie.
 ///
 /// Le `token` est la seule authentification de cette page : il est donc long,
 /// non devinable, a usage unique et expirant. Il ne donne acces qu'a CETTE
@@ -928,7 +928,7 @@ model Partner {
   /// gross | net — l'assiette du calcul.
   ///   gross : le montant paye par le client final
   ///   net   : ce que le marchand garde reellement, apres commission
-  ///           agregateur ET commission Orchi
+  ///           agregateur ET commission Afripaie
   /// `net` par defaut : c'est la seule assiette qui ne peut pas engager le
   /// marchand au-dela de ce qu'il encaisse.
   shareBase String @default("net") @map("share_base")

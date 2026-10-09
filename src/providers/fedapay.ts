@@ -56,7 +56,7 @@ const HOSTS = {
 } as const;
 
 /**
- * Correspondance reseau Orchi -> mode operateur FedaPay.
+ * Correspondance reseau Afripaie -> mode operateur FedaPay.
  *
  * Point de correction n°1 en cas de divergence avec la documentation : tout est
  * ici, rien n'est devine ailleurs dans le fichier.
@@ -85,7 +85,7 @@ const COUNTRIES = new Set(['BJ', 'TG', 'CI', 'SN', 'NE']);
 /* -------------------------------------------------------------------------- */
 
 /**
- * Traduction des statuts FedaPay vers la taxonomie Orchi.
+ * Traduction des statuts FedaPay vers la taxonomie Afripaie.
  *
  * `pending` devient `awaiting_customer` en encaissement (le client doit valider
  * son push USSD) mais `pending` en decaissement (rien n'est attendu de
@@ -187,7 +187,7 @@ function splitPhone(phone: string | undefined, country: string) {
 
 function splitName(name: string | undefined): { firstname: string; lastname: string } {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstname: 'Client', lastname: 'Orchi' };
+  if (parts.length === 0) return { firstname: 'Client', lastname: 'Afripaie' };
   if (parts.length === 1) return { firstname: parts[0]!, lastname: parts[0]! };
   return { firstname: parts[0]!, lastname: parts.slice(1).join(' ') };
 }
@@ -247,9 +247,9 @@ export const fedapayProvider: PaymentProvider = {
         amount: request.amount,
         currency: { iso: request.currency },
         callback_url: request.callbackUrl,
-        // La reference Orchi voyage avec la transaction : c'est ce qui permet
+        // La reference Afripaie voyage avec la transaction : c'est ce qui permet
         // de rapprocher un settlement FedaPay de nos propres ecritures.
-        custom_metadata: { orchi_reference: request.reference, ...request.metadata },
+        custom_metadata: { afripaie_reference: request.reference, ...request.metadata },
         customer: {
           firstname: name.firstname,
           lastname: name.lastname,

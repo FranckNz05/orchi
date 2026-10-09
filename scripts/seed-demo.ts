@@ -281,7 +281,7 @@ async function ensureMerchant(def: DemoMerchant) {
             ? {}
             : {
                 liveReviewedAt: new Date(Date.now() - 6 * 86_400_000),
-                liveReviewedBy: 'demo (admin@orchi.africa)',
+                liveReviewedBy: 'demo (admin@afripaie.online)',
                 liveReviewNote: def.note ?? null,
               }),
         };
@@ -339,7 +339,7 @@ async function ensureMerchant(def: DemoMerchant) {
       data: {
         id: `whe_demo_${def.slug}`,
         merchantId: id,
-        url: `${def.website}/webhooks/orchi`,
+        url: `${def.website}/webhooks/afripaie`,
         secret: `whsec_demo_${def.slug}`,
         environment: 'test',
         events: 'payment.succeeded,payment.failed,payout.succeeded,payout.failed',
@@ -568,7 +568,7 @@ async function report() {
   }
 
   console.log(`\nvolume encaissé (unités mineures, devises mêlées) : ${encaisse._sum.amount ?? 0}`);
-  console.log(`dont commission Orchi : ${encaisse._sum.platformFeeAmount ?? 0}`);
+  console.log(`dont commission Afripaie : ${encaisse._sum.platformFeeAmount ?? 0}`);
 
   // Combien de paiements ont demande plus d'une tentative. Avec un seul
   // agregateur branche, la bascule n'a nulle part ou aller : le chiffre reste

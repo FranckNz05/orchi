@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tableau de bord — Orchi</title>
+<title>Tableau de bord — Afripaie</title>
 <style>
   /* Meme palette que les pages publiques, pour que le passage du site au
      tableau de bord ne donne pas l'impression de changer de produit. */
@@ -390,7 +390,7 @@
   const VIEWS = {
     overview:       { title: 'Vue d’ensemble', sub: 'Bienvenue dans votre espace de gestion' },
     devoverview:    { title: 'Workbench', sub: 'Tout ce qu’il faut pour intégrer' },
-    events:         { title: 'Événements', sub: 'Ce qu’Orchi vous a envoyé' },
+    events:         { title: 'Événements', sub: 'Ce qu’Afripaie vous a envoyé' },
     logs:           { title: 'Logs', sub: 'Notifications reçues des agrégateurs' },
     reconciliation: { title: 'Réconciliation', sub: 'Ce qui demande une décision humaine' },
     payments:       { title: 'Encaissements', sub: 'Tous vos paiements entrants' },
@@ -636,7 +636,7 @@
             <td class="num">${k.revoked ? '' : `<button class="b" data-revoke="${esc(k.id)}">Révoquer</button>`}</td>
           </tr>`).join('')}</tbody></table></div>`}
         <div id="key-out"></div>
-        <div class="foot">Le secret n’est affiché qu’à la création. Orchi n’en conserve qu’une empreinte : il est irrécupérable.</div>
+        <div class="foot">Le secret n’est affiché qu’à la création. Afripaie n’en conserve qu’une empreinte : il est irrécupérable.</div>
       </section>`;
   }
 
@@ -975,7 +975,7 @@
         const ep = await api('/v1/webhook-endpoints', { method: 'POST', body: JSON.stringify({ url }) });
         await renderWebhooks();
         $('endpoint-out').innerHTML = `<div class="keyout">
-          <p>Secret de signature — affiché une seule fois. Vérifiez l’en-tête <code>Orchi-Signature</code>.</p>
+          <p>Secret de signature — affiché une seule fois. Vérifiez l’en-tête <code>Afripaie-Signature</code>.</p>
           <code>${esc(ep.secret)}</code></div>`;
       } catch (err) { alert(err.message); }
       return;

@@ -65,7 +65,7 @@ describe('index du service', () => {
     const res = await app.inject({ method: 'GET', url: '/' });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.service).toBe('orchi');
+    expect(body.service).toBe('afripaie');
     expect(body.endpoints.payments).toContain('/v1/payments');
   });
 
@@ -81,7 +81,7 @@ describe('sante', () => {
   it('repond sur /health sans authentification', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ status: 'ok', service: 'orchi' });
+    expect(res.json()).toMatchObject({ status: 'ok', service: 'afripaie' });
   });
 
   it('verifie la base sur /health/ready', async () => {

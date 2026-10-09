@@ -8,7 +8,7 @@ import { applyPayoutUpdate, refreshPayout } from '../payouts.js';
 import { buildProviderContext } from '../provider-accounts.js';
 
 /**
- * Webhooks entrants : l'agregateur vers Orchi.
+ * Webhooks entrants : l'agregateur vers Afripaie.
  *
  * Quatre principes, tous issus du fait qu'un webhook est une entree hostile :
  *

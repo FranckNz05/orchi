@@ -182,7 +182,7 @@ async function runAttempts(payment: Payment, plan: RoutingPlan): Promise<Payment
         providerAccountId: candidate.providerAccountId,
         reference: `${payment.reference}-${attemptNumber}`,
         status: 'PENDING',
-        // Le taux de l'agregateur est FIGE ici : la commission Orchi en est le
+        // Le taux de l'agregateur est FIGE ici : la commission Afripaie en est le
         // solde, et une modification ulterieure du catalogue ne doit pas
         // recalculer retroactivement une transaction deja passee.
         providerFeeBps: candidate.feeBps,
@@ -434,7 +434,7 @@ async function settleSuccess(
   if (fee.capped) {
     logger.warn(
       { payment_id: payment.id, provider: attempt.providerId, provider_fee: providerFee },
-      'Commission agregateur superieure au taux total : marge Orchi nulle',
+      'Commission agregateur superieure au taux total : marge Afripaie nulle',
     );
   }
 
