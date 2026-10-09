@@ -7,5 +7,4 @@ dist
 prisma/dev.db
 prisma/test.db
 tests
-docs
 .claude

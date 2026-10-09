@@ -49,6 +49,10 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
+# `GET /docs` sert INTEGRATION.md en Markdown aux clients d'API. Sans ce
+# repertoire dans l'image, la route repond 404 — ce que l'exclusion initiale du
+# .dockerignore avait provoque.
+COPY --from=build /app/docs ./docs
 COPY --from=build /app/scripts/set-db-provider.mjs ./scripts/set-db-provider.mjs
 
 # Le conteneur ne tourne pas en root. Une faille applicative ne doit pas donner
