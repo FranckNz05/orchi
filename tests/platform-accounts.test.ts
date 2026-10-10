@@ -250,6 +250,29 @@ describe('encaissement par les comptes d’Afripaie', () => {
     expect(res.json()).toMatchObject({ country: 'BJ', currency: 'XOF', amount: 1000 });
   });
 
+  it('ne propose sur la page que les moyens reellement routables', async () => {
+    if (!seeded) return;
+    const optionsFor = async () => {
+      const created = await post('/v1/checkout-sessions', {
+        reference: ref('cs'),
+        amount: 1000,
+        currency: 'XOF',
+        customer: { phone: '+229 97 00 00 00' },
+      });
+      const token = (created.json().url as string).split('/').pop();
+      const view = await app.inject({ method: 'GET', url: `/v1/public/checkout/${token}` });
+      return view.json().options as unknown[];
+    };
+
+    // Aucun compte, ni a lui ni a Afripaie : proposer un moyen ferait echouer
+    // le client apres son choix.
+    env.PLATFORM_MERCHANT_ID = undefined;
+    expect(await optionsFor()).toEqual([]);
+
+    env.PLATFORM_MERCHANT_ID = platformId;
+    expect((await optionsFor()).length).toBeGreaterThan(0);
+  });
+
   it('demande le pays quand le numero n’a pas d’indicatif', async () => {
     if (!seeded) return;
     const res = await post('/v1/payments', payin({ customer: { phone: '97000000' } }));

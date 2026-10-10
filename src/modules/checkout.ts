@@ -167,9 +167,20 @@ function labelFor(network: string): string {
  * proposer du tout.
  */
 export async function paymentOptionsFor(
+  merchantId: string,
   country: string,
   environment: 'test' | 'live',
 ): Promise<PaymentOption[]> {
+  // Seuls les agregateurs ou un compte existe — celui du marchand, ou a defaut
+  // celui d'Afripaie — sont proposes. Afficher un moyen que le routage ne peut
+  // pas servir ferait echouer le client APRES qu'il l'a choisi.
+  const owners = [merchantId, ...(env.PLATFORM_MERCHANT_ID ? [env.PLATFORM_MERCHANT_ID] : [])];
+  const accounts = await prisma.providerAccount.findMany({
+    where: { merchantId: { in: owners }, environment, status: 'ACTIVE' },
+    select: { providerId: true },
+  });
+  const usable = new Set(accounts.map((a) => a.providerId));
+
   const rules = await prisma.coverageRule.findMany({
     where: {
       countryIso2: country.toUpperCase(),
@@ -186,6 +197,7 @@ export async function paymentOptionsFor(
   for (const rule of rules) {
     const adapter = getProviderAdapter(rule.providerId);
     if (!adapter) continue;
+    if (!usable.has(rule.providerId)) continue;
     if (rule.providerId === 'sandbox' && environment !== 'test') continue;
 
     const channels = rule.channels.split(',').map((c) => c.trim()) as Channel[];
@@ -274,7 +286,7 @@ export async function publicView(token: string) {
     description: session.description,
     environment: session.environment,
     prefill: { name: session.customerName, email: session.customerEmail, phone: session.customerPhone },
-    options: session.status === 'OPEN' ? await paymentOptionsFor(session.country, session.environment as 'test' | 'live') : [],
+    options: session.status === 'OPEN' ? await paymentOptionsFor(session.merchantId, session.country, session.environment as 'test' | 'live') : [],
     expires_at: session.expiresAt.toISOString(),
     payment: payment
       ? {
@@ -317,7 +329,7 @@ export async function confirmCheckout(input: ConfirmInput) {
 
   // Le moyen choisi doit figurer parmi ceux que l'on a proposes : sans cette
   // verification, un client pourrait forcer un canal non desservi.
-  const options = await paymentOptionsFor(session.country, session.environment as 'test' | 'live');
+  const options = await paymentOptionsFor(session.merchantId, session.country, session.environment as 'test' | 'live');
   const chosen = options.find(
     (o) => o.channel === input.channel && (o.network ?? null) === (input.network ?? null),
   );
