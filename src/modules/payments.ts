@@ -1,6 +1,6 @@
 import type { Payment, PaymentAttempt } from '@prisma/client';
 import type { Channel } from '../catalog/coverage.js';
-import { getCountry } from '../catalog/countries.js';
+import { resolveMarket } from '../catalog/market.js';
 import { AppError, errors } from '../core/errors.js';
 import { ID_PREFIX, newId } from '../core/ids.js';
 import { logger } from '../core/logger.js';
@@ -48,7 +48,11 @@ export interface CreatePaymentInput {
   reference: string;
   amount: number;
   currency: string;
-  country: string;
+  /**
+   * Facultatif : a defaut, l'indicatif du numero du client designe le pays
+   * (src/catalog/market.ts). Le routage en decoule.
+   */
+  country?: string;
   channel: Channel;
   network?: string;
   customer: { phone?: string; email?: string; name?: string };
@@ -62,21 +66,11 @@ export interface CreatePaymentInput {
 /* Validation                                                                 */
 /* -------------------------------------------------------------------------- */
 
-function validate(input: CreatePaymentInput): void {
+/** Demande dont le pays et la devise sont arretes. */
+type ResolvedPaymentInput = CreatePaymentInput & { country: string };
+
+function validate(input: ResolvedPaymentInput): void {
   assertValidAmount(input.amount, input.currency);
-
-  const country = getCountry(input.country);
-  if (!country) throw errors.invalidRequest(`Pays hors catalogue : ${input.country}.`, 'country');
-
-  if (country.currency !== input.currency.toUpperCase()) {
-    // Erreur frequente et couteuse : envoyer XOF sur un pays en XAF passe les
-    // validations naives et produit un montant faux chez l'agregateur.
-    throw errors.invalidRequest(
-      `La devise de ${country.name} est ${country.currency}, pas ${input.currency.toUpperCase()}.`,
-      'currency',
-      { expected: country.currency },
-    );
-  }
 
   if (input.channel === 'mobile_money' && !input.customer.phone) {
     throw errors.invalidRequest(
@@ -94,9 +88,15 @@ function validate(input: CreatePaymentInput): void {
 /* -------------------------------------------------------------------------- */
 
 export async function createPayment(
-  input: CreatePaymentInput,
+  request: CreatePaymentInput,
   linkResource?: (id: string) => Promise<void>,
 ): Promise<{ payment: Payment; attempts: PaymentAttempt[] }> {
+  const market = resolveMarket({
+    country: request.country,
+    currency: request.currency,
+    phone: request.customer.phone,
+  });
+  const input: ResolvedPaymentInput = { ...request, country: market.country, currency: market.currency };
   validate(input);
 
   const existing = await prisma.payment.findUnique({
@@ -420,7 +420,13 @@ async function settleSuccess(
   attemptId: string,
   result: AttemptResult,
 ): Promise<Payment> {
-  const attempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: attemptId } });
+  const attempt = await prisma.paymentAttempt.findUniqueOrThrow({
+    where: { id: attemptId },
+    include: { providerAccount: { select: { merchantId: true } } },
+  });
+  // Un compte qui n'appartient pas au marchand est un compte d'Afripaie : les
+  // fonds y sont arrives, Afripaie les doit au marchand (voir ledger.ts).
+  const custody = attempt.providerAccount.merchantId === payment.merchantId ? 'merchant' : 'platform';
 
   // La commission reellement communiquee par l'agregateur prime sur le taux
   // catalogue : c'est la seule valeur exacte, le reste est une estimation.
@@ -459,6 +465,7 @@ async function settleSuccess(
         amount: payment.amount,
         providerFee,
         platformFee: fee.amount,
+        custody,
       },
       tx,
     );

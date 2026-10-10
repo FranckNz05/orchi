@@ -119,8 +119,9 @@ describe('creation de session', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  // XAF passerait : meme parite que XOF (src/catalog/market.ts). NGN, non.
   it('refuse une devise incoherente avec le pays', async () => {
-    const res = await newSession({ currency: 'XAF' });
+    const res = await newSession({ currency: 'NGN' });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.details.expected).toBe('XOF');
   });

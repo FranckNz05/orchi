@@ -17,7 +17,8 @@ const createBody = z.object({
   /** Montant en unites mineures. 15000 XOF = 15 000 francs. */
   amount: z.number().int().positive(),
   currency: z.string().length(3),
-  country: z.string().length(2),
+  /** Facultatif : l'indicatif du numero du client (+242, +225…) designe le pays. */
+  country: z.string().length(2).optional(),
   channel: z.enum(CHANNELS),
   network: z.string().max(60).optional(),
   customer: z
@@ -75,7 +76,7 @@ export async function paymentRoutes(app: FastifyInstance) {
               reference: body.reference,
               amount: body.amount,
               currency: body.currency,
-              country: body.country,
+              ...(body.country ? { country: body.country } : {}),
               channel: body.channel,
               ...(body.network ? { network: body.network } : {}),
               customer: body.customer,

@@ -18,6 +18,7 @@ import type { Prisma } from '@prisma/client';
  *   merchant:{id}:receivable   du au marchand sur un encaissement
  *   merchant:{id}:payable      du par le marchand sur un decaissement
  *   merchant:{id}:billing      commissions Afripaie a facturer
+ *   merchant:{id}:held         encaisse sur un compte AFRIPAIE, net, a reverser
  *   afripaie:revenue              produit d'Afripaie
  *
  * OU ATTERRIT LA COMMISSION AFRIPAIE
@@ -29,6 +30,13 @@ import type { Prisma } from '@prisma/client';
  * `merchant:{id}:billing` n'est jamais mouvemente.
  *
  * Le montant, lui, est identique dans les deux cas — il vient de `pricing.ts`.
+ *
+ * EXCEPTION : LES COMPTES D'AFRIPAIE (PLATFORM_MERCHANT_ID)
+ *
+ * Quand l'encaissement passe par un compte agregateur d'Afripaie, l'argent
+ * arrive chez Afripaie. La commission est alors reellement retenue, quel que
+ * soit `PLATFORM_FEE_COLLECTION`, et le net est porte par `merchant:{id}:held` :
+ * son solde est exactement ce qu'Afripaie doit reverser au marchand.
  */
 
 export type Side = 'DEBIT' | 'CREDIT';
@@ -56,6 +64,7 @@ export const accounts = {
   merchantReceivable: (merchantId: string) => `merchant:${merchantId}:receivable`,
   merchantPayable: (merchantId: string) => `merchant:${merchantId}:payable`,
   merchantBilling: (merchantId: string) => `merchant:${merchantId}:billing`,
+  merchantHeld: (merchantId: string) => `merchant:${merchantId}:held`,
   afripaieRevenue: () => 'afripaie:revenue',
 } as const;
 
@@ -126,6 +135,12 @@ export interface PayinPostingInput {
   amount: number;
   providerFee: number;
   platformFee: number;
+  /**
+   * `platform` : encaisse sur un compte agregateur d'Afripaie. Les fonds sont
+   * chez Afripaie, qui retient sa commission et doit le net au marchand.
+   * `merchant` (defaut) : encaisse sur le compte du marchand.
+   */
+  custody?: 'merchant' | 'platform';
 }
 
 /**
@@ -193,7 +208,10 @@ export async function postPayinSucceeded(
   input: PayinPostingInput,
   tx: Prisma.TransactionClient = prisma,
 ): Promise<void> {
-  const accrued = env.PLATFORM_FEE_COLLECTION === 'invoice';
+  const custodyPlatform = input.custody === 'platform';
+  // Afripaie detenant les fonds, rien n'est a facturer : la commission est
+  // retenue avant reversement.
+  const accrued = !custodyPlatform && env.PLATFORM_FEE_COLLECTION === 'invoice';
 
   // En `invoice` la commission ne sort pas du flux : le marchand est credite du
   // montant moins la seule commission de l'agregateur.
@@ -214,10 +232,18 @@ export async function postPayinSucceeded(
       refType: 'payment',
       refId: input.paymentId,
       currency: input.currency,
-      description: `Encaissement via ${input.providerId}`,
+      description: custodyPlatform
+        ? `Encaissement via ${input.providerId} (compte Afripaie, a reverser)`
+        : `Encaissement via ${input.providerId}`,
       entries: [
         { account: accounts.providerClearing(input.providerId), side: 'DEBIT', amount: input.amount },
-        { account: accounts.merchantReceivable(input.merchantId), side: 'CREDIT', amount: net },
+        {
+          account: custodyPlatform
+            ? accounts.merchantHeld(input.merchantId)
+            : accounts.merchantReceivable(input.merchantId),
+          side: 'CREDIT',
+          amount: net,
+        },
         ...(input.providerFee > 0
           ? [
               {

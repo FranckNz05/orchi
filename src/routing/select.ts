@@ -1,5 +1,6 @@
 import type { Channel } from '../catalog/coverage.js';
 import { AppError } from '../core/errors.js';
+import { env } from '../core/env.js';
 import { prisma } from '../db/client.js';
 import { getProviderAdapter } from '../providers/registry.js';
 import type { Direction } from '../providers/types.js';
@@ -13,11 +14,15 @@ import { scoreCandidates, type ScoreInput } from './scoring.js';
  * Quatre conditions doivent etre reunies pour qu'un agregateur soit candidat :
  *   1. le catalogue le declare present sur (pays, canal, sens) ;
  *   2. Afripaie possede un adaptateur pour lui ;
- *   3. le marchand a un compte actif chez lui, dans le bon environnement ;
+ *   3. un compte actif chez lui, dans le bon environnement : celui du
+ *      marchand, ou a defaut — en encaissement seulement — celui d'Afripaie
+ *      (PLATFORM_MERCHANT_ID) ;
  *   4. son disjoncteur n'est pas ouvert.
  *
- * La condition 3 est la contrainte structurante du modele A : router vers
- * quatre agregateurs suppose que le marchand est onboarde chez les quatre.
+ * Sans compte plateforme, la condition 3 est la contrainte structurante du
+ * modele A : router vers quatre agregateurs suppose que le marchand est
+ * onboarde chez les quatre. Avec, un marchand sans aucun compte encaisse par
+ * ceux d'Afripaie.
  *
  * Les candidats retenus sont ensuite ORDONNES par score (src/routing/scoring.ts).
  * Les agregateurs ecartes par leur disjoncteur sont conserves dans
@@ -111,11 +116,24 @@ export async function selectCandidates(request: RoutingRequest): Promise<Routing
     }),
   ]);
 
+  // Comptes d'Afripaie, en ENCAISSEMENT uniquement : un decaissement y
+  // puiserait dans un solde qui contient l'argent des autres marchands.
+  const platformId = env.PLATFORM_MERCHANT_ID;
+  const platformAccounts =
+    platformId && platformId !== request.merchantId && request.direction === 'payin'
+      ? await prisma.providerAccount.findMany({
+          where: { merchantId: platformId, environment: request.environment, status: 'ACTIVE' },
+        })
+      : [];
+
   if (rules.length === 0) {
     throw noRouteError(request, `Aucun agregateur au catalogue pour ${country}.`);
   }
 
-  const accountByProvider = new Map(accounts.map((a) => [a.providerId, a]));
+  // Le compte du marchand prime : il l'a connecte, l'argent lui arrive en direct.
+  const accountByProvider = new Map(
+    [...platformAccounts, ...accounts].map((a) => [a.providerId, a]),
+  );
   const inputs: ScoreInput[] = [];
 
   const consider = (
@@ -175,7 +193,7 @@ export async function selectCandidates(request: RoutingRequest): Promise<Routing
   if (inputs.length === 0) {
     throw noRouteError(
       request,
-      diagnose(request, country, rules.length, accounts.length, excluded.size, rejected.length),
+      diagnose(request, country, rules.length, accountByProvider.size, excluded.size, rejected.length),
       rejected,
     );
   }

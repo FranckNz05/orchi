@@ -347,8 +347,9 @@ describe('idempotence', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('validation metier', () => {
+  // XAF passerait : meme parite que XOF (src/catalog/market.ts). NGN, non.
   it('refuse une devise incoherente avec le pays', async () => {
-    const res = await post('/v1/payments', payinBody({ currency: 'XAF' }), ref('idem'));
+    const res = await post('/v1/payments', payinBody({ currency: 'NGN' }), ref('idem'));
     expect(res.statusCode).toBe(400);
     expect(res.json().error.details.expected).toBe('XOF');
   });

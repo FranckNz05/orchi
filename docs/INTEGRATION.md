@@ -126,6 +126,23 @@ curl -X POST https://afripaie.online/v1/payments \
   }'
 ```
 
+### Pays et agrégateur : déduits du numéro
+
+`country` est **facultatif**. À défaut, l'indicatif du numéro du client désigne
+le pays, et le routage choisit l'agrégateur qui le dessert : `+242…` part au
+Congo (Yabetoo), `+225…` en Côte d'Ivoire (GeniusPay), et ainsi de suite. Le
+numéro doit alors être au format international (`+242…` ou `00242…`) ; un
+numéro local (`06 123 45 67`) ne désigne aucun pays et la requête est refusée
+(`400`, `param: country`). Un `country` explicite reste prioritaire.
+
+Les francs CFA sont interchangeables : XAF et XOF ont la même parité fixe avec
+l'euro, donc `1 000 XAF` facturés à un client ivoirien deviennent `1 000 XOF`,
+sans conversion. Toute autre différence de devise est refusée.
+
+Vous n'avez **besoin d'aucun compte agrégateur** : sans compte à vous, Afripaie
+encaisse par les siens et vous reverse le net. Si vous en connectez un (§4), il
+est utilisé en priorité.
+
 ### La réponse ne dit jamais « payé »
 
 Un paiement mobile money est **asynchrone par nature** : l'opérateur envoie une

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { CheckoutSession } from '@prisma/client';
-import { getCountry } from '../catalog/countries.js';
+import { resolveMarket } from '../catalog/market.js';
 import type { Channel } from '../catalog/coverage.js';
 import { AppError, errors } from '../core/errors.js';
 import { env } from '../core/env.js';
@@ -39,7 +39,8 @@ export interface CreateSessionInput {
   reference: string;
   amount: number;
   currency: string;
-  country: string;
+  /** Facultatif : a defaut, l'indicatif de `customer.phone` designe le pays. */
+  country?: string;
   description?: string;
   customer?: { name?: string; email?: string; phone?: string };
   successUrl?: string;
@@ -52,18 +53,16 @@ export function checkoutUrl(token: string): string {
   return `${env.PUBLIC_BASE_URL}/pay/${token}`;
 }
 
-export async function createCheckoutSession(input: CreateSessionInput) {
+export async function createCheckoutSession(request: CreateSessionInput) {
+  // Le pays fixe les moyens de paiement proposes sur la page : il doit etre
+  // arrete des la creation, depuis `country` ou l'indicatif du client.
+  const market = resolveMarket({
+    country: request.country,
+    currency: request.currency,
+    phone: request.customer?.phone,
+  });
+  const input = { ...request, country: market.country, currency: market.currency };
   assertValidAmount(input.amount, input.currency);
-
-  const country = getCountry(input.country);
-  if (!country) throw errors.invalidRequest(`Pays hors catalogue : ${input.country}.`, 'country');
-  if (country.currency !== input.currency.toUpperCase()) {
-    throw errors.invalidRequest(
-      `La devise de ${country.name} est ${country.currency}, pas ${input.currency.toUpperCase()}.`,
-      'currency',
-      { expected: country.currency },
-    );
-  }
 
   const existing = await prisma.checkoutSession.findUnique({
     where: { merchantId_reference: { merchantId: input.merchantId, reference: input.reference } },

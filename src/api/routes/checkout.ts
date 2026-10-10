@@ -16,7 +16,8 @@ const createBody = z.object({
   reference: z.string().min(1).max(120),
   amount: z.number().int().positive(),
   currency: z.string().length(3),
-  country: z.string().length(2),
+  /** Facultatif : l'indicatif du numero du client (+242, +225…) designe le pays. */
+  country: z.string().length(2).optional(),
   description: z.string().max(500).optional(),
   customer: z
     .object({
@@ -63,7 +64,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
         reference: body.reference,
         amount: body.amount,
         currency: body.currency,
-        country: body.country,
+        ...(body.country ? { country: body.country } : {}),
         ...(body.description ? { description: body.description } : {}),
         ...(body.customer ? { customer: body.customer } : {}),
         ...(body.success_url ? { successUrl: body.success_url } : {}),

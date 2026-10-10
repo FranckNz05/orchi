@@ -104,6 +104,23 @@ const schema = z.object({
   PLATFORM_FEE_COLLECTION: z.enum(['split', 'on_top', 'invoice']).default('invoice'),
 
   /**
+   * Marchand dont les comptes agregateurs sont ceux d'Afripaie elle-meme.
+   *
+   * Un marchand qui n'a PAS de compte chez un agregateur encaisse alors par
+   * celui d'Afripaie : il n'integre que l'API Afripaie, et le routage choisit
+   * GeniusPay, Yabetoo… d'apres le pays. Ses propres comptes, s'il en a,
+   * restent prioritaires.
+   *
+   * Les fonds atterrissent alors CHEZ Afripaie : la commission est retenue sur
+   * le flux, et le net est du au marchand (merchant:{id}:held, voir ledger.ts).
+   * Jamais pour un decaissement : il puiserait dans un solde qui contient
+   * l'argent des autres marchands.
+   *
+   * Vide : desactive, chaque marchand doit connecter ses propres comptes.
+   */
+  PLATFORM_MERCHANT_ID: z.string().min(1).optional(),
+
+  /**
    * Delai avant qu'une part partenaire ne devienne reglable.
    *
    * Un encaissement « reussi » ne signifie PAS que les fonds sont disponibles
