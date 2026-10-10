@@ -30,6 +30,7 @@ export interface AuthContext {
   apiKeyId?: string;
   /** Present uniquement pour une session de navigateur. */
   sessionId?: string;
+  userId?: string;
   userName?: string;
   userEmail?: string;
   environment: 'test' | 'live';
@@ -149,6 +150,7 @@ export const auth = fp(async (app: FastifyInstance) => {
       merchantKybStatus: session.merchantKybStatus,
       platformAdmin: session.platformAdmin,
       sessionId: session.sessionId,
+      userId: session.userId,
       userName: session.userName,
       userEmail: session.userEmail,
       environment: session.environment,

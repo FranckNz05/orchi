@@ -210,14 +210,14 @@ export const authErrors = {
       retriable: false,
     }),
 
-  weakPassword: (reason: string) =>
+  weakPassword: (reason: string, param = 'password') =>
     new AppError({
       type: 'invalid_request_error',
       code: 'weak_password',
       message: reason,
       httpStatus: 400,
       retriable: false,
-      param: 'password',
+      param,
     }),
 } as const;
 
@@ -228,20 +228,20 @@ export const authErrors = {
  * caracteres produit `Passw0rd!`, que tout dictionnaire connait. Douze
  * caracteres sans contrainte de forme resistent mieux.
  */
-export function checkPasswordStrength(password: string, email: string): void {
+export function checkPasswordStrength(password: string, email: string, param = 'password'): void {
   if (password.length < 12) {
-    throw authErrors.weakPassword('Le mot de passe doit faire au moins 12 caractères.');
+    throw authErrors.weakPassword('Le mot de passe doit faire au moins 12 caractères.', param);
   }
   if (password.length > 200) {
-    throw authErrors.weakPassword('Le mot de passe ne peut pas dépasser 200 caractères.');
+    throw authErrors.weakPassword('Le mot de passe ne peut pas dépasser 200 caractères.', param);
   }
   const local = email.split('@')[0]?.toLowerCase() ?? '';
   if (local.length >= 4 && password.toLowerCase().includes(local)) {
-    throw authErrors.weakPassword('Le mot de passe ne doit pas contenir votre adresse e-mail.');
+    throw authErrors.weakPassword('Le mot de passe ne doit pas contenir votre adresse e-mail.', param);
   }
   const trivial = ['motdepasse', 'password', '123456789', 'azertyuiop', 'qwertyuiop'];
   if (trivial.some((t) => password.toLowerCase().includes(t))) {
-    throw authErrors.weakPassword('Ce mot de passe est trop courant.');
+    throw authErrors.weakPassword('Ce mot de passe est trop courant.', param);
   }
 }
 
@@ -330,4 +330,72 @@ export async function login(
 
   const context = await resolveSession(token);
   return { token, context: context! };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Changement de mot de passe                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Change le mot de passe d'un utilisateur connecte.
+ *
+ * L'ancien mot de passe est exige meme avec une session valide : une session
+ * volee (poste laisse ouvert, cookie exfiltre) ne doit pas suffire a confisquer
+ * le compte en changeant le secret qui permettrait d'en reprendre le controle.
+ *
+ * Toutes les AUTRES sessions sont revoquees. C'est la raison d'etre la plus
+ * frequente d'un changement de mot de passe : quelqu'un d'autre a pu l'utiliser.
+ * La session courante est conservee pour ne pas deconnecter celui qui agit.
+ *
+ * Retourne le nombre de sessions revoquees.
+ */
+export async function changePassword(input: {
+  userId: string;
+  currentSessionId: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ revokedSessions: number }> {
+  const user = await prisma.user.findUnique({ where: { id: input.userId } });
+  if (!user) throw authErrors.badCredentials();
+
+  const valid = await verifyPassword(input.currentPassword, user.passwordHash);
+  if (!valid) {
+    throw new AppError({
+      // 400 et non 401 : la SESSION est valide, seul le champ est faux. Un 401
+      // signifie « reconnectez-vous » pour tout client, tableau de bord compris,
+      // qui deconnecterait alors l'utilisateur pour une simple faute de frappe.
+      type: 'invalid_request_error',
+      code: 'invalid_current_password',
+      message: 'Le mot de passe actuel est incorrect.',
+      httpStatus: 400,
+      retriable: false,
+      param: 'current_password',
+    });
+  }
+
+  if (input.newPassword === input.currentPassword) {
+    throw new AppError({
+      type: 'invalid_request_error',
+      code: 'password_unchanged',
+      message: "Le nouveau mot de passe doit être différent de l'actuel.",
+      httpStatus: 400,
+      retriable: false,
+      param: 'new_password',
+    });
+  }
+
+  checkPasswordStrength(input.newPassword, user.email, 'new_password');
+
+  const passwordHash = await hashPassword(input.newPassword);
+  const now = new Date();
+
+  const [, revoked] = await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
+    prisma.session.updateMany({
+      where: { userId: user.id, id: { not: input.currentSessionId }, revokedAt: null },
+      data: { revokedAt: now },
+    }),
+  ]);
+
+  return { revokedSessions: revoked.count };
 }

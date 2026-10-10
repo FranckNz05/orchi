@@ -265,6 +265,9 @@
     <a data-view="providers"><span class="ico">⛁</span> Agrégateurs</a>
     <a data-view="webhooks"><span class="ico">⇄</span> Webhooks</a>
 
+    <div class="group">Compte</div>
+    <a data-view="security"><span class="ico">⚷</span> Sécurité</a>
+
   </nav>
 
   <div class="devbar" id="devbar" data-open="false">
@@ -399,6 +402,7 @@
     providers:      { title: 'Agrégateurs', sub: 'Comptes connectés et santé du routage' },
     webhooks:       { title: 'Webhooks', sub: 'Endpoints déclarés et journal de livraison' },
     keys:           { title: 'Clés API', sub: 'Pour connecter votre backend' },
+    security:       { title: 'Sécurité', sub: 'Mot de passe de votre compte' },
   };
 
   async function renderOverview() {
@@ -871,6 +875,70 @@
     };
   }
 
+  /* ------------------------------------------------------------ Securite -- */
+
+  async function renderSecurity() {
+    const LABEL = 'display:grid;gap:7px;font-size:13.5px;font-weight:600';
+    $('content').innerHTML = `
+      <section class="panel">
+        <header><h2>Changer le mot de passe</h2></header>
+        <form class="pad" id="pw-form" style="display:grid;gap:16px;max-width:480px">
+          <input type="email" name="username" autocomplete="username" value="${esc(session?.user?.email)}" hidden />
+          <label style="${LABEL}">
+            Mot de passe actuel
+            <input id="pw-current" type="password" autocomplete="current-password" required style="${FIELD}" />
+          </label>
+          <label style="${LABEL}">
+            Nouveau mot de passe <span style="font-weight:400;color:var(--muted)">— 12 caractères minimum</span>
+            <input id="pw-new" type="password" autocomplete="new-password" minlength="12" maxlength="200" required style="${FIELD}" />
+          </label>
+          <label style="${LABEL}">
+            Confirmer le nouveau mot de passe
+            <input id="pw-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="200" required style="${FIELD}" />
+          </label>
+          <div><button class="b solid" id="pw-submit" type="submit">Changer le mot de passe</button></div>
+          <div id="pw-msg" role="status" style="font-size:13.5px"></div>
+        </form>
+        <div class="foot">
+          Toutes vos autres sessions ouvertes seront déconnectées. Celle-ci reste
+          active. Les clés API ne sont pas concernées.
+        </div>
+      </section>`;
+
+    $('pw-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const msg = $('pw-msg');
+      const submit = $('pw-submit');
+      const current = $('pw-current').value;
+      const next = $('pw-new').value;
+      msg.style.color = 'var(--danger)';
+
+      if (next !== $('pw-confirm').value) {
+        msg.textContent = 'Les deux saisies du nouveau mot de passe ne correspondent pas.';
+        return;
+      }
+
+      submit.disabled = true;
+      msg.textContent = '';
+      try {
+        const res = await api('/auth/password', {
+          method: 'POST',
+          body: JSON.stringify({ current_password: current, new_password: next }),
+        });
+        $('pw-form').reset();
+        msg.style.color = 'var(--accent)';
+        const n = res.other_sessions_revoked;
+        msg.textContent = 'Mot de passe changé.' + (n > 0
+          ? ` ${n} autre${n > 1 ? 's' : ''} session${n > 1 ? 's' : ''} déconnectée${n > 1 ? 's' : ''}.`
+          : '');
+      } catch (err) {
+        msg.textContent = err.message;
+      } finally {
+        submit.disabled = false;
+      }
+    };
+  }
+
   const RENDER = {
     overview: renderOverview,
     devoverview: renderDevOverview,
@@ -883,6 +951,7 @@
     webhooks: renderWebhooks,
     keys: renderKeys,
     live: renderLive,
+    security: renderSecurity,
   };
 
   async function show(next) {

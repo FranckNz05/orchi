@@ -576,6 +576,8 @@ Le quota global (`RATE_LIMIT_MAX`, 300/minute) est dimensionné pour du trafic d
 paiement. Appliqué tel quel à `/auth/login`, il laisserait 300 essais de mot de
 passe par minute et par IP. Ces routes ont donc leurs propres limites :
 `AUTH_RATE_LIMIT_MAX` (10 / 5 min) et `REGISTER_RATE_LIMIT_MAX` (20 / heure).
+`/auth/password` partage la limite de la connexion : elle vérifie elle aussi un
+mot de passe.
 
 La limite porte sur l'IP, **pas sur le compte visé** : verrouiller un compte
 après N échecs offrirait à n'importe qui le moyen d'enfermer dehors le titulaire
@@ -588,6 +590,20 @@ depuis `request.auth` : la limitation s'exécute en `onRequest` alors que
 l'authentification est un `preHandler`. La version précédente retombait donc
 silencieusement sur l'IP pour tout le monde, et deux marchands derrière un même
 NAT partageaient un seul quota.
+
+### Changement de mot de passe
+
+`POST /auth/password` (`current_password`, `new_password`), écran **Compte →
+Sécurité** du tableau de bord. Session uniquement : une clé API ne peut pas
+réécrire le secret d'une personne. L'ancien mot de passe est exigé même avec une
+session valide, pour qu'une session volée ne suffise pas à confisquer le compte.
+Le nouveau suit les règles de l'inscription. Toutes les **autres** sessions de
+l'utilisateur sont révoquées ; celle qui agit est conservée. Un ancien mot de
+passe erroné répond `400 invalid_current_password`, pas `401`, qui signifierait
+« session perdue » et déconnecterait le tableau de bord.
+
+Il n'existe pas encore de réinitialisation par e-mail : Afripaie n'envoie aucun
+courrier.
 
 ## Montants
 

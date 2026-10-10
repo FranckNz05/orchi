@@ -6,6 +6,7 @@ import { env, isProduction } from '../../core/env.js';
 import { prisma } from '../../db/client.js';
 import {
   SESSION_COOKIE,
+  changePassword,
   login,
   register,
   revokeSession,
@@ -25,6 +26,11 @@ const registerBody = z.object({
 const loginBody = z.object({
   email: z.string().email().max(200),
   password: z.string().min(1).max(200),
+});
+
+const passwordBody = z.object({
+  current_password: z.string().min(1).max(200),
+  new_password: z.string().min(1).max(200),
 });
 
 /**
@@ -119,6 +125,34 @@ export async function authRoutes(app: FastifyInstance) {
       next: '/app',
     };
   });
+
+  /**
+   * Changement de mot de passe par l'utilisateur connecte.
+   *
+   * Session uniquement : une cle API identifie un systeme, pas une personne, et
+   * ne doit pas pouvoir reecrire le secret d'un humain. Meme limite que la
+   * connexion, puisque la route verifie un mot de passe et servirait sinon a en
+   * deviner un depuis une session volee.
+   */
+  app.post(
+    '/auth/password',
+    { config: LIMITE_CONNEXION, preHandler: app.authenticate },
+    async (request) => {
+      const ctx = request.auth!;
+      if (ctx.via !== 'session') throw errors.forbidden('session (une cle API ne change pas de mot de passe)');
+
+      const body = passwordBody.parse(request.body);
+      const { revokedSessions } = await changePassword({
+        userId: ctx.userId!,
+        currentSessionId: ctx.sessionId!,
+        currentPassword: body.current_password,
+        newPassword: body.new_password,
+      });
+
+      request.log.info({ userId: ctx.userId, revokedSessions }, 'mot de passe change');
+      return { ok: true, other_sessions_revoked: revokedSessions };
+    },
+  );
 
   app.post('/auth/logout', async (request, reply) => {
     await revokeSession(request.cookies?.[SESSION_COOKIE]);
