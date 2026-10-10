@@ -981,7 +981,7 @@
     const targets = (res.targets || []).map((t) =>
       `<li>${esc(PROVIDER[t.provider] || t.provider)} → <span class="mono">${esc(t.phone)}</span> (${esc(t.beneficiary_name)}),
         ${t.auto_enabled ? `automatiquement chaque jour dès ${money(t.min_amount, t.currency)} ${esc(t.currency)}` : 'à la demande'}.
-        Frais opérateur de 1,5 % à la réception.</li>`).join('');
+        Frais de l’opérateur pris en charge par Afripaie : vous recevez la totalité.</li>`).join('');
 
     $('content').innerHTML = `
       <section class="panel">

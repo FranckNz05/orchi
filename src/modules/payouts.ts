@@ -4,10 +4,10 @@ import { getCountry } from '../catalog/countries.js';
 import { AppError, errors } from '../core/errors.js';
 import { ID_PREFIX, newId } from '../core/ids.js';
 import { logger } from '../core/logger.js';
-import { assertValidAmount } from '../core/money.js';
+import { applyBps, assertValidAmount } from '../core/money.js';
 import { prisma } from '../db/client.js';
 import { isProviderError, type ProviderError } from '../providers/errors.js';
-import { requireProviderAdapter } from '../providers/registry.js';
+import { getProviderAdapter, requireProviderAdapter } from '../providers/registry.js';
 import type { AttemptResult } from '../providers/types.js';
 import { recordDecision, runInstrumented } from '../routing/instrument.js';
 import { selectCandidates, type RoutingPlan } from '../routing/select.js';
@@ -386,17 +386,21 @@ async function settleSuccess(
 ): Promise<Payout> {
   const attempt = await prisma.payoutAttempt.findUniqueOrThrow({ where: { id: attemptId } });
 
+  // Ce que l'agregateur retient au beneficiaire fait partie des frais : le
+  // taux total les inclut, la part Afripaie en est diminuee d'autant.
+  const beneficiaryBps = getProviderAdapter(attempt.providerId)?.payoutBeneficiaryFeeBps ?? 0;
   const fee = platformPayoutFee(payout.merchantId, {
     amountMinor: payout.amount,
     providerFeeAmount: result.providerFeeAmount ?? null,
     providerFeeBps: attempt.providerFeeBps,
+    beneficiaryFeeAmount: applyBps(payout.amount, beneficiaryBps),
   });
   const providerFee = fee.providerAmount;
 
   if (fee.capped) {
     logger.warn(
-      { payout_id: payout.id, provider: attempt.providerId, provider_fee: providerFee },
-      'Commission agregateur superieure au taux total : marge Afripaie nulle',
+      { payout_id: payout.id, provider: attempt.providerId, provider_fee: providerFee, absorbed: fee.absorbed },
+      'Frais agregateur superieurs au taux total : Afripaie absorbe l’ecart',
     );
   }
 

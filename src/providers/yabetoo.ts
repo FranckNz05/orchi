@@ -343,6 +343,8 @@ export const yabetooProvider: PaymentProvider = {
   id: YABETOO_PROVIDER_ID,
   name: 'Yabetoo Pay',
   requiredCredentials: ['secret_key', 'webhook_secret'],
+  // 1,5 % constates au sandbox sur cinq montants (voir `payoutResult`).
+  payoutBeneficiaryFeeBps: 150,
 
   supports(country: string, channel: Channel, _direction: Direction): boolean {
     // Encaissement ET decaissement. Carte et virement ne sont pas proposes.

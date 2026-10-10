@@ -968,7 +968,8 @@
       // la part Afripaie ne descend jamais sous zero.
       const total = Math.floor((amount * totalBps + 5000) / 10000);
       const provider = Math.floor((amount * providerBps + 5000) / 10000);
-      const platform = Math.max(0, total - provider);
+      // Peut etre negative : au-dela de 5 %, Afripaie paie l'ecart.
+      const platform = total - provider;
       // Seule la commission de l'agregateur sort du flux : la part Afripaie est
       // facturee ensuite, elle ne diminue pas ce que le marchand encaisse.
       const encaisse = amount - provider;
@@ -978,9 +979,11 @@
         <div class="line"><span class="muted">Le client paie</span><span>${fmt(amount)} F</span></div>
         <div class="line"><span class="muted">Commission agrégateur</span><span>− ${fmt(provider)} F</span></div>
         <div class="line sep net"><span>Vous encaissez</span><span>${fmt(encaisse)} F</span></div>
-        <div class="line"><span class="muted">Commission Afripaie, facturée ensuite</span><span>${fmt(platform)} F</span></div>
+        ${platform >= 0
+          ? `<div class="line"><span class="muted">Commission Afripaie, facturée ensuite</span><span>${fmt(platform)} F</span></div>`
+          : `<div class="line"><span class="muted">Écart remboursé par Afripaie (avoir)</span><span>+ ${fmt(-platform)} F</span></div>`}
         <div class="line sep"><span class="muted">Coût total</span><span class="muted">${fmt(cout)} F · ${pct(amount ? Math.round((cout / amount) * 10000) : 0)}</span></div>
-        ${platform === 0 ? `<p class="warn">À ce niveau de commission, l'agrégateur absorbe la totalité du taux : la part d'Afripaie tombe à zéro. Quelques pays du catalogue sont dans ce cas.</p>` : ''}`;
+        ${platform < 0 ? `<p class="warn">À ce niveau, l'agrégateur prend plus de 5 % : Afripaie paie l'écart, vous restez à 5 %.</p>` : ''}`;
     }
 
     amountEl.oninput = render;

@@ -6,6 +6,7 @@ import { ID_PREFIX, newId } from '../src/core/ids.js';
 import { prisma } from '../src/db/client.js';
 import { assertLedgerBalanced } from '../src/modules/ledger.js';
 import { connectProviderAccount } from '../src/modules/provider-accounts.js';
+import { getProviderAdapter } from '../src/providers/registry.js';
 import { inferNetwork, pollSettlements, runAutoSettlements } from '../src/modules/settlements-auto.js';
 import { buildServer } from '../src/server.js';
 
@@ -239,6 +240,30 @@ describe('envoi d’un reversement', () => {
     expect(after.status).toBe('PAID');
     expect(await held()).toBe(0);
     await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
+  });
+
+  it('ajoute les frais du beneficiaire, a la charge d’Afripaie', async () => {
+    if (!seeded) return;
+    // Le simulateur ne retient rien : on lui prete le comportement de Yabetoo.
+    const adapter = getProviderAdapter('sandbox') as { payoutBeneficiaryFeeBps?: number };
+    adapter.payoutBeneficiaryFeeBps = 150;
+    try {
+      await payin(20000);
+      await target('0000');
+      const res = await send();
+      // 19 000 dus : 19 290 envoyes, 290 de frais payes par Afripaie.
+      expect(res.json()).toMatchObject({ status: 'PAID', amount: 19000, sent_amount: 19290, fee_absorbed: 290 });
+      expect(await held()).toBe(0);
+
+      const entries = await prisma.ledgerEntry.findMany({ where: { journal: { refId: res.json().id } } });
+      const by = Object.fromEntries(entries.map((e) => [e.account, { side: e.side, amount: e.amount }]));
+      expect(by[`merchant:${merchantId}:held`]).toEqual({ side: 'DEBIT', amount: 19000 });
+      expect(by['afripaie:revenue']).toEqual({ side: 'DEBIT', amount: 290 });
+      expect(by['provider:sandbox:clearing']).toEqual({ side: 'CREDIT', amount: 19290 });
+      await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
+    } finally {
+      delete adapter.payoutBeneficiaryFeeBps;
+    }
   });
 
   it('refuse d’annuler un reversement automatique abouti', async () => {

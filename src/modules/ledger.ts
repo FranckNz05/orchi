@@ -127,6 +127,23 @@ export async function postJournal(
 /* Ecritures metier                                                           */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * La part Afripaie peut etre NEGATIVE (pricing.ts) : quand l'agregateur prend
+ * plus que le taux total, Afripaie paie l'ecart. Une ecriture de revenu negative
+ * est un DEBIT de afripaie:revenue — jamais un montant negatif, que postJournal
+ * refuse a raison.
+ */
+function revenueEntry(platformFee: number): EntryInput[] {
+  if (platformFee === 0) return [];
+  return [
+    {
+      account: accounts.afripaieRevenue(),
+      side: platformFee > 0 ? 'CREDIT' : 'DEBIT',
+      amount: Math.abs(platformFee),
+    },
+  ];
+}
+
 export interface PayinPostingInput {
   merchantId: string;
   paymentId: string;
@@ -165,7 +182,12 @@ async function postFeeAccrued(
   },
   tx: Prisma.TransactionClient,
 ): Promise<void> {
-  if (input.platformFee <= 0) return;
+  if (input.platformFee === 0) return;
+
+  // Negative, la commission devient un AVOIR : Afripaie doit l'ecart au
+  // marchand, qui viendra en deduction de la prochaine facture.
+  const credit = input.platformFee < 0;
+  const amount = Math.abs(input.platformFee);
 
   await postJournal(
     {
@@ -174,10 +196,12 @@ async function postFeeAccrued(
       refType: input.refType,
       refId: input.refId,
       currency: input.currency,
-      description: `Commission Afripaie a facturer (${input.providerId})`,
+      description: credit
+        ? `Avoir Afripaie : frais ${input.providerId} superieurs au taux total`
+        : `Commission Afripaie a facturer (${input.providerId})`,
       entries: [
-        { account: accounts.merchantBilling(input.merchantId), side: 'DEBIT', amount: input.platformFee },
-        { account: accounts.afripaieRevenue(), side: 'CREDIT', amount: input.platformFee },
+        { account: accounts.merchantBilling(input.merchantId), side: credit ? 'CREDIT' : 'DEBIT', amount },
+        { account: accounts.afripaieRevenue(), side: credit ? 'DEBIT' : 'CREDIT', amount },
       ],
     },
     tx,
@@ -213,11 +237,16 @@ export async function postPayinSucceeded(
   // retenue avant reversement.
   const accrued = !custodyPlatform && env.PLATFORM_FEE_COLLECTION === 'invoice';
 
-  // En `invoice` la commission ne sort pas du flux : le marchand est credite du
-  // montant moins la seule commission de l'agregateur.
-  const net = accrued
-    ? input.amount - input.providerFee
-    : input.amount - input.providerFee - input.platformFee;
+  // Part retenue SUR LE FLUX :
+  //   invoice  rien, tout passe par `fee.accrued` ;
+  //   garde    tout, meme negative : Afripaie detient les fonds et complete ;
+  //   split    seulement le positif — l'agregateur ne verse pas d'ecart au
+  //            marchand, qui le recoit donc en avoir.
+  const retained = accrued ? 0 : custodyPlatform ? input.platformFee : Math.max(0, input.platformFee);
+  const accruedFee = input.platformFee - retained;
+
+  // Le marchand est credite de `montant − taux total`, quoi qu'il arrive en garde.
+  const net = input.amount - input.providerFee - retained;
 
   if (net < 0) {
     throw new Error(
@@ -253,15 +282,13 @@ export async function postPayinSucceeded(
               },
             ]
           : []),
-        ...(!accrued && input.platformFee > 0
-          ? [{ account: accounts.afripaieRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
-          : []),
+        ...revenueEntry(retained),
       ],
     },
     tx,
   );
 
-  if (accrued) {
+  if (accruedFee !== 0) {
     await postFeeAccrued(
       {
         merchantId: input.merchantId,
@@ -269,7 +296,7 @@ export async function postPayinSucceeded(
         refId: input.paymentId,
         currency: input.currency,
         providerId: input.providerId,
-        platformFee: input.platformFee,
+        platformFee: accruedFee,
       },
       tx,
     );
@@ -298,6 +325,10 @@ export async function postPayoutSucceeded(
   tx: Prisma.TransactionClient = prisma,
 ): Promise<void> {
   const accrued = env.PLATFORM_FEE_COLLECTION === 'invoice';
+  // Meme logique qu'a l'encaissement : seul le positif peut etre retenu sur le
+  // flux, le reste passe en creance ou en avoir.
+  const retained = accrued ? 0 : Math.max(0, input.platformFee);
+  const accruedFee = input.platformFee - retained;
 
   await postJournal(
     {
@@ -311,9 +342,7 @@ export async function postPayoutSucceeded(
         {
           account: accounts.merchantPayable(input.merchantId),
           side: 'DEBIT',
-          amount: accrued
-            ? input.amount + input.providerFee
-            : input.amount + input.providerFee + input.platformFee,
+          amount: input.amount + input.providerFee + retained,
         },
         { account: accounts.providerClearing(input.providerId), side: 'CREDIT', amount: input.amount },
         ...(input.providerFee > 0
@@ -325,15 +354,13 @@ export async function postPayoutSucceeded(
               },
             ]
           : []),
-        ...(!accrued && input.platformFee > 0
-          ? [{ account: accounts.afripaieRevenue(), side: 'CREDIT' as Side, amount: input.platformFee }]
-          : []),
+        ...revenueEntry(retained),
       ],
     },
     tx,
   );
 
-  if (accrued) {
+  if (accruedFee !== 0) {
     await postFeeAccrued(
       {
         merchantId: input.merchantId,
@@ -341,7 +368,7 @@ export async function postPayoutSucceeded(
         refId: input.payoutId,
         currency: input.currency,
         providerId: input.providerId,
-        platformFee: input.platformFee,
+        platformFee: accruedFee,
       },
       tx,
     );

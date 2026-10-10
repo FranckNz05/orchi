@@ -275,9 +275,18 @@ export async function postSettlementJournal(
         'settlement.cancelled': `Annulation du reversement ${s.id}`,
         'settlement.reversed': `Decaissement refuse : reversement ${s.id} de nouveau du`,
       }[type],
+      // Les frais de decaissement sont a la charge d'Afripaie (taux total de 5 %
+      // tout compris) : ils sortent de son revenu, pas de la creance du marchand.
       entries: [
         { account: accounts.merchantHeld(s.merchantId), side: paid ? 'DEBIT' : 'CREDIT', amount: s.amount },
-        { account: accounts.providerClearing(s.sourceProviderId), side: paid ? 'CREDIT' : 'DEBIT', amount: s.amount },
+        ...(s.providerFeeAmount > 0
+          ? [{ account: accounts.afripaieRevenue(), side: (paid ? 'DEBIT' : 'CREDIT') as 'DEBIT' | 'CREDIT', amount: s.providerFeeAmount }]
+          : []),
+        {
+          account: accounts.providerClearing(s.sourceProviderId),
+          side: paid ? 'CREDIT' : 'DEBIT',
+          amount: s.amount + s.providerFeeAmount,
+        },
       ],
     },
     tx,
@@ -310,6 +319,9 @@ export function serializeSettlement(s: MerchantSettlement, forAdmin = false) {
     external_reference: s.externalReference,
     note: s.note,
     mode: s.mode,
+    /** Somme reellement envoyee : le montant du, plus les frais pris en charge par Afripaie. */
+    sent_amount: s.amount + s.providerFeeAmount,
+    fee_absorbed: s.providerFeeAmount,
     network: s.network,
     provider_reference: s.providerReference,
     failure_reason: s.failureReason,

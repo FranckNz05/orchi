@@ -24,16 +24,21 @@ import { applyBps } from '../core/money.js';
  * │ dont la part Afripaie est effectivement prelevee.                           │
  * └──────────────────────────────────────────────────────────────────────────┘
  *
- * DEUX BORNES, toutes deux atteintes par de vrais pays du catalogue :
- *   - agregateur a 5 % ou plus (Erythree, RCA, Soudan) : la part Afripaie tombe a
- *     ZERO. Elle ne devient jamais negative — on ne paie pas pour transporter.
+ * LE MARCHAND PAIE LE TAUX TOTAL, JAMAIS PLUS — decision du 10/10/2026 :
+ *   - agregateur a plus de 5 % (Yabetoo sous ~1 667 XAF, ou 3,5 % + 25 XAF
+ *     depasse 5 % ; Erythree, RCA, Soudan) : la part Afripaie devient NEGATIVE.
+ *     Afripaie absorbe l'ecart plutot que de le reporter sur le marchand. Le
+ *     grand livre le constate (debit de afripaie:revenue, ou avoir).
+ *   - frais preleves au BENEFICIAIRE par l'agregateur (Yabetoo retient 1,5 % sur
+ *     chaque decaissement) : ils font partie des frais, donc du taux total. Ils
+ *     ne touchent pas le portefeuille, mais reduisent la part Afripaie.
  *   - agregateur inconnu au moment du calcul : la part Afripaie vaudrait alors le
  *     taux total entier, ce qui surfacturerait le marchand. Le taux de
  *     l'agregateur est donc fige sur la tentative au moment du routage.
  */
 
 export interface PlatformFee {
-  /** Part Afripaie, en unites mineures. */
+  /** Part Afripaie, en unites mineures. NEGATIVE quand Afripaie absorbe un ecart. */
   amount: number;
   /** Part Afripaie, en points de base. */
   bps: number;
@@ -41,7 +46,11 @@ export interface PlatformFee {
   providerAmount: number;
   /** Taux total supporte par le marchand, en points de base. */
   totalBps: number;
-  /** true si l'agregateur consomme deja tout le taux total. */
+  /** Frais preleves au beneficiaire, compris dans le taux total. */
+  beneficiaryAmount: number;
+  /** Ce qu'Afripaie paie de sa poche pour tenir le taux total (0 sinon). */
+  absorbed: number;
+  /** true si les frais de l'agregateur depassent le taux total. */
   capped: boolean;
 }
 
@@ -55,6 +64,11 @@ export interface FeeInput {
   providerFeeAmount?: number | null;
   /** Taux de l'agregateur fige au routage, en points de base. */
   providerFeeBps?: number | null;
+  /**
+   * Frais que l'agregateur retient au BENEFICIAIRE d'un decaissement (Yabetoo :
+   * 1,5 %). Absents du portefeuille, presents dans le cout pour le client.
+   */
+  beneficiaryFeeAmount?: number | null;
 }
 
 function compute(input: FeeInput, totalBps: number): PlatformFee {
@@ -63,17 +77,20 @@ function compute(input: FeeInput, totalBps: number): PlatformFee {
   const providerAmount =
     input.providerFeeAmount ?? applyBps(input.amountMinor, input.providerFeeBps ?? 0);
 
-  // Jamais negatif : si l'agregateur coute plus cher que le taux total, Afripaie
-  // ne prend rien. La transaction reste possible, elle ne rapporte simplement
-  // plus rien — c'est une information de pilotage, pas un blocage.
-  const amount = Math.max(0, total - providerAmount);
+  const beneficiaryAmount = input.beneficiaryFeeAmount ?? 0;
+
+  // Peut etre negatif : au-dela du taux total, c'est Afripaie qui paie l'ecart,
+  // jamais le marchand.
+  const amount = total - providerAmount - beneficiaryAmount;
 
   return {
     amount,
     bps: input.amountMinor > 0 ? Math.round((amount / input.amountMinor) * 10000) : 0,
     providerAmount,
+    beneficiaryAmount,
     totalBps,
-    capped: amount === 0 && providerAmount >= total,
+    absorbed: Math.max(0, -amount),
+    capped: amount < 0,
   };
 }
 
@@ -103,8 +120,9 @@ export function quote(amountMinor: number, providerFeeBps: number, direction: 'p
     provider_bps: providerFeeBps,
     platform_fee: fee.amount,
     platform_bps: fee.bps,
-    /** Ce que le marchand recoit effectivement. */
+    /** Ce que le marchand recoit effectivement : toujours montant − taux total. */
     net: amountMinor - fee.providerAmount - fee.amount,
     capped: fee.capped,
+    absorbed: fee.absorbed,
   };
 }

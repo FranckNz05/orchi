@@ -40,18 +40,37 @@ describe('la part Afripaie est le solde du taux total', () => {
 });
 
 describe('bornes', () => {
-  it('ne descend jamais sous zero quand l’agregateur depasse 5 %', () => {
-    // Erythree, RCA, Soudan atteignent ou depassent ce niveau.
+  it('fait absorber par Afripaie ce qui depasse 5 %, jamais par le marchand', () => {
+    // Erythree, RCA, Soudan ; Yabetoo sous ~1 667 XAF (3,5 % + 25 XAF).
     const fee = platformPayinFee(M, { amountMinor: 100_000, providerFeeBps: 700 });
-    expect(fee.amount).toBe(0);
+    expect(fee.amount).toBe(-2_000);
+    expect(fee.absorbed).toBe(2_000);
     expect(fee.capped).toBe(true);
+    // Le marchand paie toujours exactement 5 %.
+    expect(fee.providerAmount + fee.amount).toBe(5_000);
   });
 
-  it('signale explicitement une marge nulle', () => {
+  it('cas Yabetoo sur un petit montant : 3,5 % + 25 XAF sur 1 000', () => {
+    const fee = platformPayinFee(M, { amountMinor: 1_000, providerFeeAmount: 60 });
+    expect(fee.amount).toBe(-10);
+    expect(fee.providerAmount + fee.amount).toBe(50);
+  });
+
+  it('signale explicitement une marge negative', () => {
     const rentable = platformPayinFee(M, { amountMinor: 100_000, providerFeeBps: 200 });
     const nulle = platformPayinFee(M, { amountMinor: 100_000, providerFeeBps: 500 });
+    const perte = platformPayinFee(M, { amountMinor: 100_000, providerFeeBps: 600 });
     expect(rentable.capped).toBe(false);
-    expect(nulle.capped).toBe(true);
+    expect(nulle.amount).toBe(0);
+    expect(nulle.capped).toBe(false);
+    expect(perte.capped).toBe(true);
+  });
+
+  it('compte dans les 5 % les frais retenus au beneficiaire d’un decaissement', () => {
+    // Yabetoo retient 1,5 % au beneficiaire : Afripaie ne prend que 3,5 %.
+    const fee = platformPayoutFee(M, { amountMinor: 100_000, providerFeeAmount: 0, beneficiaryFeeAmount: 1_500 });
+    expect(fee.amount).toBe(3_500);
+    expect(fee.providerAmount + fee.beneficiaryAmount + fee.amount).toBe(5_000);
   });
 
   it('prefere la commission REELLE au taux catalogue', () => {

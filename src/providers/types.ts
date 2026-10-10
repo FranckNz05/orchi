@@ -173,6 +173,14 @@ export interface PaymentProvider {
   /** Champs de credentials attendus, verifies a la connexion du compte. */
   readonly requiredCredentials: readonly string[];
 
+  /**
+   * Frais que l'agregateur retient au BENEFICIAIRE d'un decaissement, en points
+   * de base (Yabetoo : 150). Ils ne touchent pas le portefeuille, mais font
+   * partie du cout : la part Afripaie en est diminuee (pricing.ts), et un
+   * reversement au marchand les compense (settlements-auto.ts).
+   */
+  readonly payoutBeneficiaryFeeBps?: number;
+
   supports(country: string, channel: Channel, direction: Direction): boolean;
 
   createCharge(request: ChargeRequest, ctx: ProviderContext): Promise<AttemptResult>;

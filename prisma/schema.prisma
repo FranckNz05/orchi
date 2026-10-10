@@ -1085,7 +1085,11 @@ model MerchantSettlement {
   /// test | live
   environment String
   currency    String
+  /// Ce que le marchand RECOIT, et ce dont sa creance (held) diminue.
   amount      Int
+  /// Frais de decaissement pris en charge par Afripaie (Yabetoo retient 1,5 %
+  /// au beneficiaire) : la somme envoyee vaut amount + providerFeeAmount.
+  providerFeeAmount Int @default(0) @map("provider_fee_amount")
 
   /// Agregateur ou les fonds etaient detenus (geniuspay, yabetoo...).
   sourceProviderId  String  @map("source_provider_id")

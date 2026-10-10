@@ -439,8 +439,8 @@ async function settleSuccess(
 
   if (fee.capped) {
     logger.warn(
-      { payment_id: payment.id, provider: attempt.providerId, provider_fee: providerFee },
-      'Commission agregateur superieure au taux total : marge Afripaie nulle',
+      { payment_id: payment.id, provider: attempt.providerId, provider_fee: providerFee, absorbed: fee.absorbed },
+      'Frais agregateur superieurs au taux total : Afripaie absorbe l’ecart',
     );
   }
 

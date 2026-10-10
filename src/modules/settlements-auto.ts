@@ -32,10 +32,18 @@ import { heldBalances, postSettlementJournal, settlementErrors } from './settlem
  *      l'agregateur. Relancer sur un doute, c'est payer deux fois.
  *   4. Seul un refus EXPLICITE rend le montant au marchand (contre-ecriture).
  *
- * FRAIS — Yabetoo preleve 1,5 % sur la somme versee, au BENEFICIAIRE : le
- * marchand recoit 98,5 % du reversement. Le grand livre debite la somme
- * envoyee, qui est exactement ce que le portefeuille d'Afripaie perd.
+ * FRAIS — Yabetoo retient 1,5 % au BENEFICIAIRE. Le marchand ne paie que le
+ * taux total de 5 %, tout compris : Afripaie envoie donc un montant majore,
+ * calcule pour que le marchand recoive l'integralite de ce qui lui est du, et
+ * l'ecart sort de son revenu (providerFeeAmount, constate au grand livre).
  */
+
+/** Montant a envoyer pour que le beneficiaire recoive `owed` apres retenue. */
+export function grossUp(owed: number, beneficiaryFeeBps: number): number {
+  if (beneficiaryFeeBps <= 0) return owed;
+  // Arrondi a l'unite superieure : le marchand recoit au moins son du.
+  return Math.ceil((owed * 10_000) / (10_000 - beneficiaryFeeBps));
+}
 
 const CHANNEL = 'mobile_money' as const;
 
@@ -229,6 +237,7 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
         environment: input.environment,
         currency: target.currency,
         amount,
+        providerFeeAmount: grossUp(amount, adapter.payoutBeneficiaryFeeBps ?? 0) - amount,
         sourceProviderId: input.providerId,
         method: 'MOBILE_MONEY',
         mode: 'AUTOMATIC',
@@ -249,7 +258,7 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
     result = await adapter.createPayout(
       {
         reference: settlement.id,
-        amount: settlement.amount,
+        amount: settlement.amount + settlement.providerFeeAmount,
         currency: settlement.currency,
         country: target.country,
         channel: CHANNEL,

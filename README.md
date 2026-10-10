@@ -307,8 +307,14 @@ vers un agrégateur plus cher ne change pas sa facture.
 
 Deux bornes, toutes deux atteintes par de vrais pays du catalogue :
 
-- **agrégateur à 5 % ou plus** (Érythrée, RCA, Soudan) — la part Afripaie tombe à
-  zéro. Elle ne devient jamais négative : on ne paie pas pour transporter.
+- **agrégateur au-delà de 5 %** (Érythrée, RCA, Soudan ; Yabetoo sous ~1 667 XAF,
+  où 3,5 % + 25 XAF dépassent 5 %) — la part Afripaie devient **négative** :
+  Afripaie paie l'écart, le marchand reste à 5 % (décision du 10/10/2026). Le
+  grand livre le constate par un débit de `afripaie:revenue`, ou par un avoir sur
+  `merchant:{id}:billing` quand la commission est facturée.
+- **frais retenus au bénéficiaire** (Yabetoo : 1,5 % de chaque décaissement) —
+  ils font partie des frais : la part Afripaie d'un décaissement Yabetoo est de
+  3,5 %.
 - **taux agrégateur inconnu** — la part Afripaie vaudrait alors le taux entier, ce
   qui surfacturerait le marchand. Le taux est donc **figé sur la tentative** au
   moment du routage, et une modification ultérieure du catalogue ne recalcule
@@ -653,8 +659,10 @@ Les règles sont celles des décaissements :
 - un reversement en cours est interrogé chaque minute par le worker
   `merchant-settlements`.
 
-Yabetoo prélève 1,5 % au **bénéficiaire** : le marchand reçoit 98,5 % de la somme
-envoyée, qui est exactement ce que le portefeuille d'Afripaie perd.
+Yabetoo retient 1,5 % au **bénéficiaire**. Pour que le marchand reste à 5 % tout
+compris, Afripaie envoie un montant majoré (`grossUp` : 19 290 pour 19 000 dus) ;
+le marchand reçoit l'intégralité de son dû, et l'écart (`providerFeeAmount`) est
+débité de `afripaie:revenue`.
 
 GeniusPay n'expose aucune API de décaissement : pour lui, le reversement reste
 manuel.

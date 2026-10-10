@@ -367,7 +367,7 @@
           <tr><th>Date</th><th style="text-align:right">Montant</th><th>Depuis</th><th>Moyen</th><th>Destination</th><th>Référence</th><th>Par</th><th></th></tr>
           ${d.data.map((s) => `<tr class="${s.status === 'CANCELLED' ? 'cancelled' : ''}" title="${s.status === 'CANCELLED' ? esc('Annulé : ' + (s.cancel_reason || '')) : ''}">
             <td style="white-space:nowrap">${date(s.created_at)}${s.environment === 'test' ? ' · test' : ''}</td>
-            <td class="n">${money(s.amount)} ${esc(s.currency)}</td>
+            <td class="n">${money(s.amount)} ${esc(s.currency)}${s.fee_absorbed ? `<br><span style="color:var(--muted);font-size:11.5px">envoyé ${money(s.sent_amount)} · frais Afripaie ${money(s.fee_absorbed)}</span>` : ''}</td>
             <td>${esc(PROVIDER[s.source_provider] || s.source_provider)}</td>
             <td>${esc(METHOD[s.method] || s.method)}</td>
             <td>${esc(s.destination)}</td>
@@ -428,7 +428,8 @@
 
     return `<h3 style="margin-top:6px">Reversement automatique · mobile money</h3>
       <p class="hint">Afripaie verse elle-même, depuis son compte Yabetoo, vers le numéro du marchand (Congo).
-        Yabetoo prélève 1,5 % au bénéficiaire : le marchand reçoit 98,5 % du montant envoyé.
+        Yabetoo retient 1,5 % au bénéficiaire : Afripaie envoie un montant majoré pour que le marchand reçoive
+        la totalité de son dû, et ces frais sont pris sur sa part (le marchand ne paie que les 5 %, tout compris).
         Une réponse ambiguë de l’agrégateur met le reversement « à vérifier » : rien ne repart avant qu’on l’ait tranché.</p>
       ${lines ? `<div class="scroll"><table>
         <tr><th>Env.</th><th>Depuis</th><th>Vers</th><th>Fréquence</th><th style="text-align:right">Reversable</th><th></th></tr>${lines}
@@ -470,7 +471,7 @@
 
   async function sendNow(btn) {
     const { settleSend: id, env, provider, amount, currency } = btn.dataset;
-    if (!confirm(`Envoyer maintenant ${money(Number(amount))} ${currency} depuis ${PROVIDER[provider] || provider} (${env === 'live' ? 'RÉEL' : 'test'}) ?\n\nL’argent part immédiatement vers le numéro enregistré.`)) return;
+    if (!confirm(`Reverser maintenant ${money(Number(amount))} ${currency} depuis ${PROVIDER[provider] || provider} (${env === 'live' ? 'RÉEL' : 'test'}) ?\n\nL’argent part immédiatement vers le numéro enregistré. Les frais de l’opérateur sont ajoutés et pris en charge par Afripaie.`)) return;
     try {
       const s = await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements/send`, {
         method: 'POST', body: JSON.stringify({ environment: env, provider }),

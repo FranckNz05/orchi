@@ -159,7 +159,8 @@ Au Congo, Afripaie peut vous reverser automatiquement en mobile money (MTN ou
 Airtel), chaque jour au-delà d'un minimum convenu. Le numéro de destination est
 enregistré par Afripaie, à votre demande : vous ne pouvez pas le modifier
 vous-même, pour qu'une session volée ne suffise pas à détourner vos fonds.
-L'opérateur prélève 1,5 % à la réception. `targets` indique la destination
+Les frais de l'opérateur sont pris en charge par Afripaie : vous recevez
+l'intégralité de votre dû. `targets` indique la destination
 active ; un reversement `PROCESSING` est en cours, `UNKNOWN` en vérification.
 
 ### La réponse ne dit jamais « payé »
@@ -588,10 +589,11 @@ ne peut donc rien y prélever. Le mode de perception est réglé par
 
 ### Une limite honnête
 
-Quelques pays du catalogue ont des commissions agrégateur **supérieures à 5 %**
-— Érythrée, et le haut de fourchette en RCA et au Soudan. Dans ces cas la part
-d'Afripaie tombe à zéro : la transaction passe, elle ne rapporte simplement rien.
-Le champ `fees.platform` vaut alors `0`.
+Quelques agrégateurs prennent **plus de 5 %** — Érythrée, le haut de fourchette en
+RCA et au Soudan, et Yabetoo sur les petits montants (3,5 % + 25 XAF dépassent 5 %
+sous 1 667 XAF). Vous restez à 5 % : c'est Afripaie qui paie l'écart. Le champ
+`fees.platform` est alors **négatif** (par exemple `-10` sur 1 000 XAF chez
+Yabetoo), et vient en déduction de votre facture.
 
 ### Taux configurable
 
@@ -818,14 +820,15 @@ n'étant pas publiée, aucun virement sortant n'y est routé.
 - **Le réseau est obligatoire** (`MTN_CG` ou `AIRTEL_CG`) : un numéro congolais
   ne permet pas de deviner l'opérateur. Le numéro doit comporter 9 chiffres
   après `+242` (ex. `+242 06 123 4567`).
-- **Frais d'encaissement : 3,5 % + 25 XAF** (mesuré en sandbox). Sous environ
-  1 667 XAF le coût dépasse les 5 % d'Afripaie et la part d'Afripaie tombe à
-  zéro ; au-delà elle est positive (1 % à 5 000 XAF, 1,45 % à 50 000 XAF).
+- **Frais d'encaissement : 3,5 % + 25 XAF** (mesuré en sandbox). Vous payez 5 %
+  quoi qu'il arrive : sous environ 1 667 XAF, Afripaie paie l'écart ; au-delà sa
+  part est positive (1 % à 5 000 XAF, 1,45 % à 50 000 XAF).
 - **Décaissement : Yabetoo prélève 1,5 % sur la somme versée.** Un décaissement
   de 10 000 XAF crédite 9 850 XAF au bénéficiaire ; votre compte Yabetoo est
   débité des 10 000. Le message de la tentative l'indique
-  (`Yabetoo annonce 9850 pour 10000 demandes.`). Si le bénéficiaire doit recevoir
-  la somme exacte, majorez le montant demandé.
+  (`Yabetoo annonce 9850 pour 10000 demandes.`). Ces 1,5 % comptent dans les 5 % :
+  la part d'Afripaie n'est alors que de 3,5 %. Si le bénéficiaire doit recevoir la
+  somme exacte, majorez le montant demandé.
 - **Une clé de test (`sk_test_…`) ne fonctionne qu'en environnement `test`**, et
   une clé de production qu'en `live`. Le sandbox Yabetoo réussit *toujours*,
   même avec un numéro inexistant : une clé de test branchée sur un marchand réel
