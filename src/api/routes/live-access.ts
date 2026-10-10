@@ -8,6 +8,8 @@ import {
   revokeLiveAccess,
   serializeForReview,
   serializeLiveState,
+  correctMerchantIdentity,
+  merchantAuditTrail,
 } from '../../modules/live-access.js';
 
 /**
@@ -25,6 +27,29 @@ const requestBody = z.object({
   monthly_volume_minor: z.number().int().min(0).optional(),
   registration_number: z.string().min(3).max(80).optional(),
 });
+
+/**
+ * Au moins un champ doit etre fourni : une requete vide ne corrige rien et
+ * produirait une ligne d'audit sans objet.
+ */
+const identityBody = z
+  .object({
+    name: z.string().min(2).max(160).optional(),
+    country: z.string().length(2).optional(),
+    legal_type: z.enum(['COMPANY', 'INDIVIDUAL']).optional(),
+    registration_number: z.string().max(80).nullable().optional(),
+    reason: z.string().max(800).optional(),
+    /** Accepte de retirer l'acces reel quand le pays d'un marchand verifie change. */
+    revoke_live: z.boolean().optional(),
+  })
+  .refine(
+    (b) =>
+      b.name !== undefined ||
+      b.country !== undefined ||
+      b.legal_type !== undefined ||
+      b.registration_number !== undefined,
+    { message: 'Au moins un champ identitaire doit etre fourni.' },
+  );
 
 const reviewBody = z.object({
   decision: z.enum(['approve', 'reject', 'revoke']),
@@ -169,6 +194,69 @@ export async function liveAccessRoutes(app: FastifyInstance) {
       );
 
       return serializeForReview(merchant);
+    },
+  );
+
+  /**
+   * Correction d'identite.
+   *
+   * Reservee a un administrateur : le pays et la forme juridique determinent
+   * les pieces exigees a la verification, et un marchand qui pourrait les
+   * changer apres coup viderait cette verification de son sens.
+   */
+  app.patch(
+    '/v1/admin/merchants/:id/identity',
+    { preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const ctx = request.auth!;
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const body = identityBody.parse(request.body);
+
+      const merchant = await correctMerchantIdentity({
+        merchantId: id,
+        patch: {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.country !== undefined ? { country: body.country } : {}),
+          ...(body.legal_type !== undefined ? { legalType: body.legal_type } : {}),
+          ...(body.registration_number !== undefined
+            ? { registrationNumber: body.registration_number }
+            : {}),
+        },
+        ...(body.reason ? { reason: body.reason } : {}),
+        actorId: ctx.sessionId ?? 'inconnu',
+        actorEmail: ctx.userEmail ?? 'inconnu',
+        ...(body.revoke_live !== undefined ? { revokeLive: body.revoke_live } : {}),
+      });
+
+      request.log.warn(
+        { merchant: id, by: ctx.userEmail, champs: Object.keys(body) },
+        'Identite marchand corrigee par un administrateur',
+      );
+
+      return serializeForReview(merchant);
+    },
+  );
+
+  /** Historique des corrections d'identite. */
+  app.get(
+    '/v1/admin/merchants/:id/audit',
+    { preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const lignes = await merchantAuditTrail(id);
+      return {
+        object: 'list',
+        count: lignes.length,
+        data: lignes.map((l) => ({
+          id: l.id,
+          field: l.field,
+          old_value: l.oldValue,
+          new_value: l.newValue,
+          actor: l.actorEmail,
+          reason: l.reason,
+          created_at: l.createdAt.toISOString(),
+        })),
+      };
     },
   );
 

@@ -69,7 +69,7 @@ async function makeAdmin(account: Account): Promise<void> {
   });
 }
 
-function as(account: Account, method: 'GET' | 'POST', url: string, payload?: unknown) {
+function as(account: Account, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: unknown) {
   return app.inject({
     method,
     url,
@@ -406,5 +406,121 @@ describe('ce que le marchand voit du dossier', () => {
     // marchand qu'il vient de refuser.
     expect(state.note).toBe('Dossier incomplet.');
     expect(JSON.stringify(state)).not.toContain('agent@afripaie.online');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe('correction d’identite par un administrateur', () => {
+  it('corrige le pays et laisse une trace', async () => {
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const marchand = await newMerchant();
+
+    const res = await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, {
+      country: 'CI',
+      reason: 'Pays saisi par erreur a l inscription.',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().country).toBe('CI');
+
+    const trace = await as(admin, 'GET', `/v1/admin/merchants/${marchand.merchantId}/audit`);
+    const lignes = trace.json().data as Array<Record<string, string>>;
+    expect(lignes).toHaveLength(1);
+    expect(lignes[0]!.field).toBe('country');
+    expect(lignes[0]!.old_value).toBe('BJ');
+    expect(lignes[0]!.new_value).toBe('CI');
+    expect(lignes[0]!.reason).toContain('erreur');
+  });
+
+  it('ecrit une ligne par champ, pas une par requete', async () => {
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const marchand = await newMerchant();
+
+    await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, {
+      name: 'Boutique Corrigee',
+      registration_number: 'RCCM-CI-2026-B-1234',
+    });
+
+    const lignes = (await as(admin, 'GET', `/v1/admin/merchants/${marchand.merchantId}/audit`))
+      .json().data as Array<Record<string, string>>;
+    expect(lignes.map((l) => l.field).sort()).toEqual(['name', 'registration_number']);
+  });
+
+  it('rejoue sans effet : aucune ligne d’audit vide', async () => {
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const marchand = await newMerchant();
+
+    await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, { country: 'CI' });
+    await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, { country: 'CI' });
+
+    const lignes = (await as(admin, 'GET', `/v1/admin/merchants/${marchand.merchantId}/audit`))
+      .json().data as unknown[];
+    expect(lignes).toHaveLength(1);
+  });
+
+  it('REFUSE de changer le pays d’un marchand verifie', async () => {
+    // Sa verification a ete prononcee contre les exigences de l ancien pays :
+    // la conserver laisserait encaisser en reel sur un dossier perime.
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const marchand = await newMerchant();
+    await as(marchand, 'POST', '/v1/live-access', DOSSIER);
+    await verify(admin, marchand.merchantId);
+
+    const res = await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, {
+      country: 'CI',
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('country_change_requires_revocation');
+
+    const inchange = await prisma.merchant.findUnique({ where: { id: marchand.merchantId } });
+    expect(inchange!.country).toBe('BJ');
+    expect(inchange!.kybStatus).toBe('VERIFIED');
+  });
+
+  it('accepte si l administrateur retire explicitement l acces reel', async () => {
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const marchand = await newMerchant();
+    await as(marchand, 'POST', '/v1/live-access', DOSSIER);
+    await verify(admin, marchand.merchantId);
+
+    const res = await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, {
+      country: 'CI',
+      revoke_live: true,
+      reason: 'Immatriculation ivoirienne, pas beninoise.',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const apres = await prisma.merchant.findUnique({ where: { id: marchand.merchantId } });
+    expect(apres!.country).toBe('CI');
+    // Le dossier retombe en examen : il doit etre reinstruit sous le nouveau regime.
+    expect(apres!.kybStatus).toBe('PENDING');
+  });
+
+  it('refuse un pays hors catalogue', async () => {
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const marchand = await newMerchant();
+
+    const res = await as(admin, 'PATCH', `/v1/admin/merchants/${marchand.merchantId}/identity`, {
+      country: 'FR',
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('refuse un marchand ordinaire', async () => {
+    const marchand = await newMerchant();
+    const autre = await newMerchant();
+
+    const res = await as(marchand, 'PATCH', `/v1/admin/merchants/${autre.merchantId}/identity`, {
+      country: 'CI',
+    });
+    expect(res.statusCode).toBe(403);
   });
 });

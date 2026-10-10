@@ -74,6 +74,7 @@ model Merchant {
   users            User[]
   checkoutSessions CheckoutSession[]
   partners         Partner[]
+  audits           MerchantAudit[]
 
   @@index([status])
   @@map("merchants")
@@ -1025,4 +1026,41 @@ model PartnerSettlement {
   @@index([merchantId, status])
   @@index([status, createdAt])
   @@map("partner_settlements")
+}
+
+/// Trace des corrections d'identite marchand faites par un administrateur.
+///
+/// POURQUOI UNE TABLE ET PAS UNE LIGNE DE JOURNAL
+///
+/// Un journal applicatif tourne : au bout de quelques semaines, la reponse a
+/// « qui a change le pays de ce marchand, et pourquoi ? » a disparu. Or cette
+/// question se pose precisement longtemps apres, quand un dossier de
+/// verification est conteste. Le depot conserve deja ses decisions de routage
+/// pour la meme raison.
+///
+/// Une ligne par CHAMP modifie, et non par requete : c'est ce qui permet de
+/// repondre champ par champ sans reparser une charge JSON.
+model MerchantAudit {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// name | country | legal_type | registration_number
+  field    String
+  /// Valeurs conservees telles quelles : c'est l'ancienne qu'on cherche quand
+  /// on remonte le fil.
+  oldValue String? @map("old_value")
+  newValue String? @map("new_value")
+
+  /// Identifiant ET adresse de l'auteur : l'identifiant survit au changement
+  /// d'adresse, l'adresse reste lisible sans jointure.
+  actorId    String  @map("actor_id")
+  actorEmail String  @map("actor_email")
+  reason     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@map("merchant_audits")
 }

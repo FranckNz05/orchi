@@ -1,4 +1,6 @@
 import type { Merchant } from '@prisma/client';
+import { getCountry } from '../catalog/countries.js';
+import { ID_PREFIX, newId } from '../core/ids.js';
 import { AppError, errors } from '../core/errors.js';
 import { prisma } from '../db/client.js';
 
@@ -230,4 +232,163 @@ export function serializeForReview(
       ? { users: merchant._count.users, payments: merchant._count.payments, api_keys: merchant._count.apiKeys }
       : undefined,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Correction d'identite par un administrateur                                */
+/* -------------------------------------------------------------------------- */
+
+export interface IdentityPatch {
+  name?: string;
+  country?: string;
+  legalType?: 'COMPANY' | 'INDIVIDUAL';
+  registrationNumber?: string | null;
+}
+
+export interface CorrectIdentityInput {
+  merchantId: string;
+  patch: IdentityPatch;
+  reason?: string;
+  actorId: string;
+  actorEmail: string;
+  /** Accepte explicitement de retirer l'acces reel. Voir ci-dessous. */
+  revokeLive?: boolean;
+}
+
+/**
+ * Corrige l'identite d'un marchand.
+ *
+ * POURQUOI CETTE ROUTE N'EXISTE PAS COTE MARCHAND
+ *
+ * Le pays et la forme juridique determinent les pieces exigees a la
+ * verification. Les laisser modifiables par le marchand permettrait de faire
+ * valider un dossier sous un regime, puis d'en changer — la verification ne
+ * voudrait plus rien dire. La correction passe donc par un administrateur, et
+ * laisse une trace.
+ *
+ * CHANGER LE PAYS D'UN MARCHAND VERIFIE
+ *
+ * Sa verification a ete prononcee contre les exigences de l'ANCIEN pays. La
+ * conserver telle quelle laisserait un marchand encaisser en reel sur la foi
+ * d'un dossier qui ne correspond plus. L'appel est donc REFUSE, sauf si
+ * l'administrateur demande explicitement le retrait de l'acces reel — auquel
+ * cas les cles `live` sont revoquees et les sessions ramenees en `test`,
+ * exactement comme pour une revocation ordinaire.
+ *
+ * Le nom et le numero d'immatriculation, eux, ne changent aucune exigence :
+ * ils se corrigent sans condition.
+ */
+export async function correctMerchantIdentity(
+  input: CorrectIdentityInput,
+): Promise<Merchant> {
+  const merchant = await prisma.merchant.findUnique({ where: { id: input.merchantId } });
+  if (!merchant) throw errors.notFound('Marchand', input.merchantId);
+
+  const champs: Array<[string, string | null, string | null]> = [];
+
+  if (input.patch.name !== undefined && input.patch.name !== merchant.name) {
+    champs.push(['name', merchant.name, input.patch.name]);
+  }
+
+  let paysChange = false;
+  if (input.patch.country !== undefined) {
+    const cible = input.patch.country.toUpperCase();
+    const pays = getCountry(cible);
+    if (!pays) throw errors.invalidRequest(`Pays hors catalogue : ${cible}.`, 'country');
+    if (cible !== merchant.country) {
+      paysChange = true;
+      champs.push(['country', merchant.country, cible]);
+    }
+  }
+
+  if (input.patch.legalType !== undefined && input.patch.legalType !== merchant.legalType) {
+    champs.push(['legal_type', merchant.legalType, input.patch.legalType]);
+  }
+
+  if (
+    input.patch.registrationNumber !== undefined &&
+    (input.patch.registrationNumber ?? null) !== merchant.registrationNumber
+  ) {
+    champs.push(['registration_number', merchant.registrationNumber, input.patch.registrationNumber ?? null]);
+  }
+
+  if (champs.length === 0) {
+    // Rien a faire n'est pas une erreur : rejouer une correction doit etre sans
+    // effet, pas produire une ligne d'audit vide.
+    return merchant;
+  }
+
+  const verifie = merchant.kybStatus === 'VERIFIED';
+  if (paysChange && verifie && !input.revokeLive) {
+    throw new AppError({
+      type: 'invalid_request_error',
+      code: 'country_change_requires_revocation',
+      message:
+        "Ce marchand est verifie : sa verification a ete prononcee contre les exigences de " +
+        `${merchant.country}. Changer son pays exige de retirer l'acces reel — renvoyez la ` +
+        'requete avec `revoke_live: true`.',
+      httpStatus: 409,
+      retriable: false,
+      param: 'country',
+      details: { kyb_status: merchant.kybStatus, current_country: merchant.country },
+    });
+  }
+
+  const retirer = paysChange && verifie && input.revokeLive === true;
+
+  const donnees: Record<string, unknown> = {};
+  for (const [champ, , apres] of champs) {
+    if (champ === 'name') donnees.name = apres;
+    if (champ === 'country') donnees.country = apres;
+    if (champ === 'legal_type') donnees.legalType = apres;
+    if (champ === 'registration_number') donnees.registrationNumber = apres;
+  }
+
+  if (retirer) {
+    donnees.kybStatus = 'PENDING';
+    donnees.liveReviewedAt = new Date();
+    donnees.liveReviewedBy = `${input.actorId} (${input.actorEmail})`;
+    donnees.liveReviewNote =
+      input.reason?.slice(0, 800) ??
+      `Acces reel retire : pays corrige de ${merchant.country} vers ${input.patch.country}.`;
+  }
+
+  const [modifie] = await prisma.$transaction([
+    prisma.merchant.update({ where: { id: merchant.id }, data: donnees }),
+    prisma.merchantAudit.createMany({
+      data: champs.map(([field, oldValue, newValue]) => ({
+        id: newId(ID_PREFIX.merchantAudit),
+        merchantId: merchant.id,
+        field,
+        oldValue,
+        newValue,
+        actorId: input.actorId,
+        actorEmail: input.actorEmail,
+        reason: input.reason?.slice(0, 800) ?? null,
+      })),
+    }),
+    ...(retirer
+      ? [
+          prisma.apiKey.updateMany({
+            where: { merchantId: merchant.id, environment: 'live', revokedAt: null },
+            data: { revokedAt: new Date() },
+          }),
+          prisma.session.updateMany({
+            where: { user: { merchantId: merchant.id }, environment: 'live' },
+            data: { environment: 'test' },
+          }),
+        ]
+      : []),
+  ]);
+
+  return modifie;
+}
+
+/** Historique des corrections, du plus recent au plus ancien. */
+export async function merchantAuditTrail(merchantId: string, limit = 50) {
+  return prisma.merchantAudit.findMany({
+    where: { merchantId },
+    orderBy: { createdAt: 'desc' },
+    take: Math.min(limit, 200),
+  });
 }
