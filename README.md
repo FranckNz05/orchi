@@ -629,9 +629,35 @@ pas. Une erreur s'annule par contre-écriture
 son solde et ses reversements avec `GET /v1/settlements` (écran
 **Reversements**).
 
-Pas de virement automatique : GeniusPay n'expose aucune API de décaissement, et
-un décaissement depuis les comptes d'Afripaie puiserait dans un solde qui
-contient l'argent des autres marchands.
+### Reversement automatique (Yabetoo, Congo)
+
+Là où l'agrégateur sait décaisser — Yabetoo au Congo —, Afripaie verse elle-même
+en mobile money (`src/modules/settlements-auto.ts`). Un administrateur enregistre
+la destination du marchand (numéro, réseau déduit du préfixe 06 / 05 / 04) ; le
+marchand ne peut pas la modifier, pour qu'une session volée ne suffise pas à
+détourner ses fonds. Il envoie ensuite à la demande (« Reverser maintenant »),
+ou active le reversement quotidien du disponible au-delà d'un minimum
+(`MERCHANT_AUTO_SETTLEMENT_EVERY_MS`, 24 h).
+
+Les règles sont celles des décaissements :
+
+- le montant est **réservé avant l'appel** (reversement créé et grand livre
+  débité dans la même transaction, sous verrou sur le marchand) ;
+- l'identifiant du reversement sert de **clé d'idempotence** chez Yabetoo ;
+- une réponse ambiguë (délai dépassé, 5xx) passe le reversement **à vérifier**
+  (`UNKNOWN`) : le montant reste réservé et **plus rien ne part** pour ce
+  marchand tant qu'un administrateur ne l'a pas tranché après vérification
+  chez l'agrégateur (`POST /v1/admin/settlements/:id/resolve`, la référence
+  constatée étant exigée pour « versé ») ;
+- seul un refus explicite rend le montant au marchand, par contre-écriture ;
+- un reversement en cours est interrogé chaque minute par le worker
+  `merchant-settlements`.
+
+Yabetoo prélève 1,5 % au **bénéficiaire** : le marchand reçoit 98,5 % de la somme
+envoyée, qui est exactement ce que le portefeuille d'Afripaie perd.
+
+GeniusPay n'expose aucune API de décaissement : pour lui, le reversement reste
+manuel.
 
 ## Montants
 

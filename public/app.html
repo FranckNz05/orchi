@@ -968,15 +968,29 @@
             <td class="num mono">${money(s.amount, s.currency)} ${esc(s.currency)}</td>
             <td>${esc(METHOD[s.method] || s.method)}</td>
             <td>${esc(s.destination)}</td>
-            <td class="mono">${esc(s.external_reference)}</td>
-            <td>${s.status === 'PAID' ? '<span class="tag ok">versé</span>'
-              : `<span class="tag bad" title="${esc(s.cancel_reason || '')}">annulé</span>`}</td>
+            <td class="mono">${esc(s.external_reference || s.provider_reference || '—')}</td>
+            <td>${({
+              PAID: '<span class="tag ok">versé</span>',
+              PROCESSING: '<span class="tag">en cours</span>',
+              UNKNOWN: '<span class="tag">en vérification</span>',
+              FAILED: `<span class="tag bad" title="${esc(s.failure_reason || '')}">échoué, montant de nouveau dû</span>`,
+              CANCELLED: `<span class="tag bad" title="${esc(s.cancel_reason || '')}">annulé</span>`,
+            })[s.status] || esc(s.status)}</td>
           </tr>`).join('')}</tbody></table></div>`;
+
+    const targets = (res.targets || []).map((t) =>
+      `<li>${esc(PROVIDER[t.provider] || t.provider)} → <span class="mono">${esc(t.phone)}</span> (${esc(t.beneficiary_name)}),
+        ${t.auto_enabled ? `automatiquement chaque jour dès ${money(t.min_amount, t.currency)} ${esc(t.currency)}` : 'à la demande'}.
+        Frais opérateur de 1,5 % à la réception.</li>`).join('');
 
     $('content').innerHTML = `
       <section class="panel">
         <header><h2>Solde dû</h2></header>
         ${balances}
+        ${targets ? `<div class="pad" style="font-size:14px"><strong>Reversement mobile money</strong>
+          <ul style="margin:8px 0 0;padding-left:20px;color:var(--muted)">${targets}</ul>
+          <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Pour changer de numéro, contactez Afripaie : la destination
+          n’est modifiable que par la plateforme, pour qu’une session volée ne suffise pas à détourner vos fonds.</p></div>` : ''}
         <div class="foot">Quand un paiement passe par les comptes agrégateurs d’Afripaie, l’argent arrive chez
           Afripaie, qui retient sa commission et vous reverse le reste. Un encaissement devient reversable
           une fois réglé par l’agrégateur, en général sous 24 h.</div>

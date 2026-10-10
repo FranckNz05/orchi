@@ -130,6 +130,14 @@ const schema = z.object({
   MERCHANT_SETTLEMENT_DELAY_MS: z.coerce.number().int().min(0).default(86_400_000),
 
   /**
+   * Intervalle minimal entre deux reversements AUTOMATIQUES a un meme marchand.
+   *
+   * Chaque decaissement mobile money coute des frais au beneficiaire : verser a
+   * chaque encaissement les multiplierait. Une fois par jour par defaut.
+   */
+  MERCHANT_AUTO_SETTLEMENT_EVERY_MS: z.coerce.number().int().min(0).default(86_400_000),
+
+  /**
    * Delai avant qu'une part partenaire ne devienne reglable.
    *
    * Un encaissement « reussi » ne signifie PAS que les fonds sont disponibles

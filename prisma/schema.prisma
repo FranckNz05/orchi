@@ -76,6 +76,7 @@ model Merchant {
   partners         Partner[]
   audits           MerchantAudit[]
   settlements      MerchantSettlement[]
+  settlementTargets MerchantSettlementTarget[]
 
   @@index([status])
   @@map("merchants")
@@ -1069,9 +1070,12 @@ model MerchantAudit {
 /// Reversement a un marchand des fonds encaisses pour lui sur les comptes
 /// agregateurs d'Afripaie (PLATFORM_MERCHANT_ID). Voir src/modules/settlements.ts.
 ///
-/// Constate APRES coup : le virement est execute par l'administrateur hors
-/// d'Afripaie (banque, operateur), puis enregistre ici avec sa reference. Le
-/// grand livre debite alors merchant:{id}:held.
+/// Deux modes :
+///   MANUAL     virement execute hors d'Afripaie (banque, operateur), puis
+///              constate ici avec sa reference ;
+///   AUTOMATIC  decaissement mobile money execute par Afripaie depuis son
+///              compte agregateur (Yabetoo au Congo).
+/// Dans les deux cas le grand livre debite merchant:{id}:held des la creation.
 model MerchantSettlement {
   id String @id
 
@@ -1089,11 +1093,24 @@ model MerchantSettlement {
   method            String
   /// Ou l'argent est parti : RIB, numero de telephone... tel que saisi.
   destination       String
-  /// Reference du virement chez la banque ou l'operateur : la preuve.
-  externalReference String  @map("external_reference")
+  /// Reference du virement chez la banque ou l'operateur : la preuve. Absente
+  /// tant qu'un reversement automatique n'a pas ete accepte par l'agregateur.
+  externalReference String? @map("external_reference")
   note              String?
 
-  /// PAID | CANCELLED
+  /// MANUAL | AUTOMATIC
+  mode              String  @default("MANUAL")
+  /// Reseau du beneficiaire (MTN_CG, AIRTEL_CG...), reversement automatique.
+  network           String?
+  /// Identifiant du decaissement chez l'agregateur : cle de l'interrogation.
+  providerReference String? @map("provider_reference")
+  failureReason     String? @map("failure_reason")
+  /// Derniere interrogation de l'agregateur.
+  checkedAt         DateTime? @map("checked_at")
+
+  /// PAID | PROCESSING | FAILED | UNKNOWN | CANCELLED
+  ///   UNKNOWN : l'agregateur n'a pas repondu clairement. L'argent est peut-etre
+  ///   parti : rien n'est relance tant qu'une personne n'a pas tranche.
   status String @default("PAID")
 
   actorId    String @map("actor_id")
@@ -1106,5 +1123,38 @@ model MerchantSettlement {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([merchantId, createdAt])
+  @@index([status])
   @@map("merchant_settlements")
+}
+
+/// Destination mobile money des reversements automatiques d'un marchand, par
+/// agregateur source et environnement. Saisie par un administrateur : un
+/// marchand qui pourrait la changer seul detournerait ses propres fonds vers
+/// un numero vole le jour ou sa session l'est.
+model MerchantSettlementTarget {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  environment     String
+  /// Agregateur qui decaisse (yabetoo).
+  providerId      String  @map("provider_id")
+  country         String
+  currency        String
+  phone           String
+  network         String
+  beneficiaryName String  @map("beneficiary_name")
+
+  /// Reversement periodique du disponible, sans intervention.
+  autoEnabled     Boolean @default(false) @map("auto_enabled")
+  /// En dessous, on attend : chaque decaissement coute des frais.
+  minAmount       Int     @default(5000) @map("min_amount")
+
+  updatedBy String   @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([merchantId, environment, providerId])
+  @@map("merchant_settlement_targets")
 }

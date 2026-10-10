@@ -4,6 +4,7 @@ import { purgeExpiredIdempotencyKeys } from '../core/idempotency.js';
 import { purgeExpiredSessions } from '../modules/auth.js';
 import { runPartnerSettlements } from '../modules/partners.js';
 import { sweepStaleAttempts } from '../modules/reconciliation.js';
+import { pollSettlements, runAutoSettlements } from '../modules/settlements-auto.js';
 import { deliverDueEvents } from '../modules/webhooks/outbound.js';
 import { persistHealthSnapshot } from '../routing/instrument.js';
 
@@ -59,6 +60,20 @@ const LOOPS: Loop[] = [
         logger.info(result, 'Reglements partenaires');
       }
       return result;
+    },
+  },
+  {
+    name: 'merchant-settlements',
+    // Chaque minute : le suivi des reversements en cours doit etre prompt. La
+    // frequence des ENVOIS, elle, est bornee par MERCHANT_AUTO_SETTLEMENT_EVERY_MS.
+    intervalMs: 60_000,
+    run: async () => {
+      const polled = await pollSettlements();
+      const auto = await runAutoSettlements();
+      if (polled.settled > 0 || polled.failed > 0 || auto.sent > 0) {
+        logger.info({ ...polled, ...auto }, 'Reversements marchands');
+      }
+      return { polled, auto };
     },
   },
   {

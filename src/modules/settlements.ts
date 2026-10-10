@@ -14,11 +14,13 @@ import { accounts, postJournal } from './ledger.js';
  * `merchant:{id}:held`. Ce module dit combien est du, ou se trouve l'argent, et
  * constate chaque reversement.
  *
- * LE VIREMENT N'EST PAS EXECUTE ICI. GeniusPay n'expose aucune API de
- * decaissement, et un reversement est un virement bancaire ou mobile money
- * vers le marchand, decide par une personne. L'administrateur l'execute chez la
- * banque ou l'operateur, puis l'enregistre ici avec sa reference : le grand
- * livre le constate, et le marchand le voit dans son tableau de bord.
+ * Deux facons de reverser :
+ *   - MANUELLE (ici) : l'administrateur vire chez la banque ou l'operateur,
+ *     puis constate le virement avec sa reference. Seule possibilite pour
+ *     GeniusPay, qui n'expose aucune API de decaissement.
+ *   - AUTOMATIQUE (settlements-auto.ts) : Afripaie decaisse elle-meme en
+ *     mobile money depuis son compte agregateur, la ou il le permet (Yabetoo
+ *     au Congo).
  *
  * Le solde est decoupe par AGREGATEUR : les francs encaisses par Yabetoo sont
  * sur le compte Yabetoo d'Afripaie, ceux de GeniusPay sur le compte GeniusPay.
@@ -42,7 +44,7 @@ export interface HeldBalance {
   available: number;
 }
 
-const settlementErrors = {
+export const settlementErrors = {
   insufficient: (b: { available: number; held: number; currency: string; provider: string }) =>
     new AppError({
       type: 'invalid_request_error',
@@ -125,7 +127,12 @@ export async function heldBalances(
   }
 
   return [...map.values()]
-    .map((b) => ({ ...b, available: Math.max(0, b.held - b.maturing) }))
+    .map((b) => {
+      // Le non-regle ne peut pas exceder le du : ce qui a deja ete reverse sort
+      // d'abord des fonds les plus anciens.
+      const maturing = Math.min(b.maturing, Math.max(0, b.held));
+      return { ...b, maturing, available: Math.max(0, b.held - maturing) };
+    })
     .filter((b) => b.held !== 0)
     .sort((a, b) => `${a.environment}${a.currency}${a.provider}`.localeCompare(`${b.environment}${b.currency}${b.provider}`));
 }
@@ -210,6 +217,17 @@ export async function cancelSettlement(input: {
   const current = await prisma.merchantSettlement.findUnique({ where: { id: input.settlementId } });
   if (!current) throw errors.notFound('Reversement', input.settlementId);
   if (current.status !== 'PAID') throw settlementErrors.notCancellable(current.status);
+  if (current.mode !== 'MANUAL') {
+    // Un decaissement automatique reussi a reellement quitte le compte : le
+    // declarer annule rendrait au marchand de l'argent qu'il a deja recu.
+    throw new AppError({
+      type: 'invalid_request_error',
+      code: 'settlement_not_cancellable',
+      message: 'Un reversement automatique abouti ne s’annule pas : l’argent est parti.',
+      httpStatus: 409,
+      retriable: false,
+    });
+  }
 
   return prisma.$transaction(async (tx) => {
     // Garde contre une double annulation concurrente : seule la premiere
@@ -231,16 +249,19 @@ export async function cancelSettlement(input: {
 }
 
 /**
- * paid      : la dette envers le marchand diminue (debit held), les fonds
- *             quittent le compte de l'agregateur (credit clearing).
- * cancelled : l'inverse exact.
+ * paid, sent          : la dette envers le marchand diminue (debit held), les
+ *                       fonds quittent le compte de l'agregateur (credit
+ *                       clearing). `sent` reserve le montant DES l'envoi d'un
+ *                       reversement automatique, avant toute reponse.
+ * cancelled, reversed : l'inverse exact (annulation manuelle, decaissement
+ *                       refuse).
  */
-async function postSettlementJournal(
+export async function postSettlementJournal(
   tx: Prisma.TransactionClient,
   s: MerchantSettlement,
-  type: 'settlement.paid' | 'settlement.cancelled',
+  type: 'settlement.paid' | 'settlement.cancelled' | 'settlement.sent' | 'settlement.reversed',
 ): Promise<void> {
-  const paid = type === 'settlement.paid';
+  const paid = type === 'settlement.paid' || type === 'settlement.sent';
   await postJournal(
     {
       merchantId: s.merchantId,
@@ -248,9 +269,12 @@ async function postSettlementJournal(
       refType: 'settlement',
       refId: s.id,
       currency: s.currency,
-      description: paid
-        ? `Reversement depuis ${s.sourceProviderId} (${s.method}, ref. ${s.externalReference})`
-        : `Annulation du reversement ${s.id}`,
+      description: {
+        'settlement.paid': `Reversement depuis ${s.sourceProviderId} (${s.method}, ref. ${s.externalReference})`,
+        'settlement.sent': `Reversement automatique vers ${s.destination} via ${s.sourceProviderId}`,
+        'settlement.cancelled': `Annulation du reversement ${s.id}`,
+        'settlement.reversed': `Decaissement refuse : reversement ${s.id} de nouveau du`,
+      }[type],
       entries: [
         { account: accounts.merchantHeld(s.merchantId), side: paid ? 'DEBIT' : 'CREDIT', amount: s.amount },
         { account: accounts.providerClearing(s.sourceProviderId), side: paid ? 'CREDIT' : 'DEBIT', amount: s.amount },
@@ -285,6 +309,11 @@ export function serializeSettlement(s: MerchantSettlement, forAdmin = false) {
     destination: s.destination,
     external_reference: s.externalReference,
     note: s.note,
+    mode: s.mode,
+    network: s.network,
+    provider_reference: s.providerReference,
+    failure_reason: s.failureReason,
+    checked_at: s.checkedAt?.toISOString() ?? null,
     created_at: s.createdAt.toISOString(),
     cancelled_at: s.cancelledAt?.toISOString() ?? null,
     cancel_reason: s.cancelReason,

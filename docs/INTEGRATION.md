@@ -155,6 +155,13 @@ cours de règlement chez l'agrégateur (`maturing`, en général moins de 24 h) 
 le reversable (`available`). `data` liste les reversements reçus, avec la
 référence du virement.
 
+Au Congo, Afripaie peut vous reverser automatiquement en mobile money (MTN ou
+Airtel), chaque jour au-delà d'un minimum convenu. Le numéro de destination est
+enregistré par Afripaie, à votre demande : vous ne pouvez pas le modifier
+vous-même, pour qu'une session volée ne suffise pas à détourner vos fonds.
+L'opérateur prélève 1,5 % à la réception. `targets` indique la destination
+active ; un reversement `PROCESSING` est en cours, `UNKNOWN` en vérification.
+
 ### La réponse ne dit jamais « payé »
 
 Un paiement mobile money est **asynchrone par nature** : l'opérateur envoie une

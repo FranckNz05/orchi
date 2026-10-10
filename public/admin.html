@@ -366,23 +366,149 @@
       ? `<div class="scroll"><table>
           <tr><th>Date</th><th style="text-align:right">Montant</th><th>Depuis</th><th>Moyen</th><th>Destination</th><th>Référence</th><th>Par</th><th></th></tr>
           ${d.data.map((s) => `<tr class="${s.status === 'CANCELLED' ? 'cancelled' : ''}" title="${s.status === 'CANCELLED' ? esc('Annulé : ' + (s.cancel_reason || '')) : ''}">
-            <td>${date(s.created_at)}${s.environment === 'test' ? ' · test' : ''}</td>
+            <td style="white-space:nowrap">${date(s.created_at)}${s.environment === 'test' ? ' · test' : ''}</td>
             <td class="n">${money(s.amount)} ${esc(s.currency)}</td>
             <td>${esc(PROVIDER[s.source_provider] || s.source_provider)}</td>
             <td>${esc(METHOD[s.method] || s.method)}</td>
             <td>${esc(s.destination)}</td>
-            <td style="font-family:var(--mono)">${esc(s.external_reference)}</td>
-            <td style="font-family:var(--mono);font-size:12px">${esc(s.recorded_by || '')}</td>
-            <td>${s.status === 'PAID' ? `<button class="btn danger" data-settle-cancel="${esc(s.id)}" data-merchant="${esc(id)}">Annuler</button>` : 'annulé'}</td>
+            <td style="font-family:var(--mono)">${esc(s.external_reference || s.provider_reference || '—')}</td>
+            <td style="font-family:var(--mono);font-size:12px">${esc(s.mode === 'AUTOMATIC' ? 'automatique · ' : '')}${esc(s.recorded_by || '')}</td>
+            <td>${settleAction(s, id)}</td>
           </tr>`).join('')}
         </table></div>`
       : '';
 
     el.innerHTML = `<h3>Reversements</h3>
       <p class="hint">Ce qu’Afripaie doit à ce marchand sur ses propres comptes agrégateurs, commission déduite.
-        Le virement se fait chez la banque ou l’opérateur ; on l’enregistre ici ensuite, avec sa référence.
         Un encaissement n’est reversable qu’une fois réglé par l’agrégateur.</p>
-      ${balances}${form}${history}`;
+      ${balances}${autoBlock(id, d)}
+      <h3 style="margin-top:6px">Virement manuel</h3>
+      <p class="hint">Pour GeniusPay, qui n’a pas d’API de décaissement : le virement se fait chez la banque ou
+        l’opérateur, puis on l’enregistre ici avec sa référence.</p>
+      ${form}${history ? `<h3 style="margin-top:6px">Historique</h3>${history}` : ''}`;
+  }
+
+  const STATUS = {
+    PAID: ['versé', ''], PROCESSING: ['en cours', 'PENDING'], UNKNOWN: ['à vérifier', 'REJECTED'],
+    FAILED: ['échoué', 'REJECTED'], CANCELLED: ['annulé', ''],
+  };
+
+  function settleAction(s, merchantId) {
+    const [label, tone] = STATUS[s.status] || [s.status, ''];
+    const pill = `<span class="pill ${tone}" title="${esc(s.failure_reason || s.cancel_reason || '')}">${label}</span>`;
+    if (s.status === 'PROCESSING') {
+      return `${pill} <button class="btn" data-settle-refresh="${esc(s.id)}" data-merchant="${esc(merchantId)}">Interroger</button>`;
+    }
+    if (s.status === 'UNKNOWN') {
+      return `${pill} <button class="btn danger" data-settle-resolve="${esc(s.id)}" data-merchant="${esc(merchantId)}">Trancher</button>`;
+    }
+    if (s.status === 'PAID' && s.mode === 'MANUAL') {
+      return `${pill} <button class="btn danger" data-settle-cancel="${esc(s.id)}" data-merchant="${esc(merchantId)}">Annuler</button>`;
+    }
+    return pill;
+  }
+
+  /** Reversement automatique en mobile money depuis un compte d'Afripaie. */
+  function autoBlock(id, d) {
+    const targets = d.targets || [];
+    const lines = targets.map((t) => {
+      const bal = d.balances.find((b) => b.environment === t.environment && b.provider === t.provider && b.currency === t.currency);
+      const available = bal ? bal.available : 0;
+      return `<tr>
+        <td>${t.environment === 'live' ? 'réel' : 'test'}</td>
+        <td>${esc(PROVIDER[t.provider] || t.provider)}</td>
+        <td>${esc(t.phone)} · ${esc(t.network)}<br><span style="color:var(--muted);font-size:12px">${esc(t.beneficiary_name)}</span></td>
+        <td>${t.auto_enabled ? `quotidien dès ${money(t.min_amount)} ${esc(t.currency)}` : 'manuel'}</td>
+        <td class="n">${money(available)} ${esc(t.currency)}</td>
+        <td>${available > 0
+          ? `<button class="btn solid" data-settle-send="${esc(id)}" data-env="${esc(t.environment)}" data-provider="${esc(t.provider)}" data-amount="${available}" data-currency="${esc(t.currency)}">Reverser maintenant</button>`
+          : ''}</td>
+      </tr>`;
+    }).join('');
+
+    return `<h3 style="margin-top:6px">Reversement automatique · mobile money</h3>
+      <p class="hint">Afripaie verse elle-même, depuis son compte Yabetoo, vers le numéro du marchand (Congo).
+        Yabetoo prélève 1,5 % au bénéficiaire : le marchand reçoit 98,5 % du montant envoyé.
+        Une réponse ambiguë de l’agrégateur met le reversement « à vérifier » : rien ne repart avant qu’on l’ait tranché.</p>
+      ${lines ? `<div class="scroll"><table>
+        <tr><th>Env.</th><th>Depuis</th><th>Vers</th><th>Fréquence</th><th style="text-align:right">Reversable</th><th></th></tr>${lines}
+      </table></div>` : ''}
+      <details style="margin-bottom:18px"><summary style="cursor:pointer;color:var(--accent);font-size:13.5px">
+        ${targets.length ? 'Modifier la destination' : 'Définir la destination mobile money'}</summary>
+        <div class="form" style="margin-top:12px">
+          <label>Environnement <select data-t="environment"><option value="live">réel</option><option value="test">test</option></select></label>
+          <label>Agrégateur <select data-t="provider"><option value="yabetoo">Yabetoo (Congo)</option><option value="sandbox">Simulateur (test)</option></select></label>
+          <label>Numéro <input data-t="phone" placeholder="+242 06 123 45 67" /></label>
+          <label>Réseau <select data-t="network"><option value="">déduit du numéro</option><option value="MTN_CG">MTN</option><option value="AIRTEL_CG">Airtel</option></select></label>
+          <label>Bénéficiaire <input data-t="name" placeholder="Nom inscrit chez l’opérateur" /></label>
+          <label>Minimum par envoi <input data-t="min" type="number" min="100" step="100" value="5000" /></label>
+          <label style="flex-direction:row;display:flex;align-items:center;gap:8px"><input data-t="auto" type="checkbox" /> Reverser chaque jour automatiquement</label>
+        </div>
+        <div class="buttons"><button class="btn" data-settle-target="${esc(id)}">Enregistrer la destination</button></div>
+      </details>`;
+  }
+
+  async function saveTarget(id) {
+    const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+    const v = (k) => el.querySelector(`[data-t="${k}"]`);
+    try {
+      await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlement-targets`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          environment: v('environment').value, provider: v('provider').value,
+          phone: v('phone').value.trim(), beneficiary_name: v('name').value.trim(),
+          ...(v('network').value ? { network: v('network').value } : {}),
+          min_amount: Number(v('min').value) || 5000, auto_enabled: v('auto').checked,
+        }),
+      });
+      toast('Destination enregistrée.', 'ok');
+      await loadSettlements(id);
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+  }
+
+  async function sendNow(btn) {
+    const { settleSend: id, env, provider, amount, currency } = btn.dataset;
+    if (!confirm(`Envoyer maintenant ${money(Number(amount))} ${currency} depuis ${PROVIDER[provider] || provider} (${env === 'live' ? 'RÉEL' : 'test'}) ?\n\nL’argent part immédiatement vers le numéro enregistré.`)) return;
+    try {
+      const s = await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements/send`, {
+        method: 'POST', body: JSON.stringify({ environment: env, provider }),
+      });
+      const [label] = STATUS[s.status] || [s.status];
+      toast(`Reversement ${label}.${s.failure_reason ? ' ' + s.failure_reason : ''}`, s.status === 'FAILED' || s.status === 'UNKNOWN' ? 'ko' : 'ok');
+      await loadSettlements(id);
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+  }
+
+  async function refreshOne(settlementId, merchantId) {
+    try {
+      const s = await api(`/v1/admin/settlements/${encodeURIComponent(settlementId)}/refresh`, { method: 'POST', body: '{}' });
+      toast(`Statut : ${(STATUS[s.status] || [s.status])[0]}.`, 'ok');
+      await loadSettlements(merchantId);
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+  }
+
+  async function resolveOne(settlementId, merchantId) {
+    const paid = confirm('Vérifiez d’abord dans le tableau de bord de l’agrégateur.\n\nOK : le décaissement a bien été effectué.\nAnnuler : il n’a pas eu lieu (le montant redevient dû).');
+    const reason = prompt(paid ? 'Ce que vous avez constaté :' : 'Pourquoi le décaissement n’a pas eu lieu :');
+    if (!reason || reason.trim().length < 5) return;
+    const reference = paid ? prompt('Référence du décaissement chez l’agrégateur :') : null;
+    if (paid && (!reference || reference.trim().length < 3)) return;
+    try {
+      await api(`/v1/admin/settlements/${encodeURIComponent(settlementId)}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ outcome: paid ? 'paid' : 'failed', reason: reason.trim(), ...(paid ? { external_reference: reference.trim() } : {}) }),
+      });
+      toast('Reversement tranché.', 'ok');
+      await loadSettlements(merchantId);
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
   }
 
   async function recordSettlement(id) {
@@ -471,6 +597,18 @@
 
     const rec = e.target.closest('[data-settle-record]');
     if (rec) { rec.disabled = true; await recordSettlement(rec.dataset.settleRecord); rec.disabled = false; return; }
+
+    const tgt = e.target.closest('[data-settle-target]');
+    if (tgt) { tgt.disabled = true; await saveTarget(tgt.dataset.settleTarget); tgt.disabled = false; return; }
+
+    const snd = e.target.closest('[data-settle-send]');
+    if (snd) { snd.disabled = true; await sendNow(snd); snd.disabled = false; return; }
+
+    const rfr = e.target.closest('[data-settle-refresh]');
+    if (rfr) { await refreshOne(rfr.dataset.settleRefresh, rfr.dataset.merchant); return; }
+
+    const rsv = e.target.closest('[data-settle-resolve]');
+    if (rsv) { await resolveOne(rsv.dataset.settleResolve, rsv.dataset.merchant); return; }
 
     const can = e.target.closest('[data-settle-cancel]');
     if (can) { await cancelSettlement(can.dataset.settleCancel, can.dataset.merchant); return; }
