@@ -259,6 +259,7 @@
     <div class="group">Opérations</div>
     <a data-view="payments"><span class="ico">↓</span> Encaissements</a>
     <a data-view="payouts"><span class="ico">↑</span> Décaissements</a>
+    <a data-view="settlements"><span class="ico">⇊</span> Reversements</a>
 
     <div class="group">Infrastructure</div>
     <a data-view="live"><span class="ico">◎</span> Passage en réel <span class="badge" id="badge-live" hidden>!</span></a>
@@ -403,6 +404,7 @@
     webhooks:       { title: 'Webhooks', sub: 'Endpoints déclarés et journal de livraison' },
     keys:           { title: 'Clés API', sub: 'Pour connecter votre backend' },
     security:       { title: 'Sécurité', sub: 'Mot de passe de votre compte' },
+    settlements:    { title: 'Reversements', sub: 'Ce qu’Afripaie encaisse pour vous et vous reverse' },
   };
 
   async function renderOverview() {
@@ -939,6 +941,52 @@
     };
   }
 
+  /* -------------------------------------------------------- Reversements -- */
+
+  async function renderSettlements() {
+    const res = await api('/v1/settlements');
+    const PROVIDER = { geniuspay: 'GeniusPay', yabetoo: 'Yabetoo', sandbox: 'Simulateur' };
+    const METHOD = { BANK_TRANSFER: 'Virement bancaire', MOBILE_MONEY: 'Mobile money', OTHER: 'Autre' };
+
+    const balances = res.balances.length === 0
+      ? '<div class="empty"><strong>Rien en attente</strong>Aucun encaissement n’est passé par les comptes d’Afripaie, ou tout vous a déjà été reversé.</div>'
+      : `<div class="scroll"><table>
+          <thead><tr><th>Agrégateur</th><th class="num">Dû par Afripaie</th><th class="num">En cours de règlement</th><th class="num">Reversable</th></tr></thead>
+          <tbody>${res.balances.map((b) => `<tr>
+            <td>${esc(PROVIDER[b.provider] || b.provider)}</td>
+            <td class="num mono">${money(b.held, b.currency)} ${esc(b.currency)}</td>
+            <td class="num mono muted">${money(b.maturing, b.currency)}</td>
+            <td class="num mono"><strong>${money(b.available, b.currency)}</strong></td>
+          </tr>`).join('')}</tbody></table></div>`;
+
+    const history = res.count === 0
+      ? '<div class="empty"><strong>Aucun reversement</strong>Ils apparaîtront ici dès le premier virement.</div>'
+      : `<div class="scroll"><table>
+          <thead><tr><th>Date</th><th class="num">Montant</th><th>Moyen</th><th>Destination</th><th>Référence</th><th>État</th></tr></thead>
+          <tbody>${res.data.map((s) => `<tr>
+            <td class="muted">${new Date(s.created_at).toLocaleDateString('fr-FR')}</td>
+            <td class="num mono">${money(s.amount, s.currency)} ${esc(s.currency)}</td>
+            <td>${esc(METHOD[s.method] || s.method)}</td>
+            <td>${esc(s.destination)}</td>
+            <td class="mono">${esc(s.external_reference)}</td>
+            <td>${s.status === 'PAID' ? '<span class="tag ok">versé</span>'
+              : `<span class="tag bad" title="${esc(s.cancel_reason || '')}">annulé</span>`}</td>
+          </tr>`).join('')}</tbody></table></div>`;
+
+    $('content').innerHTML = `
+      <section class="panel">
+        <header><h2>Solde dû</h2></header>
+        ${balances}
+        <div class="foot">Quand un paiement passe par les comptes agrégateurs d’Afripaie, l’argent arrive chez
+          Afripaie, qui retient sa commission et vous reverse le reste. Un encaissement devient reversable
+          une fois réglé par l’agrégateur, en général sous 24 h.</div>
+      </section>
+      <section class="panel">
+        <header><h2>Reversements reçus</h2></header>
+        ${history}
+      </section>`;
+  }
+
   const RENDER = {
     overview: renderOverview,
     devoverview: renderDevOverview,
@@ -952,6 +1000,7 @@
     keys: renderKeys,
     live: renderLive,
     security: renderSecurity,
+    settlements: renderSettlements,
   };
 
   async function show(next) {

@@ -49,9 +49,9 @@ export interface EntryInput {
 
 export interface JournalInput {
   merchantId: string;
-  /** payin.succeeded | payout.succeeded | fee.accrued */
+  /** payin.succeeded | payout.succeeded | fee.accrued | settlement.paid | settlement.cancelled */
   type: string;
-  refType: 'payment' | 'payout';
+  refType: 'payment' | 'payout' | 'settlement';
   refId: string;
   currency: string;
   description?: string;

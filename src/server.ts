@@ -23,6 +23,7 @@ import { payoutRoutes } from './api/routes/payouts.js';
 import { partnerRoutes } from './api/routes/partners.js';
 import { providerAccountRoutes } from './api/routes/provider-accounts.js';
 import { routingRoutes } from './api/routes/routing.js';
+import { settlementRoutes } from './api/routes/settlements.js';
 import { webhookEndpointRoutes } from './api/routes/webhook-endpoints.js';
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -77,6 +78,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(catalogRoutes);
   await app.register(providerAccountRoutes);
   await app.register(partnerRoutes);
+  await app.register(settlementRoutes);
   await app.register(paymentRoutes);
   await app.register(checkoutRoutes);
   await app.register(payoutRoutes);

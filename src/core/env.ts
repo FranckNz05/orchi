@@ -121,6 +121,15 @@ const schema = z.object({
   PLATFORM_MERCHANT_ID: z.string().min(1).optional(),
 
   /**
+   * Delai avant qu'un encaissement detenu par Afripaie devienne reversable.
+   *
+   * « Reussi » ne veut pas dire « regle » : l'agregateur verse souvent a J+1.
+   * Reverser avant, c'est avancer au marchand de l'argent qu'Afripaie n'a pas
+   * encore recu. 24 h par defaut, comme pour les partenaires.
+   */
+  MERCHANT_SETTLEMENT_DELAY_MS: z.coerce.number().int().min(0).default(86_400_000),
+
+  /**
    * Delai avant qu'une part partenaire ne devienne reglable.
    *
    * Un encaissement « reussi » ne signifie PAS que les fonds sont disponibles

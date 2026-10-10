@@ -605,6 +605,34 @@ passe erroné répond `400 invalid_current_password`, pas `401`, qui signifierai
 Il n'existe pas encore de réinitialisation par e-mail : Afripaie n'envoie aucun
 courrier.
 
+## Comptes d'Afripaie et reversements
+
+Avec `PLATFORM_MERCHANT_ID`, un marchand sans compte chez un agrégateur encaisse
+par celui d'Afripaie. L'argent arrive alors **chez Afripaie** : la commission est
+retenue sur le flux et le net est inscrit sur `merchant:{id}:held`, ce
+qu'Afripaie doit au marchand.
+
+Ce solde est découpé **par agrégateur** (`src/modules/settlements.ts`) : les
+francs encaissés par Yabetoo sont sur le compte Yabetoo d'Afripaie, ceux de
+GeniusPay sur le compte GeniusPay. Un encaissement ne devient reversable
+qu'après `MERCHANT_SETTLEMENT_DELAY_MS` (24 h), le temps que l'agrégateur le
+règle réellement.
+
+Le reversement lui-même est un **virement exécuté hors d'Afripaie** (banque,
+opérateur) par un administrateur, puis **constaté** dans l'administration avec
+sa référence : `POST /v1/admin/merchants/:id/settlements`. Le grand livre
+débite alors `merchant:{id}:held` et crédite le compte de transit de
+l'agrégateur source. Le montant est plafonné au disponible de cet agrégateur, sous
+verrou sur le marchand pour que deux enregistrements simultanés ne le dépassent
+pas. Une erreur s'annule par contre-écriture
+(`POST /v1/admin/settlements/:id/cancel`), jamais par suppression. Le marchand lit
+son solde et ses reversements avec `GET /v1/settlements` (écran
+**Reversements**).
+
+Pas de virement automatique : GeniusPay n'expose aucune API de décaissement, et
+un décaissement depuis les comptes d'Afripaie puiserait dans un solde qui
+contient l'argent des autres marchands.
+
 ## Montants
 
 Tous les montants circulent en **unités mineures entières**, jamais en

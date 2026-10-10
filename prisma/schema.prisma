@@ -75,6 +75,7 @@ model Merchant {
   checkoutSessions CheckoutSession[]
   partners         Partner[]
   audits           MerchantAudit[]
+  settlements      MerchantSettlement[]
 
   @@index([status])
   @@map("merchants")
@@ -524,7 +525,7 @@ model LedgerJournal {
   merchantId String @map("merchant_id")
   /// payin.succeeded | payout.succeeded | fee.accrued
   type       String
-  /// payment | payout
+  /// payment | payout | settlement
   refType    String @map("ref_type")
   refId      String @map("ref_id")
   currency   String
@@ -1063,4 +1064,47 @@ model MerchantAudit {
 
   @@index([merchantId, createdAt])
   @@map("merchant_audits")
+}
+
+/// Reversement a un marchand des fonds encaisses pour lui sur les comptes
+/// agregateurs d'Afripaie (PLATFORM_MERCHANT_ID). Voir src/modules/settlements.ts.
+///
+/// Constate APRES coup : le virement est execute par l'administrateur hors
+/// d'Afripaie (banque, operateur), puis enregistre ici avec sa reference. Le
+/// grand livre debite alors merchant:{id}:held.
+model MerchantSettlement {
+  id String @id
+
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  /// test | live
+  environment String
+  currency    String
+  amount      Int
+
+  /// Agregateur ou les fonds etaient detenus (geniuspay, yabetoo...).
+  sourceProviderId  String  @map("source_provider_id")
+  /// BANK_TRANSFER | MOBILE_MONEY | OTHER
+  method            String
+  /// Ou l'argent est parti : RIB, numero de telephone... tel que saisi.
+  destination       String
+  /// Reference du virement chez la banque ou l'operateur : la preuve.
+  externalReference String  @map("external_reference")
+  note              String?
+
+  /// PAID | CANCELLED
+  status String @default("PAID")
+
+  actorId    String @map("actor_id")
+  actorEmail String @map("actor_email")
+
+  cancelledAt  DateTime? @map("cancelled_at")
+  cancelledBy  String?   @map("cancelled_by")
+  cancelReason String?   @map("cancel_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId, createdAt])
+  @@map("merchant_settlements")
 }

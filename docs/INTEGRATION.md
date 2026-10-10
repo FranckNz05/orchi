@@ -143,6 +143,18 @@ Vous n'avez **besoin d'aucun compte agrégateur** : sans compte à vous, Afripai
 encaisse par les siens et vous reverse le net. Si vous en connectez un (§4), il
 est utilisé en priorité.
 
+Ce qu'Afripaie vous doit, et ce qu'elle vous a déjà reversé, se lit à tout
+moment :
+
+```bash
+curl https://afripaie.online/v1/settlements -H "Authorization: Bearer sk_test_..."
+```
+
+`balances` donne, par agrégateur, le montant dû (`held`), la part encore en
+cours de règlement chez l'agrégateur (`maturing`, en général moins de 24 h) et
+le reversable (`available`). `data` liste les reversements reçus, avec la
+référence du virement.
+
 ### La réponse ne dit jamais « payé »
 
 Un paiement mobile money est **asynchrone par nature** : l'opérateur envoie une

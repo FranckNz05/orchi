@@ -115,6 +115,23 @@
   .toast.show { transform: translateX(-50%) translateY(0); }
   .toast.ok { border-color: rgba(53,214,164,.5); }
   .toast.ko { border-color: rgba(255,138,122,.5); }
+
+  .settle { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .settle h3 { font-size: 15px; margin: 0 0 4px; }
+  .settle .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; max-width: 80ch; }
+  .settle table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-bottom: 16px; }
+  .settle th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: .05em; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .settle td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .settle td.n { text-align: right; font-family: var(--mono); }
+  .settle tr.cancelled td { color: var(--muted); text-decoration: line-through; }
+  .settle .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .settle .form label { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); }
+  .settle input, .settle select {
+    font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 9px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+  }
+  .settle .scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -290,9 +307,122 @@
           ${m.activity ? `<div class="quote">${esc(m.activity)}</div>` : '<p class="lead" style="margin:0 0 18px">Aucun dossier déposé : ce marchand n’a pas encore demandé l’accès au réel.</p>'}
           ${verdict}
           ${decisionBlock(m)}
+          <section class="settle" data-settle="${esc(m.id)}"><p class="hint">Chargement des reversements…</p></section>
         </div>
       </article>`;
     }).join('');
+  }
+
+
+  /* ---------------------------------------------------------- reversements */
+
+  const PROVIDER = { geniuspay: 'GeniusPay', yabetoo: 'Yabetoo', sandbox: 'Simulateur' };
+  const METHOD = { BANK_TRANSFER: 'Virement bancaire', MOBILE_MONEY: 'Mobile money', OTHER: 'Autre' };
+  const settleData = {};
+
+  async function loadSettlements(id) {
+    try {
+      settleData[id] = await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements`);
+      renderSettle(id);
+    } catch (e) {
+      const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+      if (el) el.innerHTML = `<p class="hint">Reversements indisponibles : ${esc(e.message)}</p>`;
+    }
+  }
+
+  function renderSettle(id) {
+    const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+    const d = settleData[id];
+    if (!el || !d) return;
+    const env = (b) => (b.environment === 'live' ? 'réel' : 'test');
+
+    const balances = d.balances.length
+      ? `<div class="scroll"><table>
+          <tr><th>Env.</th><th>Agrégateur</th><th>Devise</th><th style="text-align:right">Dû</th><th style="text-align:right">En attente de règlement</th><th style="text-align:right">Reversable</th></tr>
+          ${d.balances.map((b) => `<tr><td>${env(b)}</td><td>${esc(PROVIDER[b.provider] || b.provider)}</td><td>${esc(b.currency)}</td>
+            <td class="n">${money(b.held)}</td><td class="n">${money(b.maturing)}</td><td class="n"><strong>${money(b.available)}</strong></td></tr>`).join('')}
+        </table></div>`
+      : '<p class="hint">Rien à reverser : aucun encaissement de ce marchand n’est passé par les comptes d’Afripaie.</p>';
+
+    const payable = d.balances.map((b, i) => ({ b, i })).filter(({ b }) => b.available > 0);
+    const form = payable.length
+      ? `<div class="form">
+          <label>Fonds à reverser
+            <select data-f="line">${payable.map(({ b, i }) =>
+              `<option value="${i}">${env(b)} · ${esc(PROVIDER[b.provider] || b.provider)} · ${money(b.available)} ${esc(b.currency)}</option>`).join('')}</select>
+          </label>
+          <label>Montant viré <input data-f="amount" type="number" min="1" step="1" value="${payable[0].b.available}" /></label>
+          <label>Moyen
+            <select data-f="method">${Object.entries(METHOD).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+          </label>
+          <label>Destination <input data-f="destination" placeholder="RIB, IBAN ou numéro +225…" /></label>
+          <label>Référence du virement <input data-f="reference" placeholder="Fournie par la banque ou l’opérateur" /></label>
+          <label>Note <input data-f="note" placeholder="Facultatif" /></label>
+        </div>
+        <div class="buttons" style="margin-bottom:18px"><button class="btn solid" data-settle-record="${esc(id)}">Enregistrer le reversement</button></div>`
+      : '';
+
+    const history = d.data.length
+      ? `<div class="scroll"><table>
+          <tr><th>Date</th><th style="text-align:right">Montant</th><th>Depuis</th><th>Moyen</th><th>Destination</th><th>Référence</th><th>Par</th><th></th></tr>
+          ${d.data.map((s) => `<tr class="${s.status === 'CANCELLED' ? 'cancelled' : ''}" title="${s.status === 'CANCELLED' ? esc('Annulé : ' + (s.cancel_reason || '')) : ''}">
+            <td>${date(s.created_at)}${s.environment === 'test' ? ' · test' : ''}</td>
+            <td class="n">${money(s.amount)} ${esc(s.currency)}</td>
+            <td>${esc(PROVIDER[s.source_provider] || s.source_provider)}</td>
+            <td>${esc(METHOD[s.method] || s.method)}</td>
+            <td>${esc(s.destination)}</td>
+            <td style="font-family:var(--mono)">${esc(s.external_reference)}</td>
+            <td style="font-family:var(--mono);font-size:12px">${esc(s.recorded_by || '')}</td>
+            <td>${s.status === 'PAID' ? `<button class="btn danger" data-settle-cancel="${esc(s.id)}" data-merchant="${esc(id)}">Annuler</button>` : 'annulé'}</td>
+          </tr>`).join('')}
+        </table></div>`
+      : '';
+
+    el.innerHTML = `<h3>Reversements</h3>
+      <p class="hint">Ce qu’Afripaie doit à ce marchand sur ses propres comptes agrégateurs, commission déduite.
+        Le virement se fait chez la banque ou l’opérateur ; on l’enregistre ici ensuite, avec sa référence.
+        Un encaissement n’est reversable qu’une fois réglé par l’agrégateur.</p>
+      ${balances}${form}${history}`;
+  }
+
+  async function recordSettlement(id) {
+    const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+    const f = (k) => el.querySelector(`[data-f="${k}"]`).value.trim();
+    const line = settleData[id].balances[Number(f('line'))];
+    const amount = Number(f('amount'));
+    if (!Number.isInteger(amount) || amount <= 0) return toast('Montant invalide.', 'ko');
+    if (f('destination').length < 3 || f('reference').length < 3) {
+      return toast('Destination et référence du virement sont obligatoires : elles prouvent le reversement.', 'ko');
+    }
+    if (!confirm(`Enregistrer un reversement de ${money(amount)} ${line.currency} depuis ${PROVIDER[line.provider] || line.provider} ?\n\nÀ faire uniquement APRÈS avoir effectué le virement.`)) return;
+    try {
+      await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements`, {
+        method: 'POST',
+        body: JSON.stringify({
+          environment: line.environment, currency: line.currency, amount, source_provider: line.provider,
+          method: f('method'), destination: f('destination'), external_reference: f('reference'),
+          ...(f('note') ? { note: f('note') } : {}),
+        }),
+      });
+      toast('Reversement enregistré.', 'ok');
+      await loadSettlements(id);
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+  }
+
+  async function cancelSettlement(settlementId, merchantId) {
+    const reason = prompt('Motif de l’annulation (virement rejeté, erreur de montant…) :');
+    if (!reason || reason.trim().length < 5) return;
+    try {
+      await api(`/v1/admin/settlements/${encodeURIComponent(settlementId)}/cancel`, {
+        method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
+      });
+      toast('Reversement annulé : le montant est de nouveau dû au marchand.', 'ok');
+      await loadSettlements(merchantId);
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
   }
 
   /* --------------------------------------------------------------- actions */
@@ -307,6 +437,7 @@
     renderStats(overview);
     renderTabs();
     renderRows();
+    for (const id of open) loadSettlements(id);
   }
 
   async function decide(id, decision, note) {
@@ -333,10 +464,16 @@
     const toggle = e.target.closest('[data-toggle]');
     if (toggle) {
       const id = toggle.dataset.toggle;
-      if (open.has(id)) open.delete(id); else open.add(id);
+      if (open.has(id)) open.delete(id); else { open.add(id); loadSettlements(id); }
       toggle.closest('.row').classList.toggle('open');
       return;
     }
+
+    const rec = e.target.closest('[data-settle-record]');
+    if (rec) { rec.disabled = true; await recordSettlement(rec.dataset.settleRecord); rec.disabled = false; return; }
+
+    const can = e.target.closest('[data-settle-cancel]');
+    if (can) { await cancelSettlement(can.dataset.settleCancel, can.dataset.merchant); return; }
 
     const tab = e.target.closest('[data-s]');
     if (tab) { filter = tab.dataset.s; renderTabs(); renderRows(); return; }

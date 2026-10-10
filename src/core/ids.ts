@@ -25,6 +25,7 @@ export const ID_PREFIX = {
   partnerAccrual: 'pacr',
   partnerSettlement: 'pstl',
   merchantAudit: 'maud',
+  merchantSettlement: 'rvs',
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
