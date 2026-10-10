@@ -126,7 +126,8 @@ sur une *création* est indéterminé (l'agrégateur a pu traiter avant de tombe
 | Agrégateur | Pays | Sens | État |
 |---|---|---|---|
 | `sandbox` | Tous (test uniquement) | pay-in + payout | **Actif** |
-| `geniuspay` | 21 pays | **pay-in seul** | **Actif** — encaissement validé en sandbox réel (30/08/2026) |
+| `yabetoo` | Congo-Brazzaville (XAF) | pay-in + payout | **Actif** — encaissement et décaissement validés en sandbox réel (10/10/2026), webhooks non vérifiés |
+| `geniuspay` | 8 pays en XOF (annonce 21) | **pay-in seul** | **Actif** — encaissement validé en sandbox réel (30/08/2026). N'accepte que XOF, EUR, USD |
 | `fedapay` | BJ, TG, CI, SN, NE | pay-in + payout | Écrit d'après la doc publique — **non validé** |
 | `cinetpay` | 11 pays UEMOA/CEMAC | pay-in + payout | Écrit d'après la doc publique — **non validé** |
 
@@ -469,7 +470,7 @@ les désactive.
 
 ## Catalogue
 
-Les 54 États africains, 86 agrégateurs/opérateurs/banques et 145 règles de
+Les 54 États africains, 87 agrégateurs/opérateurs/banques et 215 règles de
 couverture vivent en **base de données**, pas dans le code : ouvrir un pays,
 corriger une commission ou couper un agrégateur défaillant se fait sans
 redéploiement. Les fichiers `src/catalog/*.ts` restent la source versionnée,

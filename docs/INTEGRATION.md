@@ -101,6 +101,8 @@ Credentials attendus par agrégateur :
 | `sandbox` | `webhook_secret` | — |
 | `fedapay` | `secret_key`, `webhook_secret` | — |
 | `cinetpay` | `apikey`, `site_id` | `transfer_login`, `transfer_password` |
+| `geniuspay` | `api_key`, `webhook_secret` ; ajouter `api_secret` si `api_key` est une clé **publique** (`pk_…`) | — |
+| `yabetoo` | `secret_key`, `webhook_secret` | — |
 
 `GET /v1/provider-accounts` liste vos comptes. La réponse ne contient que les
 **noms** des champs (`credential_keys`), jamais leurs valeurs.
@@ -763,13 +765,38 @@ curl -H "Authorization: Bearer sk_test_..." \
 | Agrégateur | Pays | Sens | État de l'intégration |
 |---|---|---|---|
 | `sandbox` | Tous (test uniquement) | pay-in + payout | **Actif** |
-| `geniuspay` | 21 pays — UEMOA, CEMAC, Afrique de l'Est et australe | **pay-in seul** | **Actif** — encaissement validé en sandbox réel. Aucun décaissement : leur API de cashout n'est pas publiée |
+| `yabetoo` | Congo-Brazzaville (MTN, Airtel) — XAF | pay-in + payout | **Actif** — encaissement et décaissement validés en sandbox réel ; webhooks non vérifiés |
+| `geniuspay` | CI, SN, ML, BF, BJ, TG, NE, GW — **XOF uniquement** | **pay-in seul** | **Actif** — encaissement validé en sandbox réel. Aucun décaissement : leur API de cashout n'est pas publiée |
 | `fedapay` | BJ, TG, CI, SN, NE | pay-in + payout | Écrit d'après la doc publique — **non validé en sandbox réel** |
 | `cinetpay` | CI, BJ, TG, ML, BF, NE, SN, GW, GN, CM, CD | pay-in + payout | Écrit d'après la doc publique — **non validé en sandbox réel** |
 
-Notre partenaire d’Afrique de l’Ouest couvre CI, SN, ML, BF, BJ, TG, NE, GW, GH, NG, SL, CM, GA, CG, CF,
-CD, KE, RW, UG, ZM, ZA. Son API de décaissement n'étant pas publiée, aucun
-virement sortant n'y est routé — `supports()` renvoie `false` pour les payouts.
+**GeniusPay** annonce 21 pays et neuf devises. Son API n'en accepte que **trois**
+(XOF, EUR, USD) : une création en XAF est refusée, au Cameroun comme au Congo.
+Seuls les huit pays en XOF sont donc routés vers lui. Son API de décaissement
+n'étant pas publiée, aucun virement sortant n'y est routé.
+
+### Ce qu'il faut savoir de Yabetoo
+
+- **Montant minimum d'encaissement : 100 XAF.** En dessous, la transaction est
+  refusée avant tout appel.
+- **Le réseau est obligatoire** (`MTN_CG` ou `AIRTEL_CG`) : un numéro congolais
+  ne permet pas de deviner l'opérateur. Le numéro doit comporter 9 chiffres
+  après `+242` (ex. `+242 06 123 4567`).
+- **Frais d'encaissement : 3,5 % + 25 XAF** (mesuré en sandbox). Sous environ
+  1 667 XAF le coût dépasse les 5 % d'Afripaie et la part d'Afripaie tombe à
+  zéro ; au-delà elle est positive (1 % à 5 000 XAF, 1,45 % à 50 000 XAF).
+- **Décaissement : Yabetoo prélève 1,5 % sur la somme versée.** Un décaissement
+  de 10 000 XAF crédite 9 850 XAF au bénéficiaire ; votre compte Yabetoo est
+  débité des 10 000. Le message de la tentative l'indique
+  (`Yabetoo annonce 9850 pour 10000 demandes.`). Si le bénéficiaire doit recevoir
+  la somme exacte, majorez le montant demandé.
+- **Une clé de test (`sk_test_…`) ne fonctionne qu'en environnement `test`**, et
+  une clé de production qu'en `live`. Le sandbox Yabetoo réussit *toujours*,
+  même avec un numéro inexistant : une clé de test branchée sur un marchand réel
+  enregistrerait de vraies ventes sans qu'un franc ne bouge. Afripaie refuse
+  l'appel plutôt que de laisser faire.
+- **Les décaissements Airtel échouent en sandbox** (« only available in live
+  mode »). MTN fonctionne.
 
 Deux pays (Tchad, Guinée équatoriale) figurent au catalogue avec ce partenaire
 d'après le document de cadrage mais **sont absents de sa documentation

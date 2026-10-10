@@ -72,6 +72,7 @@ const schema = z.object({
   CINETPAY_CHECKOUT_URL: z.string().url().optional(),
   CINETPAY_TRANSFER_URL: z.string().url().optional(),
   GENIUSPAY_BASE_URL: z.string().url().optional(),
+  YABETOO_BASE_URL: z.string().url().optional(),
 
   /**
    * Taux TOTAL supporte par le marchand, en points de base (500 = 5,00 %).

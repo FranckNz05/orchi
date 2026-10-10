@@ -112,7 +112,7 @@ services:
       # d'ailleurs montre ce que vaut une doc non verifiee — deux erreurs, dont
       # une qui rendait l'adaptateur inutilisable.
       - key: PROVIDERS_ENABLED
-        value: sandbox,geniuspay
+        value: sandbox,geniuspay,yabetoo
 
       # La console d'exploitation invite a coller une cle API secrete dans un
       # navigateur. Acceptable en local, pas sur une URL publique. Le tableau de

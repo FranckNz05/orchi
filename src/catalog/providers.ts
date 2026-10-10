@@ -33,6 +33,13 @@ export const PROVIDERS: readonly ProviderDef[] = [
     integration: 'PLANNED',
     scope: '21 pays — UEMOA, CEMAC, Afrique de l’Est et australe (cf. src/providers/geniuspay.ts)',
   },
+  {
+    id: 'yabetoo',
+    name: 'Yabetoo Pay',
+    type: 'AGGREGATOR',
+    integration: 'SANDBOX',
+    scope: 'Congo-Brazzaville — MTN et Airtel, encaissement et décaissement (cf. src/providers/yabetoo.ts)',
+  },
   { id: 'bizao', name: 'Bizao', type: 'AGGREGATOR', integration: 'PLANNED', scope: 'Afrique de l’Ouest et Centrale' },
   { id: 'touchpay', name: 'TouchPay', type: 'AGGREGATOR', integration: 'PLANNED', scope: 'UEMOA + CEMAC' },
   { id: 'paytech', name: 'PayTech', type: 'AGGREGATOR', integration: 'PLANNED', scope: 'Sénégal' },

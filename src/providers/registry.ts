@@ -5,6 +5,7 @@ import { cinetpayProvider } from './cinetpay.js';
 import { fedapayProvider } from './fedapay.js';
 import { geniuspayProvider } from './geniuspay.js';
 import { sandboxProvider } from './sandbox.js';
+import { yabetooProvider } from './yabetoo.js';
 import type { PaymentProvider } from './types.js';
 
 /**
@@ -69,6 +70,7 @@ const AVAILABLE: Readonly<Record<string, PaymentProvider>> = {
   [fedapayProvider.id]: fedapayProvider,
   [cinetpayProvider.id]: cinetpayProvider,
   [geniuspayProvider.id]: geniuspayProvider,
+  [yabetooProvider.id]: yabetooProvider,
 };
 
 function registerBuiltInProviders(): void {

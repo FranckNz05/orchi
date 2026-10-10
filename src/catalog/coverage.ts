@@ -141,6 +141,15 @@ export const COVERAGE: Readonly<Record<string, readonly CoverageSeed[]>> = {
     { provider: 'singpay', channels: MM, networks: ['AIRTEL_GA', 'MOOV_GA'] },
   ],
   CG: [
+    // Premier de la liste = agregateur maitre. Seul des quatre a offrir ENCAISSEMENT et
+    // DECAISSEMENT en XAF : GeniusPay refuse cette devise (verifie sur son sandbox le
+    // 09/10/2026) et n'a de toute facon aucun decaissement.
+    //
+    // Frais d'encaissement MESURES au sandbox sur onze montants : 3,5 % + 25 XAF.
+    // 350 bps est donc la borne basse atteinte par les gros montants ; un petit
+    // montant coute bien davantage (5,17 % a 1 500). Valeur du SANDBOX : rien
+    // n'assure que le tarif reel soit identique.
+    { provider: 'yabetoo', channels: MM, networks: ['MTN_CG', 'AIRTEL_CG'], feeMinBps: 350 },
     { provider: 'geniuspay', channels: MM, networks: ['MTN_CG', 'AIRTEL_CG'], payout: false },
     { provider: 'bizao', channels: MM, networks: ['MTN_CG', 'AIRTEL_CG'] },
     { provider: 'airtel_money', channels: MM, networks: ['AIRTEL_CG'] },
