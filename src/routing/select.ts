@@ -70,7 +70,15 @@ export interface RoutingRequest {
   preferredProviderId?: string;
   /** Agregateurs deja essayes sans succes pour cette intention. */
   excludeProviderIds?: string[];
+  /**
+   * Numero de test (src/catalog/test-numbers.ts) : seul le simulateur est
+   * candidat, avec le compte simulateur du marchand ou, a defaut, celui
+   * d'Afripaie — y compris en decaissement, puisqu'aucun argent n'existe.
+   */
+  simulator?: boolean;
 }
+
+const SIMULATOR_ID = 'sandbox';
 
 export function noRouteError(
   request: RoutingRequest,
@@ -119,10 +127,17 @@ export async function selectCandidates(request: RoutingRequest): Promise<Routing
   // Comptes d'Afripaie, en ENCAISSEMENT uniquement : un decaissement y
   // puiserait dans un solde qui contient l'argent des autres marchands.
   const platformId = env.PLATFORM_MERCHANT_ID;
+  const simulator = request.simulator === true && request.environment === 'test';
   const platformAccounts =
-    platformId && platformId !== request.merchantId && request.direction === 'payin'
+    platformId && platformId !== request.merchantId && (request.direction === 'payin' || simulator)
       ? await prisma.providerAccount.findMany({
-          where: { merchantId: platformId, environment: request.environment, status: 'ACTIVE' },
+          where: {
+            merchantId: platformId,
+            environment: request.environment,
+            status: 'ACTIVE',
+            // En decaissement, SEUL le simulateur d'Afripaie peut servir.
+            ...(request.direction === 'payout' ? { providerId: SIMULATOR_ID } : {}),
+          },
         })
       : [];
 
@@ -172,6 +187,7 @@ export async function selectCandidates(request: RoutingRequest): Promise<Routing
   };
 
   for (const rule of rules) {
+    if (simulator && rule.providerId !== SIMULATOR_ID) continue;
     if (excluded.has(rule.providerId)) continue;
     if (request.preferredProviderId && rule.providerId !== request.preferredProviderId) continue;
     if (!rule.channels.split(',').map((c) => c.trim()).includes(request.channel)) continue;

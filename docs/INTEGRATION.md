@@ -163,6 +163,50 @@ Les frais de l'opérateur sont pris en charge par Afripaie : vous recevez
 l'intégralité de votre dû. `targets` indique la destination
 active ; un reversement `PROCESSING` est en cours, `UNKNOWN` en vérification.
 
+### Numéros de test
+
+Avec une clé **de test** (`sk_test_…`), un numéro dont la partie nationale ne
+contient **que des zéros**, sauf le dernier chiffre, est confié au simulateur
+d'Afripaie au lieu de l'agrégateur. Le dernier chiffre choisit l'issue :
+
+| Dernier chiffre | Issue |
+|---|---|
+| `0` | Succès immédiat (à la première lecture du paiement) |
+| `1` | Succès après une attente (deux interrogations) |
+| `2` | Refus : solde insuffisant (`FAILED`) |
+| `3` | Délai dépassé : issue inconnue, à réconcilier |
+| `4` | Agrégateur indisponible |
+| `5` | Quota de l'agrégateur dépassé |
+| `6` | Identifiants refusés par l'agrégateur |
+| `7` | Le client ne confirme jamais : expiration |
+
+L'indicatif fixe le pays, donc la devise et les moyens de paiement, comme pour un
+vrai numéro. Numéro de **succès** (`…0`) pour chaque pays intégré ; remplacez le
+dernier chiffre pour les autres issues :
+
+| Pays | Devise | Succès | Refus |
+|---|---|---|---|
+| Côte d'Ivoire | XOF | `+225 0000000000` | `+225 0000000002` |
+| Sénégal | XOF | `+221 000000000` | `+221 000000002` |
+| Mali | XOF | `+223 00000000` | `+223 00000002` |
+| Burkina Faso | XOF | `+226 00000000` | `+226 00000002` |
+| Niger | XOF | `+227 00000000` | `+227 00000002` |
+| Guinée-Bissau | XOF | `+245 000000000` | `+245 000000002` |
+| Togo | XOF | `+228 00000000` | `+228 00000002` |
+| Bénin | XOF | `+229 0000000000` | `+229 0000000002` |
+| Congo-Brazzaville | XAF | `+242 000000000` | `+242 000000002` |
+
+La liste complète, pour n'importe quel pays, est servie sans authentification :
+
+```bash
+curl "https://afripaie.online/v1/test-numbers?country=CI"
+```
+
+Ils marchent partout où un numéro est attendu : `customer.phone` d'un paiement
+ou d'une session de paiement, numéro saisi sur la page de paiement hébergée,
+`recipient.phone` d'un décaissement. Avec une clé **live**, ils sont refusés
+(`400`, `param: customer.phone`) : en réel, seul un vrai numéro a un sens.
+
 ### La réponse ne dit jamais « payé »
 
 Un paiement mobile money est **asynchrone par nature** : l'opérateur envoie une

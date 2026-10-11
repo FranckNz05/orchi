@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { env } from '../../core/env.js';
 import { prisma } from '../../db/client.js';
 import { getProviderAdapter } from '../../providers/registry.js';
+import { COUNTRIES, getCountry } from '../../catalog/countries.js';
+import { testNumbersFor } from '../../catalog/test-numbers.js';
 
 /**
  * Catalogue public, sans authentification.
@@ -97,6 +99,23 @@ async function build(): Promise<PublicCatalog> {
 }
 
 export async function publicCatalogRoutes(app: FastifyInstance) {
+  /**
+   * Numeros de test : publics, comme les cartes de test d'un PSP. Ils ne
+   * fonctionnent qu'avec une cle de test et n'ouvrent rien.
+   */
+  app.get('/v1/test-numbers', async (request) => {
+    const { country } = (request.query ?? {}) as { country?: string };
+    const list = country
+      ? [getCountry(country)].filter((c): c is NonNullable<typeof c> => Boolean(c))
+      : COUNTRIES.filter((c) => c.sovereign);
+    return {
+      object: 'list',
+      rule:
+        'Partie nationale entièrement nulle, sauf le dernier chiffre qui choisit l’issue. Clé de test uniquement.',
+      data: list.map((c) => ({ country: c.iso2, name: c.name, currency: c.currency, numbers: testNumbersFor(c.iso2, c.callingCode) })),
+    };
+  });
+
   app.get('/v1/public/catalog', async (_request, reply) => {
     if (!cache || Date.now() - cache.at > TTL_MS) {
       cache = { at: Date.now(), data: await build() };

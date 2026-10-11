@@ -1,6 +1,7 @@
 import type { Payout, PayoutAttempt } from '@prisma/client';
 import type { Channel } from '../catalog/coverage.js';
 import { getCountry } from '../catalog/countries.js';
+import { simulatorFor } from '../catalog/test-numbers.js';
 import { AppError, errors } from '../core/errors.js';
 import { ID_PREFIX, newId } from '../core/ids.js';
 import { logger } from '../core/logger.js';
@@ -97,6 +98,9 @@ export async function createPayout(
   linkResource?: (id: string) => Promise<void>,
 ): Promise<{ payout: Payout; attempts: PayoutAttempt[] }> {
   validate(input);
+  // Avant toute creation : un numero de test en `live` doit echouer sans laisser
+  // de decaissement orphelin.
+  const simulator = simulatorFor(input.environment, input.recipient.phone, 'recipient.phone');
 
   const existing = await prisma.payout.findUnique({
     where: { merchantId_reference: { merchantId: input.merchantId, reference: input.reference } },
@@ -151,6 +155,7 @@ export async function createPayout(
     direction: 'payout',
     seed: payout.reference,
     ...(input.preferredProviderId ? { preferredProviderId: input.preferredProviderId } : {}),
+    ...(simulator ? { simulator } : {}),
   });
 
   const updated = await runAttempts(payout, plan);
@@ -596,6 +601,7 @@ export async function retryPayout(
     direction: 'payout',
     seed: payout.reference,
     excludeProviderIds: tried,
+    ...(simulatorFor(environment, payout.recipientPhone, 'recipient.phone') ? { simulator: true } : {}),
   });
 
   const updated = await runAttempts(payout, plan);

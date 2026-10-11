@@ -1,6 +1,7 @@
 import type { Payment, PaymentAttempt } from '@prisma/client';
 import type { Channel } from '../catalog/coverage.js';
 import { resolveMarket } from '../catalog/market.js';
+import { simulatorFor } from '../catalog/test-numbers.js';
 import { AppError, errors } from '../core/errors.js';
 import { ID_PREFIX, newId } from '../core/ids.js';
 import { logger } from '../core/logger.js';
@@ -98,6 +99,8 @@ export async function createPayment(
   });
   const input: ResolvedPaymentInput = { ...request, country: market.country, currency: market.currency };
   validate(input);
+  // Numero de test : simulateur d'Afripaie, et refus net hors environnement de test.
+  const simulator = simulatorFor(input.environment, input.customer.phone, 'customer.phone');
 
   const existing = await prisma.payment.findUnique({
     where: { merchantId_reference: { merchantId: input.merchantId, reference: input.reference } },
@@ -157,6 +160,7 @@ export async function createPayment(
     direction: 'payin',
     seed: payment.reference,
     ...(input.preferredProviderId ? { preferredProviderId: input.preferredProviderId } : {}),
+    ...(simulator ? { simulator } : {}),
   });
 
   const updated = await runAttempts(payment, plan);
@@ -662,6 +666,7 @@ export async function retryPayment(
     direction: 'payin',
     seed: payment.reference,
     excludeProviderIds: tried,
+    ...(simulatorFor(environment, payment.customerPhone, 'customer.phone') ? { simulator: true } : {}),
   });
 
   const updated = await runAttempts(payment, plan);
