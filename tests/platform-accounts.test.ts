@@ -302,6 +302,20 @@ describe('encaissement par les comptes d’Afripaie', () => {
     expect((await optionsFor()).length).toBeGreaterThan(0);
   });
 
+  it('liste les operateurs ouverts pour construire sa propre page de paiement', async () => {
+    if (!seeded) return;
+    env.PLATFORM_MERCHANT_ID = platformId;
+    const res = await get('/v1/payment-options?phone=%2B229%2097%2000%2000%2000');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ country: 'BJ', currency: 'XOF' });
+    const options = res.json().options as { channel: string; network: string | null; label: string }[];
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.some((o) => o.channel === 'mobile_money' && o.network)).toBe(true);
+
+    // Sans pays ni indicatif : refus net plutot qu'une liste vide.
+    expect((await get('/v1/payment-options?phone=97000000')).statusCode).toBe(400);
+  });
+
   it('demande le pays quand le numero n’a pas d’indicatif', async () => {
     if (!seeded) return;
     const res = await post('/v1/payments', payin({ customer: { phone: '97000000' } }));

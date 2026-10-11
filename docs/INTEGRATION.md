@@ -207,6 +207,23 @@ ou d'une session de paiement, numéro saisi sur la page de paiement hébergée,
 `recipient.phone` d'un décaissement. Avec une clé **live**, ils sont refusés
 (`400`, `param: customer.phone`) : en réel, seul un vrai numéro a un sens.
 
+### Votre propre page de paiement
+
+La page hébergée d'Afripaie n'est pas obligatoire : vous pouvez afficher le
+choix de l'opérateur sur **vos** pages, puis appeler `POST /v1/payments` avec le
+réseau choisi. `GET /v1/payment-options?phone=+242…` (ou `?country=CG`) renvoie
+les moyens réellement ouverts pour vous dans ce pays :
+
+```json
+{ "country": "CG", "currency": "XAF",
+  "options": [ { "channel": "mobile_money", "network": "MTN_CG", "label": "MTN MoMo" },
+               { "channel": "mobile_money", "network": "AIRTEL_CG", "label": "Airtel Money" } ] }
+```
+
+Le client valide sur son téléphone ; vous suivez l'état par le webhook
+`payment.succeeded` / `payment.failed` / `payment.expired`, ou en lisant
+`GET /v1/payments/:id`.
+
 ### La réponse ne dit jamais « payé »
 
 Un paiement mobile money est **asynchrone par nature** : l'opérateur envoie une

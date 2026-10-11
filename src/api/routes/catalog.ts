@@ -1,5 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { countryFromPhone } from '../../catalog/market.js';
+import { getCountry } from '../../catalog/countries.js';
+import { errors } from '../../core/errors.js';
+import { paymentOptionsFor } from '../../modules/checkout.js';
 import { getCoverage, listCountries } from '../../catalog/service.js';
 
 const REGIONS = ['WEST', 'CENTRAL', 'EAST', 'NORTH', 'SOUTHERN', 'ISLANDS'] as const;
@@ -20,7 +24,41 @@ const coverageQuery = z.object({
   direction: z.enum(['payin', 'payout']).optional(),
 });
 
+const optionsQuery = z.object({
+  country: z.string().length(2).optional(),
+  phone: z.string().min(6).max(30).optional(),
+});
+
 export async function catalogRoutes(app: FastifyInstance) {
+  /**
+   * Moyens de paiement réellement ouverts pour CE marchand dans un pays.
+   *
+   * Sert aux marchands qui construisent leur propre page de paiement : ils
+   * affichent les opérateurs à leur client sans passer par la page hébergée
+   * d'Afripaie. Le pays vient de `country`, ou de l'indicatif de `phone`.
+   * La liste tient compte des comptes agrégateurs utilisables (les siens, puis
+   * ceux d'Afripaie) : proposer un moyen qu'on ne sait pas servir ferait
+   * échouer le client après son choix.
+   */
+  app.get('/v1/payment-options', { preHandler: app.authenticate }, async (request) => {
+    const query = optionsQuery.parse(request.query);
+    const def = query.country ? getCountry(query.country) : countryFromPhone(query.phone);
+    if (!def) {
+      throw errors.invalidRequest(
+        'Pays introuvable : indiquez `country`, ou un numéro au format international (+242…).',
+        'country',
+      );
+    }
+    const auth = request.auth!;
+    const options = await paymentOptionsFor(auth.merchantId, def.iso2, auth.environment);
+    return {
+      object: 'payment_options',
+      country: def.iso2,
+      currency: def.currency,
+      options,
+    };
+  });
+
   /** Liste des pays couverts, avec exigence KYC et capacite de decaissement. */
   app.get('/v1/countries', { preHandler: app.authenticate }, async (request) => {
     const query = countriesQuery.parse(request.query);
