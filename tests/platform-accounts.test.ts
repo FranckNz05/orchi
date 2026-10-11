@@ -7,6 +7,7 @@ import { ID_PREFIX, newId } from '../src/core/ids.js';
 import { prisma } from '../src/db/client.js';
 import { assertLedgerBalanced } from '../src/modules/ledger.js';
 import { connectProviderAccount } from '../src/modules/provider-accounts.js';
+import { selectCandidates } from '../src/routing/select.js';
 import { buildServer } from '../src/server.js';
 
 /**
@@ -119,6 +120,14 @@ beforeAll(async () => {
       priority: 1,
     });
   }
+  // Un vrai agregateur chez Afripaie : jamais appele ici (aucun paiement avec un
+  // vrai numero), mais il doit apparaitre sur la page et dans le routage.
+  await connectProviderAccount({
+    merchantId: platformId,
+    providerId: 'geniuspay',
+    environment: 'test',
+    credentials: { api_key: 'pk_sandbox_test', api_secret: 'sk_sandbox_test', webhook_secret: 'whsec_test' },
+  });
 });
 
 afterEach(() => {
@@ -150,13 +159,17 @@ function get(url: string, key = clientKey) {
   return app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${key}` } });
 }
 
-/** Paiement sans `country` : seul l'indicatif du client designe le Benin. */
+/**
+ * Paiement sans `country` : seul l'indicatif du client designe le Benin. Numero
+ * de test : c'est le simulateur d'Afripaie qui l'execute, seul agregateur
+ * joignable hors ligne.
+ */
 const payin = (over: Record<string, unknown> = {}) => ({
   reference: ref('pf'),
   amount: 15000,
   currency: 'XOF',
   channel: 'mobile_money',
-  customer: { phone: '+229 97 00 00 00' },
+  customer: { phone: '+229 0000000000' },
   ...over,
 });
 
@@ -206,6 +219,18 @@ describe('encaissement par les comptes d’Afripaie', () => {
     expect(by[`merchant:${clientId}:held`]).toEqual({ side: 'CREDIT', amount: 19000 });
     expect(by[`merchant:${clientId}:receivable`]).toBeUndefined();
     await expect(assertLedgerBalanced(clientId)).resolves.toBeUndefined();
+  });
+
+  it('ne confie jamais un vrai numero au simulateur d’Afripaie', async () => {
+    if (!seeded) return;
+    env.PLATFORM_MERCHANT_ID = platformId;
+    // Le simulateur validerait un paiement que personne n'a fait.
+    for (const seed of ['a', 'b', 'c', 'd', 'e']) {
+      const plan = await selectCandidates({
+        merchantId: clientId, environment: 'test', country: 'BJ', channel: 'mobile_money', direction: 'payin', seed,
+      });
+      expect(plan.candidates.map((c) => c.providerId)).toEqual(['geniuspay']);
+    }
   });
 
   it('prefere le compte du marchand quand il en a un', async () => {

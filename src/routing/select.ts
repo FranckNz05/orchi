@@ -135,8 +135,11 @@ export async function selectCandidates(request: RoutingRequest): Promise<Routing
             merchantId: platformId,
             environment: request.environment,
             status: 'ACTIVE',
-            // En decaissement, SEUL le simulateur d'Afripaie peut servir.
-            ...(request.direction === 'payout' ? { providerId: SIMULATOR_ID } : {}),
+            // Le simulateur d'Afripaie ne sert QU'AUX numeros de test : candidat
+            // pour un vrai numero, il validerait un paiement que personne n'a
+            // fait. A l'inverse, un numero de test (y compris en decaissement)
+            // n'utilise que lui.
+            providerId: simulator ? SIMULATOR_ID : { not: SIMULATOR_ID },
           },
         })
       : [];

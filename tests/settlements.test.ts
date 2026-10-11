@@ -99,13 +99,13 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-/** Encaissement par le compte d'Afripaie, conclu par le simulateur a la lecture. */
+/** Encaissement par le simulateur d'Afripaie (numero de test), conclu a la lecture. */
 async function payin(amount: number): Promise<void> {
   const created = await app.inject({
     method: 'POST',
     url: '/v1/payments',
     headers: { authorization: `Bearer ${apiKey}`, 'idempotency-key': ref('idem') },
-    payload: { reference: ref('pay'), amount, currency: 'XOF', channel: 'mobile_money', customer: { phone: '+22997000000' } },
+    payload: { reference: ref('pay'), amount, currency: 'XOF', channel: 'mobile_money', customer: { phone: '+229 0000000000' } },
   });
   expect(created.statusCode).toBe(201);
   const read = await app.inject({

@@ -112,7 +112,7 @@ async function payin(amount: number): Promise<void> {
     method: 'POST',
     url: '/v1/payments',
     headers: { authorization: `Bearer ${apiKey}`, 'idempotency-key': ref('idem') },
-    payload: { reference: ref('pay'), amount, currency: 'XOF', channel: 'mobile_money', customer: { phone: '+22997000000' } },
+    payload: { reference: ref('pay'), amount, currency: 'XOF', channel: 'mobile_money', customer: { phone: '+229 0000000000' } },
   });
   await app.inject({
     method: 'GET',

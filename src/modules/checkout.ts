@@ -174,9 +174,19 @@ export async function paymentOptionsFor(
   // Seuls les agregateurs ou un compte existe — celui du marchand, ou a defaut
   // celui d'Afripaie — sont proposes. Afficher un moyen que le routage ne peut
   // pas servir ferait echouer le client APRES qu'il l'a choisi.
-  const owners = [merchantId, ...(env.PLATFORM_MERCHANT_ID ? [env.PLATFORM_MERCHANT_ID] : [])];
+  // Le simulateur d'Afripaie n'est pas un moyen de paiement : il ne sert
+  // qu'aux numeros de test (src/catalog/test-numbers.ts).
   const accounts = await prisma.providerAccount.findMany({
-    where: { merchantId: { in: owners }, environment, status: 'ACTIVE' },
+    where: {
+      environment,
+      status: 'ACTIVE',
+      OR: [
+        { merchantId },
+        ...(env.PLATFORM_MERCHANT_ID
+          ? [{ merchantId: env.PLATFORM_MERCHANT_ID, providerId: { not: 'sandbox' } }]
+          : []),
+      ],
+    },
     select: { providerId: true },
   });
   const usable = new Set(accounts.map((a) => a.providerId));
