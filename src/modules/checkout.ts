@@ -64,6 +64,20 @@ export async function createCheckoutSession(request: CreateSessionInput) {
   const input = { ...request, country: market.country, currency: market.currency };
   assertValidAmount(input.amount, input.currency);
 
+  // Une page sans aucun moyen de paiement est une impasse pour le client : on
+  // refuse la session des maintenant, avec un motif que le marchand peut
+  // afficher (pays pas encore ouvert en reel, par exemple).
+  if ((await paymentOptionsFor(input.merchantId, input.country, input.environment)).length === 0) {
+    throw new AppError({
+      type: 'routing_error',
+      code: 'no_payment_method',
+      message: `Aucun moyen de paiement n’est encore ouvert pour ce pays (${input.country}) en ${input.environment === 'live' ? 'réel' : 'test'}.`,
+      httpStatus: 422,
+      retriable: false,
+      details: { country: input.country, environment: input.environment },
+    });
+  }
+
   const existing = await prisma.checkoutSession.findUnique({
     where: { merchantId_reference: { merchantId: input.merchantId, reference: input.reference } },
   });

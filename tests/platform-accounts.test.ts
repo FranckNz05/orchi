@@ -289,10 +289,14 @@ describe('encaissement par les comptes d’Afripaie', () => {
       return view.json().options as unknown[];
     };
 
-    // Aucun compte, ni a lui ni a Afripaie : proposer un moyen ferait echouer
-    // le client apres son choix.
+    // Aucun compte, ni a lui ni a Afripaie : la session est refusee d'emblee,
+    // plutot qu'une page sans moyen de paiement.
     env.PLATFORM_MERCHANT_ID = undefined;
-    expect(await optionsFor()).toEqual([]);
+    const refused = await post('/v1/checkout-sessions', {
+      reference: ref('cs'), amount: 1000, currency: 'XOF', customer: { phone: '+229 97 00 00 00' },
+    });
+    expect(refused.statusCode).toBe(422);
+    expect(refused.json().error.code).toBe('no_payment_method');
 
     env.PLATFORM_MERCHANT_ID = platformId;
     expect((await optionsFor()).length).toBeGreaterThan(0);
