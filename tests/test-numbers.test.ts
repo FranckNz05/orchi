@@ -141,6 +141,17 @@ describe('encaissement avec un numero de test', () => {
   });
 });
 
+describe('session de paiement avec un numero de test', () => {
+  it('est refusee des la creation avec une cle live', async () => {
+    if (!seeded) return;
+    const res = await post('/v1/checkout-sessions', {
+      reference: ref('cs'), amount: 1000, currency: 'XOF', customer: { phone: '+225 0000000000' },
+    }, liveKey);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.param).toBe('customer.phone');
+  });
+});
+
 describe('decaissement avec un numero de test', () => {
   const payout = (phone: string) => ({
     reference: ref('po'), amount: 5000, currency: 'XOF', country: 'CI', channel: 'mobile_money',

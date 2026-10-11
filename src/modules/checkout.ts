@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { CheckoutSession } from '@prisma/client';
 import { resolveMarket } from '../catalog/market.js';
+import { simulatorFor } from '../catalog/test-numbers.js';
 import type { Channel } from '../catalog/coverage.js';
 import { AppError, errors } from '../core/errors.js';
 import { env } from '../core/env.js';
@@ -63,6 +64,8 @@ export async function createCheckoutSession(request: CreateSessionInput) {
   });
   const input = { ...request, country: market.country, currency: market.currency };
   assertValidAmount(input.amount, input.currency);
+  // Numero de test en reel : refuse ici, pas au moment ou le client confirme.
+  simulatorFor(input.environment, input.customer?.phone, 'customer.phone');
 
   // Une page sans aucun moyen de paiement est une impasse pour le client : on
   // refuse la session des maintenant, avec un motif que le marchand peut
