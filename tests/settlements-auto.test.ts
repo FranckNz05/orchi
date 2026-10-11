@@ -309,3 +309,92 @@ describe('reversement periodique', () => {
     expect(await count()).toBe(before);
   });
 });
+
+describe('retrait demande par le marchand', () => {
+  const PASSWORD = 'une phrase de passe solide';
+
+  const withdraw = (payload: Record<string, unknown>, over: { cookie?: string; headers?: Record<string, string> } = {}) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/withdrawals',
+      cookies: { afripaie_session: over.cookie ?? merchantCookie },
+      headers: over.headers ?? SAME_ORIGIN,
+      payload: { provider: 'sandbox', password: PASSWORD, ...payload },
+    });
+
+  it('retire vers le numero enregistre par l’administrateur, mot de passe a l’appui', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    await target('0000');
+    const avant = await held();
+
+    const res = await withdraw({ amount: 10000 });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ status: 'PAID', amount: 10000, mode: 'AUTOMATIC' });
+    // Le numero est celui de l'administrateur : le marchand n'en a fourni aucun.
+    expect(res.json().destination).toBe('+22997000000');
+    expect(await held()).toBe(avant - 10000);
+    await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
+
+    // Sans montant : tout le disponible.
+    const rest = await withdraw({});
+    expect(rest.json()).toMatchObject({ status: 'PAID', amount: avant - 10000 });
+    expect(await held()).toBe(0);
+  });
+
+  it('refuse un mauvais mot de passe sans deconnecter ni rien envoyer', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    await target('0000');
+    const before = await prisma.merchantSettlement.count({ where: { merchantId } });
+
+    const res = await withdraw({ amount: 1000, password: 'pas le bon du tout' });
+    // 400 : un 401 renverrait le tableau de bord vers la page de connexion.
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.param).toBe('password');
+    expect(await prisma.merchantSettlement.count({ where: { merchantId } })).toBe(before);
+  });
+
+  it('refuse une cle API : elle se copie, elle ne doit pas vider un solde', async () => {
+    if (!seeded) return;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/withdrawals',
+      headers: { authorization: `Bearer ${apiKey}` },
+      payload: { provider: 'sandbox', amount: 1000, password: PASSWORD },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('refuse une requete venue d’un autre site (CSRF)', async () => {
+    if (!seeded) return;
+    const res = await withdraw({ amount: 1000 }, { headers: { origin: 'https://site-malveillant.example' } });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('refuse un retrait sous le minimum, ou au-dessus du disponible', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    await target('0000');
+    const solde = await held();
+    expect(solde).toBeGreaterThan(1000);
+
+    const peu = await withdraw({ amount: 499 });
+    expect(peu.statusCode).toBe(400);
+    expect(peu.json().error.param).toBe('amount');
+
+    const trop = await withdraw({ amount: solde + 1 });
+    expect(trop.statusCode).toBe(400);
+    expect(trop.json().error.code).toBe('settlement_exceeds_available');
+  });
+
+  it('refuse sans numero de retrait enregistre', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    await prisma.merchantSettlementTarget.deleteMany({ where: { merchantId } });
+    const res = await withdraw({ amount: 1000 });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('settlement_target_missing');
+  });
+});
+

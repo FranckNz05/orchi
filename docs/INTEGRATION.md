@@ -160,7 +160,12 @@ Airtel), chaque jour au-delà d'un minimum convenu. Le numéro de destination es
 enregistré par Afripaie, à votre demande : vous ne pouvez pas le modifier
 vous-même, pour qu'une session volée ne suffise pas à détourner vos fonds.
 Les frais de l'opérateur sont pris en charge par Afripaie : vous recevez
-l'intégralité de votre dû. `targets` indique la destination
+l'intégralité de votre dû.
+
+Vous pouvez aussi **retirer à tout moment** ce qui est disponible, depuis le
+tableau de bord (Reversements → Retirer mes fonds) : minimum 500 XAF, mot de
+passe redemandé à chaque retrait, argent versé sur le numéro enregistré par
+Afripaie. Cette opération n'est pas ouverte aux clés API. `targets` indique la destination
 active ; un reversement `PROCESSING` est en cours, `UNKNOWN` en vérification.
 
 ### Numéros de test

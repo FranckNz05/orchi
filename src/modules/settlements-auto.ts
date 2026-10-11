@@ -177,6 +177,8 @@ export interface SendInput {
   providerId: string;
   /** Par defaut : tout le disponible. */
   amount?: number;
+  /** Plancher du montant envoye (retrait demande par le marchand). */
+  minAmount?: number;
   actorId: string;
   actorEmail: string;
 }
@@ -228,6 +230,13 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
     const amount = input.amount ?? balance.available;
     if (!Number.isInteger(amount) || amount <= 0 || amount > balance.available) {
       throw settlementErrors.insufficient(balance);
+    }
+    if (input.minAmount !== undefined && amount < input.minAmount) {
+      throw errors.invalidRequest(
+        `Retrait minimum : ${input.minAmount} ${target.currency}.`,
+        'amount',
+        { minimum: input.minAmount },
+      );
     }
 
     const created = await tx.merchantSettlement.create({

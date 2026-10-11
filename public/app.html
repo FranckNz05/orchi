@@ -983,6 +983,43 @@
         ${t.auto_enabled ? `automatiquement chaque jour dès ${money(t.min_amount, t.currency)} ${esc(t.currency)}` : 'à la demande'}.
         Frais de l’opérateur pris en charge par Afripaie : vous recevez la totalité.</li>`).join('');
 
+    // Retrait : possible quand un administrateur a enregistre un numero et qu'il
+    // reste du disponible chez l'agregateur correspondant.
+    const target = (res.targets || []).find((t) => {
+      const b = res.balances.find((x) => x.provider === t.provider && x.currency === t.currency);
+      return b && b.available > 0;
+    });
+    const MIN = res.withdrawal_minimum || 500;
+    let withdraw = '';
+    if (target) {
+      const b = res.balances.find((x) => x.provider === target.provider && x.currency === target.currency);
+      withdraw = `<section class="panel" id="withdraw-panel">
+        <header><h2>Retirer mes fonds</h2></header>
+        <form class="pad" id="withdraw-form" style="display:grid;gap:14px;max-width:460px">
+          <p style="margin:0;color:var(--muted);font-size:14px">Vers <span class="mono">${esc(target.phone)}</span>
+            (${esc(target.beneficiary_name)}), par ${esc(PROVIDER[target.provider] || target.provider)}.
+            Disponible : <strong>${money(b.available, b.currency)} ${esc(b.currency)}</strong>. Minimum : ${money(MIN, b.currency)} ${esc(b.currency)}.</p>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Montant à retirer (${esc(b.currency)})
+            <input id="wd-amount" type="number" min="${MIN}" max="${b.available}" step="1" value="${b.available}" required style="${FIELD}" />
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Votre mot de passe
+            <input id="wd-password" type="password" autocomplete="current-password" required style="${FIELD}" />
+          </label>
+          <div><button class="b solid" id="wd-submit" type="submit">Retirer</button></div>
+          <div id="wd-msg" role="status" style="font-size:13.5px"></div>
+        </form>
+        <div class="foot">L’argent part sur le numéro enregistré ci-dessus, et seulement sur celui-là : Afripaie
+          prend en charge les frais de l’opérateur. Le mot de passe est redemandé à chaque retrait.</div>
+      </section>`;
+    } else if ((res.balances || []).some((x) => x.available > 0)) {
+      withdraw = `<section class="panel"><header><h2>Retirer mes fonds</h2></header>
+        <div class="pad" style="color:var(--muted);font-size:14px">Aucun numéro de retrait n’est enregistré pour ces fonds.
+          Contactez Afripaie pour en déclarer un : il n’est modifiable que par la plateforme, pour qu’une session volée
+          ne puisse pas détourner votre argent.</div></section>`;
+    }
+
     $('content').innerHTML = `
       <section class="panel">
         <header><h2>Solde dû</h2></header>
@@ -995,10 +1032,51 @@
           Afripaie, qui retient sa commission et vous reverse le reste. Un encaissement devient reversable
           une fois réglé par l’agrégateur, en général sous 24 h.</div>
       </section>
+      ${withdraw}
       <section class="panel">
         <header><h2>Reversements reçus</h2></header>
         ${history}
       </section>`;
+
+    const form = $('withdraw-form');
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const msg = $('wd-msg');
+        const submit = $('wd-submit');
+        const amount = Number($('wd-amount').value);
+        msg.style.color = 'var(--danger)';
+        if (!Number.isInteger(amount) || amount < MIN) {
+          msg.textContent = `Le retrait minimum est de ${MIN}.`;
+          return;
+        }
+        submit.disabled = true;
+        msg.textContent = '';
+        try {
+          const r = await api('/v1/withdrawals', {
+            method: 'POST',
+            body: JSON.stringify({ provider: target.provider, amount, password: $('wd-password').value }),
+          });
+          const SAID = {
+            PAID: 'Retrait effectué : l’argent est arrivé.',
+            PROCESSING: 'Retrait envoyé. Il peut demander quelques instants : l’état se met à jour ci-dessous.',
+            UNKNOWN: 'Retrait envoyé, mais l’opérateur n’a pas répondu clairement : il est en vérification. Ne refaites pas la demande.',
+            FAILED: `Retrait refusé par l’opérateur${r.failure_reason ? ' (' + r.failure_reason + ')' : ''}. Votre solde est intact.`,
+          };
+          await renderSettlements();
+          const out = $('wd-msg');
+          if (out) {
+            out.style.color = r.status === 'FAILED' ? 'var(--danger)' : 'var(--accent)';
+            out.textContent = SAID[r.status] || 'Retrait enregistré.';
+          } else {
+            alert(SAID[r.status] || 'Retrait enregistré.');
+          }
+        } catch (err) {
+          msg.textContent = err.message;
+          submit.disabled = false;
+        }
+      };
+    }
   }
 
   const RENDER = {
@@ -1187,7 +1265,16 @@
     if (timer) clearInterval(timer);
     // Les vues de liste se rafraichissent seules ; le detail ouvert ne doit pas
     // etre ecrase sous les yeux de l'utilisateur.
-    timer = setInterval(() => { if (!current) void show(view); }, 15000);
+    timer = setInterval(() => {
+      if (current) return;
+      // Ne jamais reconstruire la vue sous les doigts de quelqu'un : un champ de
+      // formulaire (mot de passe, montant d'un retrait) se viderait en pleine saisie.
+      const el = document.activeElement;
+      if (el && el.closest && el.closest('#content') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      // Ou si un champ a ete modifie (saisi, puis la souris est partie ailleurs).
+      if ([...document.querySelectorAll('#content form input')].some((i) => i.type !== 'hidden' && i.value !== i.defaultValue)) return;
+      void show(view);
+    }, 15000);
   }
 
   /**

@@ -1,5 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { errors } from '../../core/errors.js';
+import { env } from '../../core/env.js';
+import { prisma } from '../../db/client.js';
+import { verifyPassword } from '../../modules/auth.js';
+import { assertLiveAllowed } from '../../modules/live-access.js';
 import {
   SETTLEMENT_METHODS,
   cancelSettlement,
@@ -38,6 +43,22 @@ const recordBody = z.object({
 });
 
 const cancelBody = z.object({ reason: z.string().min(5).max(500) });
+
+/** Plus petit retrait : en dessous, les frais de l'operateur pesent plus que la somme. */
+export const WITHDRAWAL_MIN = 500;
+
+const withdrawBody = z.object({
+  provider: z.string().min(1).max(40).default('yabetoo'),
+  /** Facultatif : tout le disponible par defaut. */
+  amount: z.number().int().positive().optional(),
+  /** Mot de passe de la personne connectee, redemande a CHAQUE retrait. */
+  password: z.string().min(1).max(200),
+});
+
+/** Meme limite que la connexion : cette route verifie un mot de passe. */
+const LIMITE_RETRAIT = {
+  rateLimit: { max: env.AUTH_RATE_LIMIT_MAX, timeWindow: env.AUTH_RATE_LIMIT_WINDOW },
+};
 
 const targetBody = z.object({
   environment: z.enum(['test', 'live']),
@@ -91,10 +112,61 @@ export async function settlementRoutes(app: FastifyInstance) {
       environment: ctx.environment,
       balances: balances.filter((b) => b.environment === ctx.environment).map(serializeBalance),
       targets: targets.filter((t) => t.environment === ctx.environment).map(serializeTarget),
+      withdrawal_minimum: WITHDRAWAL_MIN,
       count: rows.length,
       data: rows.map((s) => serializeSettlement(s)),
     };
   });
+
+  /**
+   * Retrait demande par le marchand lui-meme, vers SON numero mobile money.
+   *
+   * Garde-fous, parce que c'est de l'argent qui sort :
+   *   - session de navigateur uniquement : une cle API se copie et se perd,
+   *     elle ne doit pas pouvoir vider un solde ;
+   *   - mot de passe redemande a chaque retrait, pour qu'une session ouverte
+   *     sur un poste laisse sans surveillance ne suffise pas ;
+   *   - destination fixee par un administrateur (settlement-targets) : le
+   *     marchand choisit le montant, jamais le numero ;
+   *   - plafonne au disponible (encaissement regle par l'agregateur), sous
+   *     verrou, avec les memes protections que le reversement automatique
+   *     (reservation avant l'appel, jamais de rejeu sur une issue douteuse).
+   */
+  app.post(
+    '/v1/withdrawals',
+    { config: LIMITE_RETRAIT, preHandler: app.authenticate },
+    async (request, reply) => {
+      const ctx = request.auth!;
+      if (ctx.via !== 'session') {
+        throw errors.forbidden('session (une cle API ne peut pas retirer de fonds)');
+      }
+      const body = withdrawBody.parse(request.body);
+
+      const user = await prisma.user.findUnique({ where: { id: ctx.userId! } });
+      // 400 et non 401 : la session est valide, seul le champ est faux (un 401
+      // deconnecterait le tableau de bord pour une faute de frappe).
+      if (!user || !(await verifyPassword(body.password, user.passwordHash))) {
+        throw errors.invalidRequest('Mot de passe incorrect.', 'password');
+      }
+      if (ctx.environment === 'live') await assertLiveAllowed(ctx.merchantId);
+
+      const settlement = await sendSettlement({
+        merchantId: ctx.merchantId,
+        environment: ctx.environment,
+        providerId: body.provider,
+        ...(body.amount !== undefined ? { amount: body.amount } : {}),
+        minAmount: WITHDRAWAL_MIN,
+        actorId: ctx.userId!,
+        actorEmail: ctx.userEmail ?? 'inconnu',
+      });
+
+      request.log.warn(
+        { merchant: ctx.merchantId, settlement: settlement.id, amount: settlement.amount, status: settlement.status, by: ctx.userEmail },
+        'Retrait demande par le marchand',
+      );
+      return reply.status(201).send(serializeSettlement(settlement));
+    },
+  );
 
   /* ---------------------------------------------------------------------- */
   /* Administration                                                         */

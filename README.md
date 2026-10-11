@@ -667,6 +667,19 @@ débité de `afripaie:revenue`.
 GeniusPay n'expose aucune API de décaissement : pour lui, le reversement reste
 manuel.
 
+### Retrait demandé par le marchand
+
+Un marchand peut retirer lui-même ce qu'Afripaie lui doit, sans attendre le
+reversement quotidien : écran **Reversements → Retirer mes fonds**, ou
+`POST /v1/withdrawals` (`amount`, `password`, `provider`). L'argent part vers le
+numéro enregistré par un administrateur, jamais vers un numéro fourni par le
+marchand. Garde-fous : session de navigateur uniquement (une clé API est
+refusée), **mot de passe redemandé à chaque retrait** (un mauvais mot de passe
+répond `400`, pas `401`), contrôle d'origine, limite de 10 essais par 5 minutes,
+minimum 500 XAF, plafond au disponible. Le reste suit les règles du reversement
+automatique : montant réservé avant l'appel, jamais de rejeu sur une issue
+douteuse (`UNKNOWN`), frais de l'opérateur pris en charge par Afripaie.
+
 ## Montants
 
 Tous les montants circulent en **unités mineures entières**, jamais en
