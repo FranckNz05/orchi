@@ -51,6 +51,12 @@ const withdrawBody = z.object({
   provider: z.string().min(1).max(40).default('yabetoo'),
   /** Facultatif : tout le disponible par defaut. */
   amount: z.number().int().positive().optional(),
+  /** Numero qui recevra l'argent, saisi pour CE retrait (format international). */
+  phone: z.string().min(8).max(30),
+  /** Facultatif : deduit du prefixe du numero quand il est connu (MTN, Airtel au Congo). */
+  network: z.string().max(30).optional(),
+  /** Titulaire du numero chez l'operateur. */
+  beneficiary_name: z.string().min(2).max(120),
   /** Mot de passe de la personne connectee, redemande a CHAQUE retrait. */
   password: z.string().min(1).max(200),
 });
@@ -126,8 +132,9 @@ export async function settlementRoutes(app: FastifyInstance) {
    *     elle ne doit pas pouvoir vider un solde ;
    *   - mot de passe redemande a chaque retrait, pour qu'une session ouverte
    *     sur un poste laisse sans surveillance ne suffise pas ;
-   *   - destination fixee par un administrateur (settlement-targets) : le
-   *     marchand choisit le montant, jamais le numero ;
+   *   - le numero qui recoit l'argent est saisi a chaque retrait, valide (pays
+   *     que l'agregateur sait servir, reseau connu) et conserve sur le
+   *     reversement : on sait toujours ou est parti chaque franc ;
    *   - plafonne au disponible (encaissement regle par l'agregateur), sous
    *     verrou, avec les memes protections que le reversement automatique
    *     (reservation avant l'appel, jamais de rejeu sur une issue douteuse).
@@ -156,12 +163,17 @@ export async function settlementRoutes(app: FastifyInstance) {
         providerId: body.provider,
         ...(body.amount !== undefined ? { amount: body.amount } : {}),
         minAmount: WITHDRAWAL_MIN,
+        destination: {
+          phone: body.phone,
+          network: body.network,
+          beneficiaryName: body.beneficiary_name,
+        },
         actorId: ctx.userId!,
         actorEmail: ctx.userEmail ?? 'inconnu',
       });
 
       request.log.warn(
-        { merchant: ctx.merchantId, settlement: settlement.id, amount: settlement.amount, status: settlement.status, by: ctx.userEmail },
+        { merchant: ctx.merchantId, settlement: settlement.id, amount: settlement.amount, destination: settlement.destination, status: settlement.status, by: ctx.userEmail },
         'Retrait demande par le marchand',
       );
       return reply.status(201).send(serializeSettlement(settlement));

@@ -312,6 +312,8 @@ describe('reversement periodique', () => {
 
 describe('retrait demande par le marchand', () => {
   const PASSWORD = 'une phrase de passe solide';
+  /** Le simulateur lit le dernier bloc du numero : 0000 = succes. */
+  const NUMERO = '+229 97 00 00 00';
 
   const withdraw = (payload: Record<string, unknown>, over: { cookie?: string; headers?: Record<string, string> } = {}) =>
     app.inject({
@@ -319,40 +321,68 @@ describe('retrait demande par le marchand', () => {
       url: '/v1/withdrawals',
       cookies: { afripaie_session: over.cookie ?? merchantCookie },
       headers: over.headers ?? SAME_ORIGIN,
-      payload: { provider: 'sandbox', password: PASSWORD, ...payload },
+      payload: {
+        provider: 'sandbox',
+        phone: NUMERO,
+        network: 'MTN_BENIN',
+        beneficiary_name: 'Titulaire Test',
+        password: PASSWORD,
+        ...payload,
+      },
     });
 
-  it('retire vers le numero enregistre par l’administrateur, mot de passe a l’appui', async () => {
+  it('envoie l’argent au numero SAISI pour ce retrait, mot de passe a l’appui', async () => {
     if (!seeded) return;
     await payin(20000);
-    await target('0000');
+    // Aucune destination enregistree par un administrateur : elle n'est plus requise.
+    await prisma.merchantSettlementTarget.deleteMany({ where: { merchantId } });
     const avant = await held();
 
     const res = await withdraw({ amount: 10000 });
     expect(res.statusCode).toBe(201);
-    expect(res.json()).toMatchObject({ status: 'PAID', amount: 10000, mode: 'AUTOMATIC' });
-    // Le numero est celui de l'administrateur : le marchand n'en a fourni aucun.
+    expect(res.json()).toMatchObject({ status: 'PAID', amount: 10000, mode: 'AUTOMATIC', network: 'MTN_BENIN' });
     expect(res.json().destination).toBe('+22997000000');
     expect(await held()).toBe(avant - 10000);
     await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
 
-    // Sans montant : tout le disponible.
-    const rest = await withdraw({});
-    expect(rest.json()).toMatchObject({ status: 'PAID', amount: avant - 10000 });
+    // Un autre numero au retrait suivant, sans tout le disponible.
+    const autre = await withdraw({ amount: 1000, phone: '+229 97 00 00 01' });
+    expect(autre.json().destination).toBe('+22997000001');
+  });
+
+  it('retire tout le disponible quand aucun montant n’est donne', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const avant = await held();
+    const res = await withdraw({ phone: NUMERO });
+    expect(res.json()).toMatchObject({ status: 'PAID', amount: avant });
     expect(await held()).toBe(0);
+  });
+
+  it('refuse un numero sans indicatif, ou d’un pays que l’agregateur ne sert pas', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const local = await withdraw({ phone: '97000000' });
+    expect(local.statusCode).toBe(400);
+    expect(local.json().error.param).toBe('phone');
+
+    // Yabetoo ne verse qu'au Congo : on le dit avant de reserver quoi que ce soit.
+    const avant = await prisma.merchantSettlement.count({ where: { merchantId } });
+    const ailleurs = await withdraw({ provider: 'yabetoo', phone: '+225 07 00 00 00 00', network: 'MTN_CI' });
+    expect(ailleurs.statusCode).toBe(400);
+    expect(ailleurs.json().error.param).toBe('phone');
+    expect(await prisma.merchantSettlement.count({ where: { merchantId } })).toBe(avant);
   });
 
   it('refuse un mauvais mot de passe sans deconnecter ni rien envoyer', async () => {
     if (!seeded) return;
     await payin(20000);
-    await target('0000');
-    const before = await prisma.merchantSettlement.count({ where: { merchantId } });
-
+    const avant = await prisma.merchantSettlement.count({ where: { merchantId } });
     const res = await withdraw({ amount: 1000, password: 'pas le bon du tout' });
     // 400 : un 401 renverrait le tableau de bord vers la page de connexion.
     expect(res.statusCode).toBe(400);
     expect(res.json().error.param).toBe('password');
-    expect(await prisma.merchantSettlement.count({ where: { merchantId } })).toBe(before);
+    expect(await prisma.merchantSettlement.count({ where: { merchantId } })).toBe(avant);
   });
 
   it('refuse une cle API : elle se copie, elle ne doit pas vider un solde', async () => {
@@ -361,7 +391,7 @@ describe('retrait demande par le marchand', () => {
       method: 'POST',
       url: '/v1/withdrawals',
       headers: { authorization: `Bearer ${apiKey}` },
-      payload: { provider: 'sandbox', amount: 1000, password: PASSWORD },
+      payload: { provider: 'sandbox', amount: 1000, phone: NUMERO, beneficiary_name: 'X Y', password: PASSWORD },
     });
     expect(res.statusCode).toBe(403);
   });
@@ -375,7 +405,6 @@ describe('retrait demande par le marchand', () => {
   it('refuse un retrait sous le minimum, ou au-dessus du disponible', async () => {
     if (!seeded) return;
     await payin(20000);
-    await target('0000');
     const solde = await held();
     expect(solde).toBeGreaterThan(1000);
 
@@ -388,13 +417,21 @@ describe('retrait demande par le marchand', () => {
     expect(trop.json().error.code).toBe('settlement_exceeds_available');
   });
 
-  it('refuse sans numero de retrait enregistre', async () => {
+  it('annonce quand les fonds en cours de reglement deviennent retirables', async () => {
     if (!seeded) return;
+    env.MERCHANT_SETTLEMENT_DELAY_MS = 3_600_000;
     await payin(20000);
-    await prisma.merchantSettlementTarget.deleteMany({ where: { merchantId } });
-    const res = await withdraw({ amount: 1000 });
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error.code).toBe('settlement_target_missing');
+    const res = await app.inject({ method: 'GET', url: '/v1/settlements', headers: { authorization: `Bearer ${apiKey}` } });
+    const b = (res.json().balances as { maturing: number; available: number; available_at: string | null }[])[0]!;
+    expect(b.maturing).toBeGreaterThan(0);
+    expect(b.available_at).toBeTruthy();
+    const dans = new Date(b.available_at!).getTime() - Date.now();
+    expect(dans).toBeGreaterThan(0);
+    expect(dans).toBeLessThanOrEqual(3_600_000);
+
+    // Rien n'est retirable tant que ce delai court.
+    const refus = await withdraw({ amount: 1000 });
+    expect(refus.statusCode).toBe(400);
+    expect(refus.json().error.code).toBe('settlement_exceeds_available');
   });
 });
-

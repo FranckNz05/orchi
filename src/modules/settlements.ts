@@ -42,6 +42,8 @@ export interface HeldBalance {
   maturing: number;
   /** Reversable maintenant. */
   available: number;
+  /** Des que le plus ancien encaissement en cours de reglement devient reversable. */
+  availableAt?: Date | null;
 }
 
 export const settlementErrors = {
@@ -121,7 +123,11 @@ export async function heldBalances(
       const signed = entry.side === 'CREDIT' ? entry.amount : -entry.amount;
       balance.held += signed;
       const succeeded = payment?.succeededAt ?? journal.createdAt;
-      if (payment && signed > 0 && succeeded.getTime() > matureBefore) balance.maturing += signed;
+      if (payment && signed > 0 && succeeded.getTime() > matureBefore) {
+        balance.maturing += signed;
+        const at = new Date(succeeded.getTime() + env.MERCHANT_SETTLEMENT_DELAY_MS);
+        if (!balance.availableAt || at < balance.availableAt) balance.availableAt = at;
+      }
     }
     map.set(key, balance);
   }
@@ -131,7 +137,12 @@ export async function heldBalances(
       // Le non-regle ne peut pas exceder le du : ce qui a deja ete reverse sort
       // d'abord des fonds les plus anciens.
       const maturing = Math.min(b.maturing, Math.max(0, b.held));
-      return { ...b, maturing, available: Math.max(0, b.held - maturing) };
+      return {
+        ...b,
+        maturing,
+        available: Math.max(0, b.held - maturing),
+        availableAt: maturing > 0 ? (b.availableAt ?? null) : null,
+      };
     })
     .filter((b) => b.held !== 0)
     .sort((a, b) => `${a.environment}${a.currency}${a.provider}`.localeCompare(`${b.environment}${b.currency}${b.provider}`));
@@ -341,5 +352,6 @@ export function serializeBalance(b: HeldBalance) {
     held: b.held,
     maturing: b.maturing,
     available: b.available,
+    available_at: b.availableAt?.toISOString() ?? null,
   };
 }

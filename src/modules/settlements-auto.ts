@@ -112,7 +112,25 @@ export interface TargetInput {
   actorEmail: string;
 }
 
-export async function setSettlementTarget(input: TargetInput): Promise<MerchantSettlementTarget> {
+/** Ou part l'argent : numero, reseau et titulaire, valides pour l'agregateur. */
+export interface Destination {
+  country: string;
+  currency: string;
+  phone: string;
+  network: string;
+  beneficiaryName: string;
+}
+
+/**
+ * Valide un numero de reversement : format international, pays que l'agregateur
+ * sait servir, reseau connu (deduit du prefixe s'il n'est pas precise).
+ */
+export function resolveDestination(input: {
+  providerId: string;
+  phone: string;
+  network?: string | undefined;
+  beneficiaryName: string;
+}): Destination {
   const adapter = getProviderAdapter(input.providerId);
   if (!adapter) throw errors.invalidRequest(`Agrégateur inconnu ou désactivé : ${input.providerId}.`, 'provider');
 
@@ -123,23 +141,37 @@ export async function setSettlementTarget(input: TargetInput): Promise<MerchantS
   }
   if (!adapter.supports(country.iso2, CHANNEL, 'payout')) {
     throw errors.invalidRequest(
-      `${adapter.name} ne sait pas verser en mobile money vers ${country.name}.`,
-      'provider',
+      `Les retraits mobile money vers ${country.name} ne sont pas encore possibles : ${adapter.name} ne sait pas y verser.`,
+      'phone',
     );
   }
   const network = input.network?.toUpperCase() || inferNetwork(country.iso2, phone);
   if (!network) throw errors.invalidRequest('Réseau du bénéficiaire introuvable : précisez-le.', 'network');
+
+  const name = input.beneficiaryName.trim();
+  if (name.length < 2) throw errors.invalidRequest('Nom du titulaire du numéro requis.', 'beneficiary_name');
+
+  return { country: country.iso2, currency: country.currency, phone, network, beneficiaryName: name };
+}
+
+export async function setSettlementTarget(input: TargetInput): Promise<MerchantSettlementTarget> {
+  const dest = resolveDestination({
+    providerId: input.providerId,
+    phone: input.phone,
+    network: input.network,
+    beneficiaryName: input.beneficiaryName,
+  });
 
   if (!(await prisma.merchant.findUnique({ where: { id: input.merchantId } }))) {
     throw errors.notFound('Marchand', input.merchantId);
   }
 
   const data = {
-    country: country.iso2,
-    currency: country.currency,
-    phone,
-    network,
-    beneficiaryName: input.beneficiaryName.trim(),
+    country: dest.country,
+    currency: dest.currency,
+    phone: dest.phone,
+    network: dest.network,
+    beneficiaryName: dest.beneficiaryName,
     autoEnabled: input.autoEnabled,
     minAmount: input.minAmount,
     updatedBy: input.actorEmail,
@@ -179,21 +211,38 @@ export interface SendInput {
   amount?: number;
   /** Plancher du montant envoye (retrait demande par le marchand). */
   minAmount?: number;
+  /**
+   * Numero saisi pour CE retrait (retrait demande par le marchand). A defaut,
+   * la destination enregistree par un administrateur.
+   */
+  destination?: { phone: string; network?: string | undefined; beneficiaryName: string };
   actorId: string;
   actorEmail: string;
 }
 
 export async function sendSettlement(input: SendInput): Promise<MerchantSettlement> {
-  const target = await prisma.merchantSettlementTarget.findUnique({
-    where: {
-      merchantId_environment_providerId: {
-        merchantId: input.merchantId,
-        environment: input.environment,
-        providerId: input.providerId,
+  let target: Destination;
+  if (input.destination) {
+    target = resolveDestination({ providerId: input.providerId, ...input.destination });
+  } else {
+    const registered = await prisma.merchantSettlementTarget.findUnique({
+      where: {
+        merchantId_environment_providerId: {
+          merchantId: input.merchantId,
+          environment: input.environment,
+          providerId: input.providerId,
+        },
       },
-    },
-  });
-  if (!target) throw autoErrors.noTarget(input.providerId);
+    });
+    if (!registered) throw autoErrors.noTarget(input.providerId);
+    target = {
+      country: registered.country,
+      currency: registered.currency,
+      phone: registered.phone,
+      network: registered.network,
+      beneficiaryName: registered.beneficiaryName,
+    };
+  }
 
   const adapter = getProviderAdapter(input.providerId);
   if (!adapter) throw errors.invalidRequest(`Agrégateur désactivé : ${input.providerId}.`, 'provider');

@@ -983,41 +983,68 @@
         ${t.auto_enabled ? `automatiquement chaque jour dès ${money(t.min_amount, t.currency)} ${esc(t.currency)}` : 'à la demande'}.
         Frais de l’opérateur pris en charge par Afripaie : vous recevez la totalité.</li>`).join('');
 
-    // Retrait : possible quand un administrateur a enregistre un numero et qu'il
-    // reste du disponible chez l'agregateur correspondant.
-    const target = (res.targets || []).find((t) => {
-      const b = res.balances.find((x) => x.provider === t.provider && x.currency === t.currency);
-      return b && b.available > 0;
-    });
+    // Retrait : le panneau est TOUJOURS la, pour que le marchand sache ou il est ;
+    // c'est son etat (actif, en attente de reglement, indisponible) qui change.
+    const PAYOUT_CAPABLE = ['yabetoo', 'sandbox'];
     const MIN = res.withdrawal_minimum || 500;
-    let withdraw = '';
-    if (target) {
-      const b = res.balances.find((x) => x.provider === target.provider && x.currency === target.currency);
+    const envLabel = res.environment === 'live' ? 'réel' : 'test';
+    const bal = [...(res.balances || [])].sort((a, b) => b.available - a.available || b.held - a.held)[0];
+    const registered = bal ? (res.targets || []).find((t) => t.provider === bal.provider && t.currency === bal.currency) : null;
+    const dateFr = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' });
+    let withdraw;
+    if (!bal || bal.held <= 0) {
+      withdraw = `<section class="panel" id="withdraw-panel"><header><h2>Retirer mes fonds</h2></header>
+        <div class="pad" style="color:var(--muted);font-size:14px">Aucun solde à retirer en environnement ${envLabel}.
+          ${res.environment === 'live' ? '' : 'Vos fonds réels apparaissent en bas à gauche, en passant sur <strong>Live</strong>.'}</div></section>`;
+    } else if (!PAYOUT_CAPABLE.includes(bal.provider)) {
+      withdraw = `<section class="panel" id="withdraw-panel"><header><h2>Retirer mes fonds</h2></header>
+        <div class="pad" style="color:var(--muted);font-size:14px">Les fonds encaissés par ${esc(PROVIDER[bal.provider] || bal.provider)}
+          (${esc(bal.currency)}) ne peuvent pas encore être retirés ici : cet agrégateur n’a pas de virement sortant.
+          Afripaie vous les reverse par virement : contactez-la pour le déclencher.</div></section>`;
+    } else {
+      const wait = bal.available <= 0;
+      const prefill = registered ? registered.phone : '';
+      const name = registered ? registered.beneficiary_name : (session && session.user ? session.user.name : '');
       withdraw = `<section class="panel" id="withdraw-panel">
         <header><h2>Retirer mes fonds</h2></header>
         <form class="pad" id="withdraw-form" style="display:grid;gap:14px;max-width:460px">
-          <p style="margin:0;color:var(--muted);font-size:14px">Vers <span class="mono">${esc(target.phone)}</span>
-            (${esc(target.beneficiary_name)}), par ${esc(PROVIDER[target.provider] || target.provider)}.
-            Disponible : <strong>${money(b.available, b.currency)} ${esc(b.currency)}</strong>. Minimum : ${money(MIN, b.currency)} ${esc(b.currency)}.</p>
+          <p style="margin:0;font-size:14px;color:var(--muted)">
+            Disponible : <strong style="color:var(--ink)">${money(bal.available, bal.currency)} ${esc(bal.currency)}</strong>
+            · Minimum : ${money(MIN, bal.currency)} ${esc(bal.currency)}.
+            ${wait ? `<br><span style="color:var(--warn)">Vos ${money(bal.maturing, bal.currency)} ${esc(bal.currency)} sont en cours de règlement chez l’opérateur
+              (environ 24 h après chaque paiement)${bal.available_at ? ` : retrait possible à partir du <strong>${esc(dateFr(bal.available_at))}</strong>` : ''}.</span>` : ''}
+          </p>
           <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
-            Montant à retirer (${esc(b.currency)})
-            <input id="wd-amount" type="number" min="${MIN}" max="${b.available}" step="1" value="${b.available}" required style="${FIELD}" />
+            Numéro qui reçoit l’argent
+            <input id="wd-phone" type="tel" value="${esc(prefill)}" placeholder="+242 06 123 45 67" pattern="(\+|00)[0-9 .\-\(\)]{6,22}"
+              title="Numéro au format international, avec l’indicatif du pays" required style="${FIELD}" />
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Titulaire du numéro
+            <input id="wd-name" type="text" value="${esc(name)}" minlength="2" maxlength="120" required style="${FIELD}" />
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Opérateur
+            <select id="wd-network" style="${FIELD}">
+              <option value="">Détecté d’après le numéro</option>
+              <option value="MTN_CG">MTN MoMo (Congo)</option>
+              <option value="AIRTEL_CG">Airtel Money (Congo)</option>
+            </select>
+          </label>
+          <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
+            Montant à retirer (${esc(bal.currency)})
+            <input id="wd-amount" type="number" min="${MIN}" max="${Math.max(bal.available, MIN)}" step="1" value="${bal.available > 0 ? bal.available : ''}" ${wait ? 'disabled' : 'required'} style="${FIELD}" />
           </label>
           <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
             Votre mot de passe
-            <input id="wd-password" type="password" autocomplete="current-password" required style="${FIELD}" />
+            <input id="wd-password" type="password" autocomplete="current-password" ${wait ? 'disabled' : 'required'} style="${FIELD}" />
           </label>
-          <div><button class="b solid" id="wd-submit" type="submit">Retirer</button></div>
+          <div><button class="b solid" id="wd-submit" type="submit" ${wait ? 'disabled' : ''}>Retirer</button></div>
           <div id="wd-msg" role="status" style="font-size:13.5px"></div>
         </form>
-        <div class="foot">L’argent part sur le numéro enregistré ci-dessus, et seulement sur celui-là : Afripaie
-          prend en charge les frais de l’opérateur. Le mot de passe est redemandé à chaque retrait.</div>
+        <div class="foot">L’argent part sur le numéro saisi ci-dessus : vérifiez-le bien, un envoi ne se rattrape pas.
+          Les frais de l’opérateur sont pris en charge par Afripaie. Le mot de passe est redemandé à chaque retrait.</div>
       </section>`;
-    } else if ((res.balances || []).some((x) => x.available > 0)) {
-      withdraw = `<section class="panel"><header><h2>Retirer mes fonds</h2></header>
-        <div class="pad" style="color:var(--muted);font-size:14px">Aucun numéro de retrait n’est enregistré pour ces fonds.
-          Contactez Afripaie pour en déclarer un : il n’est modifiable que par la plateforme, pour qu’une session volée
-          ne puisse pas détourner votre argent.</div></section>`;
     }
 
     $('content').innerHTML = `
@@ -1039,37 +1066,45 @@
       </section>`;
 
     const form = $('withdraw-form');
-    if (form) {
+    if (form && bal && bal.available > 0) {
       form.onsubmit = async (e) => {
         e.preventDefault();
         const msg = $('wd-msg');
         const submit = $('wd-submit');
         const amount = Number($('wd-amount').value);
+        const phone = $('wd-phone').value.trim();
         msg.style.color = 'var(--danger)';
         if (!Number.isInteger(amount) || amount < MIN) {
           msg.textContent = `Le retrait minimum est de ${MIN}.`;
           return;
         }
+        if (!confirm(`Envoyer ${money(amount, bal.currency)} ${bal.currency} au ${phone} (${$('wd-name').value.trim()}) ?\n\nVérifiez bien le numéro : un envoi ne se rattrape pas.`)) return;
         submit.disabled = true;
         msg.textContent = '';
         try {
           const r = await api('/v1/withdrawals', {
             method: 'POST',
-            body: JSON.stringify({ provider: target.provider, amount, password: $('wd-password').value }),
+            body: JSON.stringify({
+              provider: bal.provider, amount, phone,
+              beneficiary_name: $('wd-name').value.trim(),
+              ...($('wd-network').value ? { network: $('wd-network').value } : {}),
+              password: $('wd-password').value,
+            }),
           });
           const SAID = {
-            PAID: 'Retrait effectué : l’argent est arrivé.',
+            PAID: `Retrait effectué : ${money(r.amount, r.currency)} ${r.currency} envoyés au ${r.destination}.`,
             PROCESSING: 'Retrait envoyé. Il peut demander quelques instants : l’état se met à jour ci-dessous.',
             UNKNOWN: 'Retrait envoyé, mais l’opérateur n’a pas répondu clairement : il est en vérification. Ne refaites pas la demande.',
             FAILED: `Retrait refusé par l’opérateur${r.failure_reason ? ' (' + r.failure_reason + ')' : ''}. Votre solde est intact.`,
           };
           await renderSettlements();
           const out = $('wd-msg');
+          const text = SAID[r.status] || 'Retrait enregistré.';
           if (out) {
             out.style.color = r.status === 'FAILED' ? 'var(--danger)' : 'var(--accent)';
-            out.textContent = SAID[r.status] || 'Retrait enregistré.';
+            out.textContent = text;
           } else {
-            alert(SAID[r.status] || 'Retrait enregistré.');
+            alert(text);
           }
         } catch (err) {
           msg.textContent = err.message;

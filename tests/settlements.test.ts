@@ -148,7 +148,7 @@ describe('reversement au marchand', () => {
     const b = await balance();
     // 20 000 encaisses, 5 % retenus : 19 000 dus.
     expect(b.balances).toEqual([
-      { environment: 'test', currency: 'XOF', provider: 'sandbox', held: 19000, maturing: 0, available: 19000 },
+      { environment: 'test', currency: 'XOF', provider: 'sandbox', held: 19000, maturing: 0, available: 19000, available_at: null },
     ]);
   });
 
