@@ -620,9 +620,10 @@ qu'Afripaie doit au marchand.
 
 Ce solde est découpé **par agrégateur** (`src/modules/settlements.ts`) : les
 francs encaissés par Yabetoo sont sur le compte Yabetoo d'Afripaie, ceux de
-GeniusPay sur le compte GeniusPay. Un encaissement ne devient reversable
-qu'après `MERCHANT_SETTLEMENT_DELAY_MS` (24 h), le temps que l'agrégateur le
-règle réellement.
+GeniusPay sur le compte GeniusPay. Un encaissement est retirable dès
+sa confirmation (`MERCHANT_SETTLEMENT_DELAY_MS` vaut 0 ; on peut le relever pour
+un agrégateur qui règle à J+1). Si un retrait dépasse ce que le portefeuille de
+l'agrégateur contient, celui-ci le refuse et le montant est rendu au marchand.
 
 Le reversement lui-même est un **virement exécuté hors d'Afripaie** (banque,
 opérateur) par un administrateur, puis **constaté** dans l'administration avec

@@ -123,11 +123,13 @@ const schema = z.object({
   /**
    * Delai avant qu'un encaissement detenu par Afripaie devienne reversable.
    *
-   * « Reussi » ne veut pas dire « regle » : l'agregateur verse souvent a J+1.
-   * Reverser avant, c'est avancer au marchand de l'argent qu'Afripaie n'a pas
-   * encore recu. 24 h par defaut, comme pour les partenaires.
+   * Zero par defaut : l'argent est retirable des que le paiement est confirme.
+   * Un agregateur qui regle a J+1 pourrait justifier un delai ; Yabetoo, lui,
+   * credite le portefeuille a la confirmation. Si un retrait depasse ce que le
+   * portefeuille contient, l'agregateur le refuse et le montant est rendu au
+   * marchand (contre-ecriture) : rien n'est perdu.
    */
-  MERCHANT_SETTLEMENT_DELAY_MS: z.coerce.number().int().min(0).default(86_400_000),
+  MERCHANT_SETTLEMENT_DELAY_MS: z.coerce.number().int().min(0).default(0),
 
   /**
    * Intervalle minimal entre deux reversements AUTOMATIQUES a un meme marchand.

@@ -150,9 +150,9 @@ moment :
 curl https://afripaie.online/v1/settlements -H "Authorization: Bearer sk_test_..."
 ```
 
-`balances` donne, par agrégateur, le montant dû (`held`), la part encore en
-cours de règlement chez l'agrégateur (`maturing`, en général moins de 24 h) et
-le reversable (`available`). `data` liste les reversements reçus, avec la
+`balances` donne, par agrégateur, le montant dû (`held`), la part éventuellement
+en cours de règlement (`maturing`, nulle en général : l'argent est retirable dès
+la confirmation du paiement) et le retirable (`available`). `data` liste les reversements reçus, avec la
 référence du virement.
 
 Au Congo, Afripaie peut vous reverser automatiquement en mobile money (MTN ou

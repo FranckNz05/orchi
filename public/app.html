@@ -259,7 +259,7 @@
     <div class="group">Opérations</div>
     <a data-view="payments"><span class="ico">↓</span> Encaissements</a>
     <a data-view="payouts"><span class="ico">↑</span> Décaissements</a>
-    <a data-view="settlements"><span class="ico">⇊</span> Reversements</a>
+    <a data-view="settlements"><span class="ico">⇊</span> Retirer mon argent</a>
 
     <div class="group">Infrastructure</div>
     <a data-view="live"><span class="ico">◎</span> Passage en réel <span class="badge" id="badge-live" hidden>!</span></a>
@@ -404,16 +404,44 @@
     webhooks:       { title: 'Webhooks', sub: 'Endpoints déclarés et journal de livraison' },
     keys:           { title: 'Clés API', sub: 'Pour connecter votre backend' },
     security:       { title: 'Sécurité', sub: 'Mot de passe de votre compte' },
-    settlements:    { title: 'Reversements', sub: 'Ce qu’Afripaie encaisse pour vous et vous reverse' },
+    settlements:    { title: 'Mon argent', sub: 'Ce qu’Afripaie encaisse pour vous, et vos retraits' },
   };
 
   async function renderOverview() {
-    const [recon, payments, payouts, health] = await Promise.all([
+    const [recon, payments, payouts, health, money_] = await Promise.all([
       api('/v1/reconciliation'),
       api('/v1/payments?limit=100'),
       api('/v1/payouts?limit=100'),
       api('/v1/routing/health'),
+      // Le solde ne doit jamais empecher la vue d'ensemble de s'afficher.
+      api('/v1/settlements').catch(() => null),
     ]);
+
+    // Bloc « Mon argent » : le solde et le chemin vers le retrait, des l'accueil.
+    const wallet = (() => {
+      const bal = money_ && [...(money_.balances || [])].sort((a, b) => b.available - a.available || b.held - a.held)[0];
+      const cur = bal ? bal.currency : (payments.data[0]?.currency || 'XAF');
+      const held = bal ? bal.held : 0;
+      const avail = bal ? bal.available : 0;
+      const maturing = bal ? bal.maturing : 0;
+      const when = bal && bal.available_at
+        ? new Date(bal.available_at).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) : null;
+      const detail = !bal || held <= 0
+        ? `Aucun solde en ${session.environment === 'live' ? 'réel' : 'test'} pour l’instant.`
+        : `${avail > 0 ? `<strong style="color:var(--accent)">${money(avail, cur)} ${cur} retirables maintenant</strong>` : 'Rien de retirable maintenant'}`
+          + (maturing > 0 ? ` · ${money(maturing, cur)} ${cur} en cours de règlement chez l’opérateur${when ? `, retirables à partir du <strong>${when}</strong>` : ''}` : '');
+      return `<section class="panel" style="border-color:rgba(53,214,164,.4)">
+        <header><h2>Mon argent</h2></header>
+        <div class="pad" style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between">
+          <div>
+            <div style="color:var(--muted);font-size:13px">Dû par Afripaie</div>
+            <div style="font-size:32px;font-weight:700;letter-spacing:-.03em">${money(held, cur)} <small style="font-size:16px;color:var(--muted)">${cur}</small></div>
+            <div style="color:var(--muted);font-size:13.5px;margin-top:4px;max-width:60ch">${detail}</div>
+          </div>
+          <button class="b solid" data-goto="settlements" data-focus="withdraw-panel" style="padding:15px 26px;font-size:16px;font-weight:700">Retirer mon argent</button>
+        </div>
+      </section>`;
+    })();
 
     const currency = payments.data[0]?.currency || payouts.data[0]?.currency || 'XOF';
     const succeeded = payments.data.filter((p) => p.status === 'SUCCEEDED');
@@ -438,6 +466,7 @@
     const peak = Math.max(1, ...days.map((d) => d.total));
 
     $('content').innerHTML = `
+      ${wallet}
       ${recon.indeterminate_payouts.length ? banner(recon.indeterminate_payouts) : ''}
 
       <div class="kpis">
@@ -1012,7 +1041,7 @@
             Disponible : <strong style="color:var(--ink)">${money(bal.available, bal.currency)} ${esc(bal.currency)}</strong>
             · Minimum : ${money(MIN, bal.currency)} ${esc(bal.currency)}.
             ${wait ? `<br><span style="color:var(--warn)">Vos ${money(bal.maturing, bal.currency)} ${esc(bal.currency)} sont en cours de règlement chez l’opérateur
-              (environ 24 h après chaque paiement)${bal.available_at ? ` : retrait possible à partir du <strong>${esc(dateFr(bal.available_at))}</strong>` : ''}.</span>` : ''}
+              ${bal.available_at ? ` : retrait possible à partir du <strong>${esc(dateFr(bal.available_at))}</strong>` : ''}.</span>` : ''}
           </p>
           <label style="display:grid;gap:7px;font-size:13.5px;font-weight:600">
             Numéro qui reçoit l’argent
@@ -1053,11 +1082,11 @@
         ${balances}
         ${targets ? `<div class="pad" style="font-size:14px"><strong>Reversement mobile money</strong>
           <ul style="margin:8px 0 0;padding-left:20px;color:var(--muted)">${targets}</ul>
-          <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Pour changer de numéro, contactez Afripaie : la destination
-          n’est modifiable que par la plateforme, pour qu’une session volée ne suffise pas à détourner vos fonds.</p></div>` : ''}
+          <p style="margin:8px 0 0;color:var(--muted);font-size:13px">Ce numéro reçoit le reversement automatique ; seule la plateforme
+          peut le modifier. Pour un retrait, vous saisissez vous-même le numéro de votre choix.</p></div>` : ''}
         <div class="foot">Quand un paiement passe par les comptes agrégateurs d’Afripaie, l’argent arrive chez
-          Afripaie, qui retient sa commission et vous reverse le reste. Un encaissement devient reversable
-          une fois réglé par l’agrégateur, en général sous 24 h.</div>
+          Afripaie, qui retient sa commission et vous reverse le reste. Votre argent est retirable dès que le
+          paiement est confirmé.</div>
       </section>
       ${withdraw}
       <section class="panel">
@@ -1190,7 +1219,12 @@
     if (nav) { e.preventDefault(); closeDevMenu(); return show(nav.dataset.view); }
 
     const goto = e.target.closest('[data-goto]');
-    if (goto) return show(goto.dataset.goto);
+    if (goto) {
+      await show(goto.dataset.goto);
+      const target = goto.dataset.focus ? $(goto.dataset.focus) : null;
+      if (target) target.scrollIntoView({ block: 'start' });
+      return;
+    }
 
     const open = e.target.closest('[data-open]');
     if (open) { const [k, id] = open.dataset.open.split(':'); return openDetail(k, id); }
