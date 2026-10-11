@@ -133,6 +133,31 @@
   }
   .settle .scroll { overflow-x: auto; }
 
+  .jump { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 22px; }
+  .jump a {
+    font-size: 13.5px; padding: 7px 15px; border-radius: 999px; text-decoration: none;
+    border: 1px solid var(--border-lit); color: var(--ink); background: var(--surface);
+  }
+  .jump a:hover { border-color: var(--accent); color: var(--accent); }
+  .pincard {
+    border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; margin-bottom: 18px;
+    background: linear-gradient(180deg, var(--surface), var(--bg-2));
+  }
+  .pincard.todo { border-color: rgba(240,192,99,.55); }
+  .pincard .t { font-weight: 650; font-size: 15px; }
+  .pincard .s { color: var(--muted); font-size: 13.5px; margin-top: 3px; max-width: 75ch; }
+  .txtable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .txtable th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: .05em; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .txtable td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .txtable td.n { text-align: right; font-family: var(--mono); white-space: nowrap; }
+  .txtable td.m { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .st { font-family: var(--mono); font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-lit); white-space: nowrap; }
+  .st.SUCCEEDED { color: var(--accent); border-color: rgba(53,214,164,.4); background: var(--accent-soft); }
+  .st.FAILED, .st.EXPIRED { color: var(--danger); border-color: rgba(255,138,122,.4); background: var(--danger-soft); }
+  .st.PROCESSING, .st.CREATED { color: var(--warn); border-color: rgba(240,192,99,.4); background: var(--warn-soft); }
+  .txbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .txbar select { font: inherit; font-size: 13.5px; padding: 7px 12px; border-radius: 9px; border: 1px solid var(--border); background: #05070a; color: var(--ink); }
   .wd { margin-bottom: 28px; }
   .wd h2 { font-size: 18px; margin: 0 0 4px; }
   .wd .hint { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; max-width: 80ch; }
@@ -182,19 +207,34 @@
   </div>
 
   <div id="panel" hidden>
-    <h1>Dossiers d'accès à l'environnement réel</h1>
+    <h1>Administration</h1>
     <p class="lead">
-      Un marchand peut tout intégrer et tout tester sans autorisation. Le passage
-      au réel met en circulation l'argent de vrais clients : il ne s'accorde que
-      dossier par dossier, ici.
+      Tout ce qui concerne la plateforme : votre PIN, les retraits à valider, les paiements de tous les
+      clients, et leurs comptes avec leurs dossiers d'accès au réel.
     </p>
+
+    <nav class="jump" aria-label="Aller à">
+      <a href="#wd-admin">PIN et retraits à valider</a>
+      <a href="#tx-admin">Paiements des clients</a>
+      <a href="#clients">Comptes clients</a>
+    </nav>
 
     <div class="stats" id="stats"></div>
 
     <section class="wd" id="wd-admin"></section>
 
-    <div class="tabs" id="tabs"></div>
-    <div class="rows" id="rows"></div>
+    <section class="wd" id="tx-admin"></section>
+
+    <section id="clients">
+      <h2 style="font-size:18px;margin:0 0 4px">Comptes clients</h2>
+      <p class="lead" style="margin-bottom:14px">
+        Un marchand peut tout intégrer et tout tester sans autorisation. Le passage au réel met en circulation
+        l'argent de vrais clients : il ne s'accorde que dossier par dossier, ici. Ouvrez un compte pour voir son
+        dossier, ses reversements et ses retraits.
+      </p>
+      <div class="tabs" id="tabs"></div>
+      <div class="rows" id="rows"></div>
+    </section>
   </div>
 </main>
 
@@ -214,7 +254,9 @@
     REJECTED: 'refusé',
   };
 
-  let filter = 'PENDING';
+  // « Tous » par defaut : l'onglet « a examiner » est vide tant qu'aucun dossier
+  // n'attend, et l'administrateur croyait alors n'avoir aucun client.
+  let filter = 'ALL';
   let data = [];
   let counts = {};
   const open = new Set();
@@ -270,7 +312,7 @@
   }
 
   function renderTabs() {
-    const order = ['PENDING', 'VERIFIED', 'REJECTED', 'UNVERIFIED', 'ALL'];
+    const order = ['ALL', 'PENDING', 'VERIFIED', 'REJECTED', 'UNVERIFIED'];
     $('tabs').innerHTML = order.map((s) => {
       const n = s === 'ALL'
         ? Object.values(counts).reduce((a, b) => a + b, 0)
@@ -617,15 +659,22 @@
       <p class="hint">Un retrait vers un numéro jamais utilisé, ou d’un montant élevé, attend ici. Vérifiez le numéro et le titulaire,
         puis approuvez avec <strong>votre PIN</strong> : l’argent part aussitôt par Yabetoo. Refuser rend le montant au marchand.
         Le PIN n’est jamais demandé aux marchands.</p>
-      ${cards}
-      <details>
-        <summary>${pin.is_set ? 'Changer mon PIN de validation' : '<strong>Définir mon PIN de validation</strong> (obligatoire pour approuver)'}${lock}</summary>
+      ${cards}`;
+
+    // PIN : toujours visible. Tant qu'il n'est pas defini, le formulaire est
+    // ouvert et l'avertissement impossible a manquer.
+    $('wd-admin').innerHTML = `<div class="pincard ${pin.is_set ? '' : 'todo'}">
+        <div class="t">${pin.is_set ? '✓ Votre PIN de validation est défini' : '⚠ Votre PIN de validation n’est pas défini'}${lock}</div>
+        <div class="s">${pin.is_set
+          ? 'Vous le saisissez pour approuver un retrait. Vous pouvez le changer ci-dessous.'
+          : 'Sans PIN, vous ne pouvez approuver aucun retrait. Choisissez 4 à 6 chiffres (pas de suite ni de chiffres identiques). Seuls les administrateurs d’Afripaie ont un PIN : un marchand n’en a jamais.'}</div>
         <div class="pinform">
           <input type="password" id="pin-password" autocomplete="current-password" placeholder="Mot de passe de votre compte" />
-          <input type="password" id="pin-new" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="Nouveau PIN (4 à 6 chiffres)" />
-          <button class="btn" data-pin-save>Enregistrer mon PIN</button>
+          <input type="password" id="pin-new" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="${pin.is_set ? 'Nouveau PIN' : 'Votre PIN'} (4 à 6 chiffres)" />
+          <button class="btn ${pin.is_set ? '' : 'solid'}" data-pin-save>${pin.is_set ? 'Changer mon PIN' : 'Définir mon PIN'}</button>
         </div>
-      </details>`;
+      </div>
+      ` + $('wd-admin').innerHTML;
   }
 
   async function approveWithdrawal(id) {
@@ -669,6 +718,58 @@
     }
   }
 
+  /* ------------------------------------------- paiements de tous les clients */
+
+  let txEnv = 'live';
+  let txStatus = '';
+
+  async function loadPayments() {
+    const el = $('tx-admin');
+    try {
+      const qs = new URLSearchParams({ limit: '60', ...(txEnv ? { environment: txEnv } : {}), ...(txStatus ? { status: txStatus } : {}) });
+      const res = await api(`/v1/admin/payments?${qs}`);
+      renderPayments(res.data);
+    } catch (e) {
+      el.innerHTML = `<p class="hint">Paiements indisponibles : ${esc(e.message)}</p>`;
+    }
+  }
+
+  function renderPayments(list) {
+    const STATUS = { SUCCEEDED: 'réussi', FAILED: 'échoué', EXPIRED: 'expiré', PROCESSING: 'en cours', CREATED: 'créé' };
+    const rows = list.length
+      ? `<div class="scroll" style="overflow-x:auto"><table class="txtable">
+          <tr><th>Date</th><th>Client (marchand)</th><th>Référence</th><th style="text-align:right">Montant</th><th>Pays</th><th>Opérateur</th><th>Payeur</th><th>État</th></tr>
+          ${list.map((t) => `<tr>
+            <td class="m" style="white-space:nowrap">${date(t.created_at)}${t.environment === 'test' ? ' · test' : ''}</td>
+            <td>${esc(t.merchant.name)}</td>
+            <td class="m">${esc(t.reference)}</td>
+            <td class="n">${money(t.amount)} ${esc(t.currency)}</td>
+            <td>${esc(t.country)}</td>
+            <td>${esc(t.provider || '—')}${t.network ? `<br><span class="m">${esc(t.network)}</span>` : ''}</td>
+            <td class="m">${esc(t.customer_phone || '—')}</td>
+            <td><span class="st ${esc(t.status)}" title="${esc(t.failure || '')}">${esc(STATUS[t.status] || t.status)}</span>${t.failure ? `<br><span class="m">${esc(String(t.failure).slice(0, 70))}</span>` : ''}</td>
+          </tr>`).join('')}
+        </table></div>`
+      : '<p class="hint">Aucun paiement pour ce filtre.</p>';
+
+    $('tx-admin').innerHTML = `<h2>Paiements des clients</h2>
+      <p class="hint">Les demandes de paiement de tous les marchands, les plus récentes d’abord. Le numéro du payeur est masqué.</p>
+      <div class="txbar">
+        <select data-tx-env aria-label="Environnement">
+          <option value="live"${txEnv === 'live' ? ' selected' : ''}>Réel</option>
+          <option value="test"${txEnv === 'test' ? ' selected' : ''}>Test</option>
+          <option value=""${txEnv === '' ? ' selected' : ''}>Réel et test</option>
+        </select>
+        <select data-tx-status aria-label="État">
+          <option value="">Tous les états</option>
+          ${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${txStatus === k ? ' selected' : ''}>${v}</option>`).join('')}
+        </select>
+        <button class="btn" data-tx-refresh>Actualiser</button>
+        <span class="hint" style="margin:0">${list.length} affiché${list.length > 1 ? 's' : ''}</span>
+      </div>
+      ${rows}`;
+  }
+
   /* --------------------------------------------------------------- actions */
 
   async function load() {
@@ -683,6 +784,7 @@
     renderRows();
     for (const id of open) loadSettlements(id);
     loadWithdrawals();
+    loadPayments();
   }
 
   async function decide(id, decision, note) {
@@ -705,6 +807,11 @@
     }
   }
 
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('[data-tx-env]')) { txEnv = e.target.value; void loadPayments(); }
+    if (e.target.matches('[data-tx-status]')) { txStatus = e.target.value; void loadPayments(); }
+  });
+
   document.addEventListener('click', async (e) => {
     const toggle = e.target.closest('[data-toggle]');
     if (toggle) {
@@ -721,6 +828,7 @@
     if (wdr) { await rejectWithdrawal(wdr.dataset.wdReject); return; }
 
     if (e.target.closest('[data-pin-save]')) { await savePin(); return; }
+    if (e.target.closest('[data-tx-refresh]')) { await loadPayments(); return; }
 
     const rec = e.target.closest('[data-settle-record]');
     if (rec) { rec.disabled = true; await recordSettlement(rec.dataset.settleRecord); rec.disabled = false; return; }

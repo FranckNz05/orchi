@@ -260,6 +260,72 @@ export async function liveAccessRoutes(app: FastifyInstance) {
     },
   );
 
+  /**
+   * Demandes de paiement de TOUS les marchands, les plus recentes d'abord.
+   *
+   * Sans cela, l'administrateur ne voit que les dossiers et les retraits : il ne
+   * peut pas savoir ce qui se passe reellement chez ses clients. Le numero du
+   * client final est masque (indicatif et 2 derniers chiffres) : la supervision
+   * n'a pas besoin du numero entier.
+   */
+  app.get(
+    '/v1/admin/payments',
+    { preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const q = z
+        .object({
+          environment: z.enum(['test', 'live']).optional(),
+          status: z.enum(['CREATED', 'PROCESSING', 'SUCCEEDED', 'FAILED', 'EXPIRED']).optional(),
+          merchant: z.string().optional(),
+          limit: z.coerce.number().int().min(1).max(200).default(50),
+        })
+        .parse(request.query);
+
+      const rows = await prisma.payment.findMany({
+        where: {
+          ...(q.environment ? { environment: q.environment } : {}),
+          ...(q.status ? { status: q.status } : {}),
+          ...(q.merchant ? { merchantId: q.merchant } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+        take: q.limit,
+        include: {
+          merchant: { select: { name: true } },
+          attempts: { orderBy: { attemptNumber: 'asc' } },
+        },
+      });
+
+      const mask = (phone: string | null) =>
+        phone ? `${phone.slice(0, 4)}•••••${phone.slice(-2)}` : null;
+
+      return {
+        object: 'list',
+        count: rows.length,
+        data: rows.map((p) => {
+          const last = p.attempts[p.attempts.length - 1];
+          return {
+            id: p.id,
+            reference: p.reference,
+            merchant: { id: p.merchantId, name: p.merchant.name },
+            environment: p.environment,
+            status: p.status,
+            amount: p.amount,
+            currency: p.currency,
+            country: p.country,
+            channel: p.channel,
+            network: p.network,
+            customer_phone: mask(p.customerPhone),
+            provider: last?.providerId ?? null,
+            failure: last?.status === 'FAILED' || last?.status === 'EXPIRED' ? (last.providerMessage ?? last.providerCode ?? null) : null,
+            fees: { provider: p.providerFeeAmount, platform: p.platformFeeAmount },
+            created_at: p.createdAt.toISOString(),
+            succeeded_at: p.succeededAt?.toISOString() ?? null,
+          };
+        }),
+      };
+    },
+  );
+
   app.get(
     '/v1/admin/overview',
     { preHandler: [app.authenticate, app.requireAdmin] },

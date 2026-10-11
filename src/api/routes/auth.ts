@@ -122,7 +122,9 @@ export async function authRoutes(app: FastifyInstance) {
       user: { name: context.userName, email: context.userEmail },
       merchant: { id: context.merchantId, name: context.merchantName, country: context.merchantCountry },
       environment: context.environment,
-      next: '/app',
+      // Un administrateur de la plateforme n'a rien a gerer dans le tableau de
+      // bord marchand de la plateforme (il est vide) : il veut l'administration.
+      next: context.platformAdmin ? '/admin' : '/app',
     };
   });
 

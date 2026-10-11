@@ -253,6 +253,7 @@
   </div>
 
   <nav id="nav">
+    <a href="/admin" id="admin-nav" hidden style="border:1px solid rgba(53,214,164,.45);color:var(--accent);font-weight:700"><span class="ico">⚑</span> Administration d’Afripaie</a>
     <a data-view="overview" aria-current="true"><span class="ico">◈</span> Vue d'ensemble</a>
     <a data-view="reconciliation"><span class="ico">⚖</span> Réconciliation <span class="badge" id="badge-recon" hidden>0</span></a>
 
@@ -1335,6 +1336,7 @@
     });
 
     $('admin-link').hidden = !session.user.platform_admin;
+    $('admin-nav').hidden = !session.user.platform_admin;
 
     const liveBadge = $('badge-live');
     liveBadge.hidden = session.merchant.kyb_status !== 'REJECTED';

@@ -524,3 +524,56 @@ describe('correction d’identite par un administrateur', () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+/* -------------------------------------------------------------------------- */
+
+describe('espace administrateur', () => {
+  it('envoie un administrateur sur /admin a la connexion, un marchand sur /app', async () => {
+    const marchand = await newMerchant();
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+
+    const login = async (account: Account) => {
+      const user = await prisma.user.findFirstOrThrow({ where: { merchantId: account.merchantId } });
+      return app.inject({
+        method: 'POST',
+        url: '/auth/login',
+        payload: { email: user.email, password: 'une phrase de passe solide' },
+      });
+    };
+
+    expect((await login(marchand)).json().next).toBe('/app');
+    expect((await login(admin)).json().next).toBe('/admin');
+  });
+
+  it('liste les paiements de tous les clients, aux seuls administrateurs, numero masque', async () => {
+    const client = await newMerchant();
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    const reference = `adm-${Date.now()}`;
+    await prisma.payment.create({
+      data: {
+        id: `pay_adm_${Date.now()}`, merchantId: client.merchantId, reference, amount: 5000, currency: 'XOF',
+        country: 'BJ', channel: 'mobile_money', network: 'MTN_BENIN', customerPhone: '+22997123456',
+        environment: 'live', status: 'FAILED',
+      },
+    });
+
+    // Un marchand ordinaire n'a pas acces a la supervision.
+    expect((await as(client, 'GET', '/v1/admin/payments')).statusCode).toBe(403);
+
+    const res = await as(admin, 'GET', `/v1/admin/payments?environment=live&merchant=${client.merchantId}`);
+    expect(res.statusCode).toBe(200);
+    const ligne = (res.json().data as { reference: string; merchant: { name: string }; customer_phone: string; status: string }[])
+      .find((p) => p.reference === reference);
+    expect(ligne).toMatchObject({ status: 'FAILED', merchant: { name: 'Boutique Live' } });
+    // Indicatif et deux derniers chiffres seulement.
+    expect(ligne?.customer_phone).toBe('+229•••••56');
+    expect(JSON.stringify(res.json())).not.toContain('97123456');
+
+    // Un filtre qui n'a rien a montrer renvoie une liste vide, pas une erreur.
+    const vide = await as(admin, 'GET', `/v1/admin/payments?environment=test&merchant=${client.merchantId}`);
+    expect(vide.json().data).toHaveLength(0);
+  });
+});
+
