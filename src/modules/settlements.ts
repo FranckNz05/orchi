@@ -330,6 +330,10 @@ export function serializeSettlement(s: MerchantSettlement, forAdmin = false) {
     external_reference: s.externalReference,
     note: s.note,
     mode: s.mode,
+    beneficiary_name: s.beneficiaryName,
+    approval_reason: s.approvalReason,
+    decision_note: s.decisionNote,
+    decided_at: s.decidedAt?.toISOString() ?? null,
     /** Somme reellement envoyee : le montant du, plus les frais pris en charge par Afripaie. */
     sent_amount: s.amount + s.providerFeeAmount,
     fee_absorbed: s.providerFeeAmount,
@@ -340,7 +344,7 @@ export function serializeSettlement(s: MerchantSettlement, forAdmin = false) {
     created_at: s.createdAt.toISOString(),
     cancelled_at: s.cancelledAt?.toISOString() ?? null,
     cancel_reason: s.cancelReason,
-    ...(forAdmin ? { recorded_by: s.actorEmail, cancelled_by: s.cancelledBy } : {}),
+    ...(forAdmin ? { recorded_by: s.actorEmail, cancelled_by: s.cancelledBy, decided_by: s.decidedBy } : {}),
   };
 }
 

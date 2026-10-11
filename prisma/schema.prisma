@@ -791,6 +791,15 @@ model User {
   /// ACTIVE | DISABLED
   status String @default("ACTIVE")
 
+  /// PIN de validation des retraits. Reserve aux administrateurs de la
+  /// plateforme : un marchand n'en a jamais, et ne le saisit jamais. Empreinte
+  /// scrypt, comme un mot de passe. Un PIN court se force vite hors ligne : la
+  /// protection est le verrouillage apres des echecs et l'exigence d'une session
+  /// administrateur, pas la longueur.
+  withdrawalPinHash String?   @map("withdrawal_pin_hash")
+  pinFailedCount    Int       @default(0) @map("pin_failed_count")
+  pinLockedUntil    DateTime? @map("pin_locked_until")
+
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -1112,10 +1121,22 @@ model MerchantSettlement {
   /// Derniere interrogation de l'agregateur.
   checkedAt         DateTime? @map("checked_at")
 
-  /// PAID | PROCESSING | FAILED | UNKNOWN | CANCELLED
+  /// PAID | PENDING_APPROVAL | PROCESSING | FAILED | UNKNOWN | CANCELLED | REJECTED
+  ///   PENDING_APPROVAL : retrait demande par un marchand, montant RESERVE mais
+  ///   rien n'est parti : un administrateur doit l'approuver avec son PIN.
   ///   UNKNOWN : l'agregateur n'a pas repondu clairement. L'argent est peut-etre
   ///   parti : rien n'est relance tant qu'une personne n'a pas tranche.
   status String @default("PAID")
+
+  /// Titulaire du numero et pays : necessaires pour envoyer APRES approbation.
+  beneficiaryName String? @map("beneficiary_name")
+  country         String?
+  /// Pourquoi une validation est exigee (numero jamais utilise, montant eleve…).
+  approvalReason  String? @map("approval_reason")
+  /// Qui a approuve ou refuse, quand, et le motif d'un refus.
+  decidedBy       String?   @map("decided_by")
+  decidedAt       DateTime? @map("decided_at")
+  decisionNote    String?   @map("decision_note")
 
   actorId    String @map("actor_id")
   actorEmail String @map("actor_email")

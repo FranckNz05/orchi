@@ -277,6 +277,7 @@ export async function liveAccessRoutes(app: FastifyInstance) {
         object: 'admin_overview',
         merchants,
         pending_reviews: pending,
+        pending_withdrawals: await prisma.merchantSettlement.count({ where: { status: 'PENDING_APPROVAL' } }),
         verified_merchants: verified,
         payments,
         payouts,

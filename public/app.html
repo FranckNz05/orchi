@@ -1002,6 +1002,9 @@
               PAID: '<span class="tag ok">versé</span>',
               PROCESSING: '<span class="tag">en cours</span>',
               UNKNOWN: '<span class="tag">en vérification</span>',
+              PENDING_APPROVAL: `<span class="tag" title="${esc(s.approval_reason || '')}">en attente de validation</span>
+                <button class="b" data-wd-cancel="${esc(s.id)}" style="margin-left:8px;padding:4px 10px">Annuler</button>`,
+              REJECTED: `<span class="tag bad" title="${esc(s.decision_note || '')}">refusé${s.decision_note ? ' : ' + esc(s.decision_note) : ''} · montant de nouveau dû</span>`,
               FAILED: `<span class="tag bad" title="${esc(s.failure_reason || '')}">échoué, montant de nouveau dû</span>`,
               CANCELLED: `<span class="tag bad" title="${esc(s.cancel_reason || '')}">annulé</span>`,
             })[s.status] || esc(s.status)}</td>
@@ -1072,7 +1075,9 @@
           <div id="wd-msg" role="status" style="font-size:13.5px"></div>
         </form>
         <div class="foot">L’argent part sur le numéro saisi ci-dessus : vérifiez-le bien, un envoi ne se rattrape pas.
-          Les frais de l’opérateur sont pris en charge par Afripaie. Le mot de passe est redemandé à chaque retrait.</div>
+          Les frais de l’opérateur sont pris en charge par Afripaie. Le mot de passe est redemandé à chaque retrait.
+          <strong>Vers un numéro jamais utilisé, ou pour un gros montant, un administrateur d’Afripaie doit valider</strong> :
+          la demande reste en attente, et le retrait suivant vers ce même numéro partira directement.</div>
       </section>`;
     }
 
@@ -1121,6 +1126,7 @@
             }),
           });
           const SAID = {
+            PENDING_APPROVAL: `Demande enregistrée : ${money(r.amount, r.currency)} ${r.currency} vers ${r.destination}. Par sécurité, un administrateur d’Afripaie doit la valider (${r.approval_reason || 'validation requise'}). L’argent part dès qu’il l’approuve. Vous pouvez annuler la demande dans l’historique ci-dessous tant qu’elle attend.`,
             PAID: `Retrait effectué : ${money(r.amount, r.currency)} ${r.currency} envoyés au ${r.destination}.`,
             PROCESSING: 'Retrait envoyé. Il peut demander quelques instants : l’état se met à jour ci-dessous.',
             UNKNOWN: 'Retrait envoyé, mais l’opérateur n’a pas répondu clairement : il est en vérification. Ne refaites pas la demande.',
@@ -1130,7 +1136,7 @@
           const out = $('wd-msg');
           const text = SAID[r.status] || 'Retrait enregistré.';
           if (out) {
-            out.style.color = r.status === 'FAILED' ? 'var(--danger)' : 'var(--accent)';
+            out.style.color = r.status === 'FAILED' ? 'var(--danger)' : (r.status === 'PENDING_APPROVAL' ? 'var(--warn)' : 'var(--accent)');
             out.textContent = text;
           } else {
             alert(text);
@@ -1237,6 +1243,16 @@
       $('key-out').innerHTML = `<div class="keyout">
         <p>Copiez cette clé maintenant — elle ne sera plus jamais affichée.</p>
         <code>${esc(key.secret)}</code></div>`;
+      return;
+    }
+
+    const wdc = e.target.closest('[data-wd-cancel]');
+    if (wdc) {
+      if (!confirm('Annuler cette demande de retrait ? Le montant vous sera rendu.')) return;
+      try {
+        await api(`/v1/withdrawals/${encodeURIComponent(wdc.dataset.wdCancel)}/cancel`, { method: 'POST', body: '{}' });
+        await renderSettlements();
+      } catch (err) { alert(err.message); }
       return;
     }
 

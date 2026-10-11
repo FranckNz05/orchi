@@ -165,7 +165,13 @@ l'intégralité de votre dû.
 Vous pouvez aussi **retirer à tout moment** ce qui est disponible, depuis le
 tableau de bord (Reversements → Retirer mes fonds) : minimum 500 XAF, mot de
 passe redemandé à chaque retrait, argent versé sur le numéro enregistré par
-Afripaie. Cette opération n'est pas ouverte aux clés API. `targets` indique la destination
+Afripaie. Cette opération n'est pas ouverte aux clés API.
+
+Un retrait vers un numéro **jamais utilisé** (ou d'un montant élevé) est d'abord
+validé par un administrateur d'Afripaie : il apparaît `PENDING_APPROVAL`, le
+montant est réservé, et l'argent part dès l'approbation. Les retraits suivants
+vers ce même numéro partent directement. Vous pouvez annuler une demande tant
+qu'elle attend : `POST /v1/withdrawals/:id/cancel`. `targets` indique la destination
 active ; un reversement `PROCESSING` est en cours, `UNKNOWN` en vérification.
 
 ### Numéros de test

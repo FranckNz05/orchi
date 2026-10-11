@@ -132,6 +132,19 @@ const schema = z.object({
   MERCHANT_SETTLEMENT_DELAY_MS: z.coerce.number().int().min(0).default(0),
 
   /**
+   * Validation des retraits demandes par un marchand.
+   *
+   *   risk    (defaut) immediat vers un numero deja servi a ce marchand, sous le
+   *           seuil ; sinon un administrateur doit l'approuver avec son PIN ;
+   *   always  tous les retraits attendent l'approbation d'un administrateur ;
+   *   never   aucun controle : l'argent part des que le marchand valide.
+   */
+  WITHDRAWAL_APPROVAL: z.enum(['risk', 'always', 'never']).default('risk'),
+
+  /** Seuil de montant (unites mineures) a partir duquel le mode `risk` exige une approbation. */
+  WITHDRAWAL_APPROVAL_THRESHOLD: z.coerce.number().int().min(0).default(100_000),
+
+  /**
    * Intervalle minimal entre deux reversements AUTOMATIQUES a un meme marchand.
    *
    * Chaque decaissement mobile money coute des frais au beneficiaire : verser a

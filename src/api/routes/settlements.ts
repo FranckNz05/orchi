@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { errors } from '../../core/errors.js';
 import { env } from '../../core/env.js';
 import { prisma } from '../../db/client.js';
+import { pinStatus, setAdminPin } from '../../modules/admin-pin.js';
 import { verifyPassword } from '../../modules/auth.js';
 import { assertLiveAllowed } from '../../modules/live-access.js';
 import {
@@ -15,8 +16,12 @@ import {
   serializeSettlement,
 } from '../../modules/settlements.js';
 import {
+  approveWithdrawal,
+  cancelPendingWithdrawal,
+  listPendingWithdrawals,
   listTargets,
   refreshSettlement,
+  rejectWithdrawal,
   resolveSettlement,
   sendSettlement,
   setSettlementTarget,
@@ -43,6 +48,15 @@ const recordBody = z.object({
 });
 
 const cancelBody = z.object({ reason: z.string().min(5).max(500) });
+
+/** Le PIN n'est saisi QUE par un administrateur d'Afripaie, jamais par un marchand. */
+const approveBody = z.object({ pin: z.string().min(4).max(6) });
+const rejectBody = z.object({ reason: z.string().min(5).max(500) });
+const pinBody = z.object({
+  /** Mot de passe du compte administrateur : fixer un PIN ne se fait pas depuis une session laissee ouverte. */
+  password: z.string().min(1).max(200),
+  pin: z.string().min(4).max(6),
+});
 
 /** Plus petit retrait : en dessous, les frais de l'operateur pesent plus que la somme. */
 export const WITHDRAWAL_MIN = 500;
@@ -163,6 +177,7 @@ export async function settlementRoutes(app: FastifyInstance) {
         providerId: body.provider,
         ...(body.amount !== undefined ? { amount: body.amount } : {}),
         minAmount: WITHDRAWAL_MIN,
+        checkApproval: true,
         destination: {
           phone: body.phone,
           network: body.network,
@@ -173,12 +188,26 @@ export async function settlementRoutes(app: FastifyInstance) {
       });
 
       request.log.warn(
-        { merchant: ctx.merchantId, settlement: settlement.id, amount: settlement.amount, destination: settlement.destination, status: settlement.status, by: ctx.userEmail },
+        { merchant: ctx.merchantId, settlement: settlement.id, amount: settlement.amount, destination: settlement.destination, status: settlement.status, reason: settlement.approvalReason, by: ctx.userEmail },
         'Retrait demande par le marchand',
       );
       return reply.status(201).send(serializeSettlement(settlement));
     },
   );
+
+  /** Le marchand annule sa propre demande tant qu'elle attend une validation (numero mal saisi, par exemple). */
+  app.post('/v1/withdrawals/:id/cancel', { preHandler: app.authenticate }, async (request) => {
+    const ctx = request.auth!;
+    if (ctx.via !== 'session') throw errors.forbidden('session');
+    const { id } = z.object({ id: z.string() }).parse(request.params);
+    const settlement = await cancelPendingWithdrawal({
+      settlementId: id,
+      merchantId: ctx.merchantId,
+      actorEmail: ctx.userEmail ?? 'inconnu',
+    });
+    request.log.warn({ merchant: ctx.merchantId, settlement: id, by: ctx.userEmail }, 'Retrait annule par le marchand');
+    return serializeSettlement(settlement);
+  });
 
   /* ---------------------------------------------------------------------- */
   /* Administration                                                         */
@@ -328,6 +357,81 @@ export async function settlementRoutes(app: FastifyInstance) {
         actorEmail: ctx.userEmail ?? 'inconnu',
       });
       request.log.warn({ settlement: id, outcome: body.outcome, by: ctx.userEmail }, 'Reversement douteux tranche');
+      return serializeSettlement(settlement, true);
+    },
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Validation des retraits (administrateur + PIN)                         */
+  /* ---------------------------------------------------------------------- */
+
+  /** Retraits en attente de validation, tous marchands confondus. */
+  app.get(
+    '/v1/admin/withdrawals',
+    { preHandler: [app.authenticate, app.requireAdmin] },
+    async () => {
+      const rows = await listPendingWithdrawals();
+      return {
+        object: 'list',
+        count: rows.length,
+        data: rows.map((r) => ({ ...serializeSettlement(r, true), merchant: { id: r.merchantId, name: r.merchant.name } })),
+      };
+    },
+  );
+
+  /** Le PIN est-il defini pour cet administrateur ? (jamais sa valeur) */
+  app.get('/v1/admin/pin', { preHandler: [app.authenticate, app.requireAdmin] }, async (request) =>
+    pinStatus(request.auth!.userId!),
+  );
+
+  app.put(
+    '/v1/admin/pin',
+    { config: LIMITE_RETRAIT, preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const ctx = request.auth!;
+      const body = pinBody.parse(request.body);
+      await setAdminPin({ userId: ctx.userId!, password: body.password, pin: body.pin });
+      request.log.warn({ admin: ctx.userEmail }, 'PIN de validation des retraits defini ou modifie');
+      return pinStatus(ctx.userId!);
+    },
+  );
+
+  /** Approuve un retrait : l'administrateur saisit SON PIN, puis l'argent part. */
+  app.post(
+    '/v1/admin/settlements/:id/approve',
+    { config: LIMITE_RETRAIT, preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const ctx = request.auth!;
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const body = approveBody.parse(request.body);
+      const settlement = await approveWithdrawal({
+        settlementId: id,
+        adminUserId: ctx.userId!,
+        adminEmail: ctx.userEmail ?? 'inconnu',
+        pin: body.pin,
+      });
+      request.log.warn(
+        { settlement: id, amount: settlement.amount, destination: settlement.destination, status: settlement.status, by: ctx.userEmail },
+        'Retrait approuve par un administrateur',
+      );
+      return serializeSettlement(settlement, true);
+    },
+  );
+
+  /** Refuse un retrait : le montant redevient du au marchand. Pas de PIN, refuser ne deplace rien. */
+  app.post(
+    '/v1/admin/settlements/:id/reject',
+    { preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const ctx = request.auth!;
+      const { id } = z.object({ id: z.string() }).parse(request.params);
+      const body = rejectBody.parse(request.body);
+      const settlement = await rejectWithdrawal({
+        settlementId: id,
+        adminEmail: ctx.userEmail ?? 'inconnu',
+        reason: body.reason,
+      });
+      request.log.warn({ settlement: id, by: ctx.userEmail }, 'Retrait refuse par un administrateur');
       return serializeSettlement(settlement, true);
     },
   );

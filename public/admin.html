@@ -132,6 +132,31 @@
     border: 1px solid var(--border); background: #05070a; color: var(--ink);
   }
   .settle .scroll { overflow-x: auto; }
+
+  .wd { margin-bottom: 28px; }
+  .wd h2 { font-size: 18px; margin: 0 0 4px; }
+  .wd .hint { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; max-width: 80ch; }
+  .wd .card {
+    display: grid; grid-template-columns: 1fr auto; gap: 14px 22px; align-items: center;
+    background: linear-gradient(180deg, var(--surface), var(--bg-2));
+    border: 1px solid rgba(240,192,99,.4); border-radius: 14px; padding: 16px 20px; margin-bottom: 12px;
+  }
+  .wd .card .amt { font-size: 22px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .wd .card .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .wd .card .why { color: var(--warn); font-size: 13px; margin-top: 3px; }
+  .wd .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .wd .acts input {
+    font: inherit; font-size: 16px; letter-spacing: .3em; width: 110px; text-align: center;
+    padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: #05070a; color: var(--ink);
+  }
+  .wd details { margin-top: 6px; }
+  .wd details summary { cursor: pointer; color: var(--accent); font-size: 13.5px; }
+  .wd .pinform { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .wd .pinform input {
+    font: inherit; font-size: 14px; padding: 9px 12px; border-radius: 9px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink);
+  }
+  @media (max-width: 720px) { .wd .card { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -165,6 +190,8 @@
     </p>
 
     <div class="stats" id="stats"></div>
+
+    <section class="wd" id="wd-admin"></section>
 
     <div class="tabs" id="tabs"></div>
     <div class="rows" id="rows"></div>
@@ -232,6 +259,7 @@
   function renderStats(o) {
     $('stats').innerHTML = [
       [o.pending_reviews, 'dossiers à examiner', o.pending_reviews > 0],
+      [o.pending_withdrawals || 0, 'retraits à valider', (o.pending_withdrawals || 0) > 0],
       [o.merchants, 'marchands'],
       [o.verified_merchants, 'marchands vérifiés'],
       [o.active_live_keys, 'clés live actives'],
@@ -552,6 +580,95 @@
     }
   }
 
+  /* ------------------------------------------------- retraits a valider (PIN) */
+
+  let wdState = { list: [], pin: { is_set: false, locked_until: null } };
+
+  async function loadWithdrawals() {
+    try {
+      const [list, pin] = await Promise.all([api('/v1/admin/withdrawals'), api('/v1/admin/pin')]);
+      wdState = { list: list.data, pin };
+    } catch (e) {
+      $('wd-admin').innerHTML = `<p class="hint">Retraits indisponibles : ${esc(e.message)}</p>`;
+      return;
+    }
+    renderWithdrawals();
+  }
+
+  function renderWithdrawals() {
+    const { list, pin } = wdState;
+    const lock = pin.locked_until ? ` · <span style="color:var(--danger)">PIN verrouillé jusqu’à ${new Date(pin.locked_until).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
+    const cards = list.length
+      ? list.map((w) => `<div class="card">
+          <div>
+            <div class="amt">${money(w.amount)} ${esc(w.currency)} <span style="font-size:14px;color:var(--muted);font-weight:500">· ${esc(w.merchant.name)}</span></div>
+            <div class="sub">vers <span style="font-family:var(--mono)">${esc(w.destination)}</span> (${esc(w.network || '')}) · titulaire « ${esc(w.beneficiary_name || '—')} » · demandé ${date(w.created_at)} par ${esc(w.recorded_by || '')}${w.environment === 'test' ? ' · <strong>test</strong>' : ''}</div>
+            <div class="why">À valider : ${esc(w.approval_reason || 'validation requise')}</div>
+          </div>
+          <div class="acts">
+            <input type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="PIN" data-wd-pin="${esc(w.id)}" aria-label="Votre PIN" />
+            <button class="btn solid" data-wd-approve="${esc(w.id)}">Approuver</button>
+            <button class="btn danger" data-wd-reject="${esc(w.id)}">Refuser</button>
+          </div>
+        </div>`).join('')
+      : '<p class="hint">Aucun retrait en attente.</p>';
+
+    $('wd-admin').innerHTML = `<h2>Retraits à valider</h2>
+      <p class="hint">Un retrait vers un numéro jamais utilisé, ou d’un montant élevé, attend ici. Vérifiez le numéro et le titulaire,
+        puis approuvez avec <strong>votre PIN</strong> : l’argent part aussitôt par Yabetoo. Refuser rend le montant au marchand.
+        Le PIN n’est jamais demandé aux marchands.</p>
+      ${cards}
+      <details>
+        <summary>${pin.is_set ? 'Changer mon PIN de validation' : '<strong>Définir mon PIN de validation</strong> (obligatoire pour approuver)'}${lock}</summary>
+        <div class="pinform">
+          <input type="password" id="pin-password" autocomplete="current-password" placeholder="Mot de passe de votre compte" />
+          <input type="password" id="pin-new" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="Nouveau PIN (4 à 6 chiffres)" />
+          <button class="btn" data-pin-save>Enregistrer mon PIN</button>
+        </div>
+      </details>`;
+  }
+
+  async function approveWithdrawal(id) {
+    const input = document.querySelector(`[data-wd-pin="${CSS.escape(id)}"]`);
+    const pin = input ? input.value.trim() : '';
+    if (!/^\d{4,6}$/.test(pin)) return toast('Saisissez votre PIN (4 à 6 chiffres).', 'ko');
+    const w = wdState.list.find((x) => x.id === id);
+    if (!confirm(`Envoyer ${money(w.amount)} ${w.currency} au ${w.destination} (${w.beneficiary_name || ''}) ?\n\nL’argent part immédiatement.`)) return;
+    try {
+      const r = await api(`/v1/admin/settlements/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify({ pin }) });
+      const SAID = { PAID: 'Retrait approuvé : l’argent est parti.', PROCESSING: 'Retrait approuvé et envoyé : en cours de confirmation.',
+        UNKNOWN: 'Retrait envoyé mais l’opérateur n’a pas répondu clairement : à vérifier avant tout nouvel envoi.', FAILED: `Refusé par l’opérateur : ${r.failure_reason || ''} Le montant est rendu au marchand.` };
+      toast(SAID[r.status] || 'Retrait traité.', r.status === 'FAILED' || r.status === 'UNKNOWN' ? 'ko' : 'ok');
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+    await load();
+  }
+
+  async function rejectWithdrawal(id) {
+    const reason = prompt('Motif du refus (il est montré au marchand) :');
+    if (!reason || reason.trim().length < 5) return;
+    try {
+      await api(`/v1/admin/settlements/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) });
+      toast('Retrait refusé : le montant est rendu au marchand.', 'ok');
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+    await load();
+  }
+
+  async function savePin() {
+    const password = $('pin-password').value;
+    const pin = $('pin-new').value.trim();
+    try {
+      await api('/v1/admin/pin', { method: 'PUT', body: JSON.stringify({ password, pin }) });
+      toast('PIN enregistré.', 'ok');
+      await loadWithdrawals();
+    } catch (e) {
+      toast(e.message, 'ko');
+    }
+  }
+
   /* --------------------------------------------------------------- actions */
 
   async function load() {
@@ -565,6 +682,7 @@
     renderTabs();
     renderRows();
     for (const id of open) loadSettlements(id);
+    loadWithdrawals();
   }
 
   async function decide(id, decision, note) {
@@ -595,6 +713,14 @@
       toggle.closest('.row').classList.toggle('open');
       return;
     }
+
+    const wda = e.target.closest('[data-wd-approve]');
+    if (wda) { wda.disabled = true; await approveWithdrawal(wda.dataset.wdApprove); return; }
+
+    const wdr = e.target.closest('[data-wd-reject]');
+    if (wdr) { await rejectWithdrawal(wdr.dataset.wdReject); return; }
+
+    if (e.target.closest('[data-pin-save]')) { await savePin(); return; }
 
     const rec = e.target.closest('[data-settle-record]');
     if (rec) { rec.disabled = true; await recordSettlement(rec.dataset.settleRecord); rec.disabled = false; return; }

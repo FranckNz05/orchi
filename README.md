@@ -668,6 +668,33 @@ débité de `afripaie:revenue`.
 GeniusPay n'expose aucune API de décaissement : pour lui, le reversement reste
 manuel.
 
+### Validation des retraits par un administrateur (PIN)
+
+Un retrait demandé par un marchand n'est pas toujours immédiat. Selon
+`WITHDRAWAL_APPROVAL` :
+
+- `risk` (défaut) : il part tout de suite vers un numéro **déjà servi à ce
+  marchand** (un retrait y a abouti), sous `WITHDRAWAL_APPROVAL_THRESHOLD`
+  (100 000). Sinon — numéro nouveau ou montant élevé — il passe
+  `PENDING_APPROVAL` : le montant est **réservé** (journal débité) mais rien ne
+  part ;
+- `always` : tous les retraits attendent ;
+- `never` : aucun contrôle.
+
+Un retrait en attente est approuvé dans l'administration (**Retraits à valider**)
+par un administrateur qui saisit **son PIN** de 4 à 6 chiffres. Le PIN n'est
+**jamais demandé à un marchand**. Il se définit avec le mot de passe du compte
+(`PUT /v1/admin/pin`), est stocké sous forme d'empreinte scrypt, refuse les
+codes triviaux (`1234`, `1111`) et se **verrouille 15 minutes après 5 échecs**.
+L'approbation bascule l'état de façon atomique : deux administrateurs, ou un
+double clic, n'envoient jamais deux fois. Refuser (`/reject`, sans PIN : cela ne
+déplace rien) rend le montant au marchand ; le marchand peut aussi annuler sa
+propre demande tant qu'elle attend (`POST /v1/withdrawals/:id/cancel`).
+
+Limite connue : un PIN court se retrouve vite si l'empreinte fuit. Il n'est donc
+jamais la seule barrière — il faut une session administrateur, puis le PIN, avec
+verrouillage.
+
 ### Retrait demandé par le marchand
 
 Un marchand peut retirer lui-même ce qu'Afripaie lui doit, sans attendre le

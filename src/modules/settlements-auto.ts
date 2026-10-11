@@ -1,4 +1,4 @@
-import type { MerchantSettlement, MerchantSettlementTarget } from '@prisma/client';
+import type { MerchantSettlement, MerchantSettlementTarget, Prisma } from '@prisma/client';
 import { countryFromPhone } from '../catalog/market.js';
 import { AppError, errors } from '../core/errors.js';
 import { env } from '../core/env.js';
@@ -7,7 +7,8 @@ import { logger } from '../core/logger.js';
 import { prisma } from '../db/client.js';
 import { isProviderError } from '../providers/errors.js';
 import { getProviderAdapter } from '../providers/registry.js';
-import type { AttemptResult } from '../providers/types.js';
+import type { AttemptResult, PaymentProvider } from '../providers/types.js';
+import { verifyAdminPin } from './admin-pin.js';
 import { buildProviderContext } from './provider-accounts.js';
 import { heldBalances, postSettlementJournal, settlementErrors } from './settlements.js';
 
@@ -83,6 +84,22 @@ const autoErrors = {
       code: 'settlement_unresolved',
       message:
         'Un reversement précédent est « à vérifier » : l’argent est peut-être parti. Vérifiez chez l’agrégateur et tranchez-le avant tout nouvel envoi.',
+      httpStatus: 409,
+      retriable: false,
+    }),
+  notPending: (status: string) =>
+    new AppError({
+      type: 'invalid_request_error',
+      code: 'withdrawal_not_pending',
+      message: `Ce retrait n’est plus en attente de validation (statut : ${status}).`,
+      httpStatus: 409,
+      retriable: false,
+    }),
+  incomplete: () =>
+    new AppError({
+      type: 'invalid_request_error',
+      code: 'withdrawal_incomplete',
+      message: 'Retrait sans numéro ou titulaire : impossible de l’envoyer. Refusez-le.',
       httpStatus: 409,
       retriable: false,
     }),
@@ -216,6 +233,12 @@ export interface SendInput {
    * la destination enregistree par un administrateur.
    */
   destination?: { phone: string; network?: string | undefined; beneficiaryName: string };
+  /**
+   * Retrait demande par un marchand : la politique de validation s'applique
+   * (WITHDRAWAL_APPROVAL). Les envois d'un administrateur et le reversement
+   * automatique n'y sont pas soumis.
+   */
+  checkApproval?: boolean;
   actorId: string;
   actorEmail: string;
 }
@@ -288,6 +311,15 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
       );
     }
 
+    const approvalReason = input.checkApproval
+      ? await approvalReasonFor(tx, {
+          merchantId: input.merchantId,
+          environment: input.environment,
+          phone: target.phone,
+          amount,
+        })
+      : null;
+
     const created = await tx.merchantSettlement.create({
       data: {
         id: newId(ID_PREFIX.merchantSettlement),
@@ -301,7 +333,12 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
         mode: 'AUTOMATIC',
         destination: target.phone,
         network: target.network,
-        status: 'PROCESSING',
+        beneficiaryName: target.beneficiaryName,
+        country: target.country,
+        // En attente de validation : le montant est deja RESERVE (journal
+        // ci-dessous) mais rien ne part avant l'approbation d'un administrateur.
+        status: approvalReason ? 'PENDING_APPROVAL' : 'PROCESSING',
+        approvalReason,
         actorId: input.actorId,
         actorEmail: input.actorEmail,
       },
@@ -310,7 +347,165 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
     return created;
   });
 
-  // 2. Envoi, hors transaction : un appel reseau ne doit pas tenir un verrou.
+  // En attente d'un administrateur : rien ne part, le montant reste reserve.
+  if (settlement.status === 'PENDING_APPROVAL') return settlement;
+
+  return dispatchSettlement(settlement, adapter, ctx, target);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Validation par un administrateur                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Faut-il qu'un administrateur valide ce retrait ? `null` : non, il part tout de
+ * suite. Sinon le motif, montre a l'administrateur et au marchand.
+ *
+ * Mode `risk` : un numero DEJA servi a ce marchand (un retrait abouti vers lui)
+ * sous le seuil part seul. Un numero nouveau est le cas typique d'une session
+ * volee ou d'une faute de frappe : c'est la qu'un regard humain est utile.
+ */
+export async function approvalReasonFor(
+  tx: Prisma.TransactionClient,
+  i: { merchantId: string; environment: string; phone: string; amount: number },
+): Promise<string | null> {
+  switch (env.WITHDRAWAL_APPROVAL) {
+    case 'never':
+      return null;
+    case 'always':
+      return 'Tous les retraits sont validés par un administrateur.';
+    default: {
+      const threshold = env.WITHDRAWAL_APPROVAL_THRESHOLD;
+      if (threshold > 0 && i.amount >= threshold) {
+        return `Montant supérieur ou égal à ${threshold}.`;
+      }
+      const known = await tx.merchantSettlement.count({
+        where: { merchantId: i.merchantId, environment: i.environment, destination: i.phone, status: 'PAID' },
+      });
+      return known > 0 ? null : 'Premier retrait vers ce numéro.';
+    }
+  }
+}
+
+export function listPendingWithdrawals() {
+  return prisma.merchantSettlement.findMany({
+    where: { status: 'PENDING_APPROVAL' },
+    include: { merchant: { select: { name: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+/**
+ * Approuve un retrait en attente : l'administrateur saisit SON PIN, puis l'argent
+ * part. Le PIN est verifie en premier ; un echec ne change rien au retrait.
+ *
+ * Les preparatifs (agregateur, compte, cles) precedent la bascule d'etat : s'ils
+ * echouent, le retrait reste en attente et peut etre approuve de nouveau.
+ */
+export async function approveWithdrawal(input: {
+  settlementId: string;
+  adminUserId: string;
+  adminEmail: string;
+  pin: string;
+}): Promise<MerchantSettlement> {
+  await verifyAdminPin(input.adminUserId, input.pin);
+
+  const s = await prisma.merchantSettlement.findUnique({ where: { id: input.settlementId } });
+  if (!s) throw errors.notFound('Retrait', input.settlementId);
+  if (s.status !== 'PENDING_APPROVAL') throw autoErrors.notPending(s.status);
+  if (!s.country || !s.beneficiaryName || !s.network) throw autoErrors.incomplete();
+
+  const adapter = getProviderAdapter(s.sourceProviderId);
+  if (!adapter) throw errors.invalidRequest(`Agrégateur désactivé : ${s.sourceProviderId}.`, 'provider');
+  const account = env.PLATFORM_MERCHANT_ID
+    ? await prisma.providerAccount.findFirst({
+        where: {
+          merchantId: env.PLATFORM_MERCHANT_ID,
+          providerId: s.sourceProviderId,
+          environment: s.environment,
+          status: 'ACTIVE',
+        },
+      })
+    : null;
+  if (!account) throw autoErrors.noPlatformAccount(s.sourceProviderId, s.environment);
+  const ctx = await buildProviderContext(account.id);
+
+  // Bascule atomique : deux administrateurs qui approuvent en meme temps, ou un
+  // double clic, ne peuvent pas envoyer deux fois.
+  const { count } = await prisma.merchantSettlement.updateMany({
+    where: { id: s.id, status: 'PENDING_APPROVAL' },
+    data: { status: 'PROCESSING', decidedBy: input.adminEmail, decidedAt: new Date() },
+  });
+  if (count !== 1) throw autoErrors.notPending('déjà traité');
+
+  const current = await prisma.merchantSettlement.findUniqueOrThrow({ where: { id: s.id } });
+  return dispatchSettlement(current, adapter, ctx, {
+    country: s.country,
+    currency: s.currency,
+    phone: s.destination,
+    network: s.network,
+    beneficiaryName: s.beneficiaryName,
+  });
+}
+
+/** Libere le montant reserve d'un retrait en attente (refus ou annulation). */
+async function releasePending(
+  id: string,
+  to: 'REJECTED' | 'CANCELLED',
+  data: Partial<MerchantSettlement>,
+): Promise<MerchantSettlement> {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.merchantSettlement.updateMany({
+      where: { id, status: 'PENDING_APPROVAL' },
+      data: { ...data, status: to },
+    });
+    if (count !== 1) {
+      const now = await tx.merchantSettlement.findUnique({ where: { id } });
+      throw autoErrors.notPending(now?.status ?? 'introuvable');
+    }
+    const released = await tx.merchantSettlement.findUniqueOrThrow({ where: { id } });
+    await postSettlementJournal(tx, released, 'settlement.reversed');
+    return released;
+  });
+}
+
+/** Refus par un administrateur : le montant redevient du au marchand. Pas de PIN : refuser ne deplace rien. */
+export async function rejectWithdrawal(input: {
+  settlementId: string;
+  adminEmail: string;
+  reason: string;
+}): Promise<MerchantSettlement> {
+  return releasePending(input.settlementId, 'REJECTED', {
+    decidedBy: input.adminEmail,
+    decidedAt: new Date(),
+    decisionNote: input.reason.trim().slice(0, 500),
+  });
+}
+
+/** Annulation par le marchand lui-meme, tant que rien n'est parti (numero mal saisi, par exemple). */
+export async function cancelPendingWithdrawal(input: {
+  settlementId: string;
+  merchantId: string;
+  actorEmail: string;
+}): Promise<MerchantSettlement> {
+  const s = await prisma.merchantSettlement.findFirst({
+    where: { id: input.settlementId, merchantId: input.merchantId },
+  });
+  if (!s) throw errors.notFound('Retrait', input.settlementId);
+  return releasePending(s.id, 'CANCELLED', {
+    cancelledAt: new Date(),
+    cancelledBy: input.actorEmail,
+    cancelReason: 'Annulé par le marchand avant validation.',
+  });
+}
+
+/** Envoi effectif, hors transaction : un appel reseau ne doit pas tenir un verrou. */
+async function dispatchSettlement(
+  settlement: MerchantSettlement,
+  adapter: PaymentProvider,
+  ctx: Awaited<ReturnType<typeof buildProviderContext>>,
+  dest: Destination,
+): Promise<MerchantSettlement> {
   let result: AttemptResult;
   try {
     result = await adapter.createPayout(
@@ -318,9 +513,9 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
         reference: settlement.id,
         amount: settlement.amount + settlement.providerFeeAmount,
         currency: settlement.currency,
-        country: target.country,
+        country: dest.country,
         channel: CHANNEL,
-        recipient: { phone: target.phone, network: target.network, name: target.beneficiaryName },
+        recipient: { phone: dest.phone, network: dest.network, name: dest.beneficiaryName },
         callbackUrl: ctx.callbackUrl,
         description: `Reversement Afripaie ${settlement.id}`,
         metadata: { afripaie_settlement: settlement.id, merchant_id: settlement.merchantId },
@@ -328,7 +523,7 @@ export async function sendSettlement(input: SendInput): Promise<MerchantSettleme
       ctx,
     );
   } catch (e) {
-    // 3. Seul un refus garanti rend l'argent ; tout le reste est un doute.
+    // Seul un refus garanti rend l'argent ; tout le reste est un doute.
     if (isProviderError(e) && e.outcome === 'failed') {
       return fail(settlement, e.message);
     }

@@ -27,6 +27,8 @@ let adminCookie: string;
 let counter = 0;
 const ref = (p: string) => `${p}-${Date.now()}-${(counter += 1)}`;
 const initial = {
+  approval: env.WITHDRAWAL_APPROVAL,
+  threshold: env.WITHDRAWAL_APPROVAL_THRESHOLD,
   platform: env.PLATFORM_MERCHANT_ID,
   delay: env.MERCHANT_SETTLEMENT_DELAY_MS,
   every: env.MERCHANT_AUTO_SETTLEMENT_EVERY_MS,
@@ -93,6 +95,8 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
+  env.WITHDRAWAL_APPROVAL = initial.approval;
+  env.WITHDRAWAL_APPROVAL_THRESHOLD = initial.threshold;
   env.PLATFORM_MERCHANT_ID = initial.platform;
   env.MERCHANT_SETTLEMENT_DELAY_MS = initial.delay;
   env.MERCHANT_AUTO_SETTLEMENT_EVERY_MS = initial.every;
@@ -311,6 +315,8 @@ describe('reversement periodique', () => {
 });
 
 describe('retrait demande par le marchand', () => {
+  // Ces cas verifient le retrait lui-meme ; la validation a son propre bloc plus bas.
+  beforeEach(() => { env.WITHDRAWAL_APPROVAL = 'never'; });
   const PASSWORD = 'une phrase de passe solide';
   /** Le simulateur lit le dernier bloc du numero : 0000 = succes. */
   const NUMERO = '+229 97 00 00 00';
@@ -435,3 +441,215 @@ describe('retrait demande par le marchand', () => {
     expect(refus.json().error.code).toBe('settlement_exceeds_available');
   });
 });
+
+describe('validation des retraits par un administrateur (PIN)', () => {
+  const PASSWORD = 'une phrase de passe solide';
+  const PIN = '4829';
+  // Un numero NEUF a chaque appel (le simulateur reussit quand il finit par 0000),
+  // pour que « jamais utilise » le reste d'un test a l'autre.
+  let compteur = 0;
+  const fresh = () => `+229 97 ${10 + (compteur += 1)} 00 00`;
+  /** Un numero vers lequel un retrait a deja abouti (rempli par le test d'approbation). */
+  let servi = '';
+
+  beforeEach(() => {
+    env.WITHDRAWAL_APPROVAL = 'risk';
+    env.WITHDRAWAL_APPROVAL_THRESHOLD = 100_000;
+  });
+
+  const withdraw = (payload: Record<string, unknown>) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/withdrawals',
+      cookies: { afripaie_session: merchantCookie },
+      headers: SAME_ORIGIN,
+      payload: {
+        provider: 'sandbox', phone: fresh(), network: 'MTN_BENIN', beneficiary_name: 'Titulaire Test',
+        password: PASSWORD, ...payload,
+      },
+    });
+
+  const setPin = (pin: string, password = PASSWORD) =>
+    admin('PUT', '/v1/admin/pin', { password, pin });
+  const approve = (id: string, pin: string, cookie = adminCookie) =>
+    admin('POST', `/v1/admin/settlements/${id}/approve`, { pin }, cookie);
+  const reject = (id: string, reason = 'Numéro non reconnu') =>
+    admin('POST', `/v1/admin/settlements/${id}/reject`, { reason });
+
+  const adminUser = () =>
+    prisma.user.findFirstOrThrow({ where: { platformAdmin: true, email: { contains: '@autosettle.test' } } });
+  const resetPinCounters = async () => {
+    const u = await adminUser();
+    await prisma.user.update({ where: { id: u.id }, data: { pinFailedCount: 0, pinLockedUntil: null } });
+  };
+
+  it('le PIN se definit avec le mot de passe du compte, et refuse un PIN trop simple', async () => {
+    if (!seeded) return;
+    expect((await setPin(PIN, 'pas le bon mot de passe')).statusCode).toBe(400);
+    for (const faible of ['1234', '1111', '12', 'abcd', '9876']) {
+      expect((await setPin(faible)).statusCode).toBe(400);
+    }
+    const ok = await setPin(PIN);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ is_set: true, locked_until: null });
+    // La valeur du PIN n'est jamais renvoyee, ni stockee en clair.
+    expect(JSON.stringify(ok.json())).not.toContain(PIN);
+    expect((await adminUser()).withdrawalPinHash).not.toContain(PIN);
+  });
+
+  it('un marchand ne peut ni definir de PIN, ni approuver, ni lister les retraits a valider', async () => {
+    if (!seeded) return;
+    expect((await admin('PUT', '/v1/admin/pin', { password: PASSWORD, pin: '5731' }, merchantCookie)).statusCode).toBe(403);
+    expect((await approve('rvs_x', PIN, merchantCookie)).statusCode).toBe(403);
+    const liste = await app.inject({ method: 'GET', url: '/v1/admin/withdrawals', cookies: { afripaie_session: merchantCookie } });
+    expect(liste.statusCode).toBe(403);
+  });
+
+  it('un numero jamais utilise attend l’approbation : montant reserve, rien n’est envoye', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const avant = await held();
+
+    const res = await withdraw({ amount: 10000 });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ status: 'PENDING_APPROVAL', amount: 10000, approval_reason: 'Premier retrait vers ce numéro.' });
+    expect(res.json().provider_reference).toBeNull();
+    // Reserve des la demande : le marchand ne peut pas le depenser deux fois.
+    expect(await held()).toBe(avant - 10000);
+    await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
+
+    const liste = await app.inject({ method: 'GET', url: '/v1/admin/withdrawals', cookies: { afripaie_session: adminCookie } });
+    const lui = (liste.json().data as { id: string; merchant: { id: string } }[]).find((r) => r.id === res.json().id);
+    expect(lui?.merchant.id).toBe(merchantId);
+  });
+
+  it('refuse un PIN faux, compte les essais et verrouille apres cinq echecs', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const en_attente = (await withdraw({ amount: 6000 })).json();
+    expect(en_attente.status).toBe('PENDING_APPROVAL');
+
+    const un = await approve(en_attente.id, '0000');
+    expect(un.statusCode).toBe(403);
+    expect(un.json().error.code).toBe('pin_invalid');
+    expect(un.json().error.message).toContain('4 essais');
+
+    for (let i = 0; i < 3; i += 1) await approve(en_attente.id, '0000');
+    const dernier = await approve(en_attente.id, '0000');
+    expect(dernier.statusCode).toBe(429);
+    expect(dernier.json().error.code).toBe('pin_locked');
+
+    // Verrouille : meme le BON PIN est refuse, et rien n'est parti.
+    const bon = await approve(en_attente.id, PIN);
+    expect(bon.statusCode).toBe(429);
+    const encore = await prisma.merchantSettlement.findUniqueOrThrow({ where: { id: en_attente.id } });
+    expect(encore.status).toBe('PENDING_APPROVAL');
+
+    await resetPinCounters();
+    await reject(en_attente.id);
+  });
+
+  it('approuve avec le bon PIN : l’argent part, une seule fois', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const demande = (await withdraw({ amount: 7000 })).json();
+    expect(demande.status).toBe('PENDING_APPROVAL');
+    const avant = await held();
+
+    const ok = await approve(demande.id, PIN);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ status: 'PAID', amount: 7000, destination: demande.destination });
+    expect(ok.json().decided_by).toContain('@autosettle.test');
+    servi = demande.destination;
+    // Rien n'est reservé une seconde fois.
+    expect(await held()).toBe(avant);
+    await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
+
+    // Deuxieme approbation : refusee, aucun double envoi.
+    const deux = await approve(demande.id, PIN);
+    expect(deux.statusCode).toBe(409);
+    expect(await prisma.merchantSettlement.count({ where: { id: demande.id, status: 'PAID' } })).toBe(1);
+  });
+
+  it('un numero deja servi a ce marchand part tout de suite, sous le seuil', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    expect(servi).not.toBe('');
+    const res = await withdraw({ amount: 1000, phone: servi });
+    expect(res.json()).toMatchObject({ status: 'PAID', approval_reason: null });
+  });
+
+  it('au-dela du seuil, meme un numero connu attend un administrateur', async () => {
+    if (!seeded) return;
+    env.WITHDRAWAL_APPROVAL_THRESHOLD = 5000;
+    await payin(20000);
+    const res = await withdraw({ amount: 6000, phone: servi });
+    expect(res.json().status).toBe('PENDING_APPROVAL');
+    expect(res.json().approval_reason).toContain('5000');
+    await reject(res.json().id);
+  });
+
+  it('le mode « always » valide tous les retraits', async () => {
+    if (!seeded) return;
+    env.WITHDRAWAL_APPROVAL = 'always';
+    await payin(20000);
+    const res = await withdraw({ amount: 1000, phone: servi });
+    expect(res.json().status).toBe('PENDING_APPROVAL');
+    await reject(res.json().id);
+  });
+
+  it('un refus rend le montant au marchand et garde le motif', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const demande = (await withdraw({ amount: 6000 })).json();
+    const reserve = await held();
+
+    const res = await reject(demande.id, 'Numéro non reconnu par le marchand');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ status: 'REJECTED', decision_note: 'Numéro non reconnu par le marchand' });
+    expect(await held()).toBe(reserve + 6000);
+    await expect(assertLedgerBalanced(merchantId)).resolves.toBeUndefined();
+    // Un retrait deja decide ne se refuse pas une seconde fois.
+    expect((await reject(demande.id)).statusCode).toBe(409);
+  });
+
+  it('le marchand annule sa propre demande tant qu’elle attend, pas apres', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const demande = (await withdraw({ amount: 6000 })).json();
+    const reserve = await held();
+
+    const annule = await app.inject({
+      method: 'POST', url: `/v1/withdrawals/${demande.id}/cancel`,
+      cookies: { afripaie_session: merchantCookie }, headers: SAME_ORIGIN, payload: {},
+    });
+    expect(annule.statusCode).toBe(200);
+    expect(annule.json().status).toBe('CANCELLED');
+    expect(await held()).toBe(reserve + 6000);
+
+    // Plus en attente : ni annulable, ni approuvable.
+    const encore = await app.inject({
+      method: 'POST', url: `/v1/withdrawals/${demande.id}/cancel`,
+      cookies: { afripaie_session: merchantCookie }, headers: SAME_ORIGIN, payload: {},
+    });
+    expect(encore.statusCode).toBe(409);
+    expect((await approve(demande.id, PIN)).statusCode).toBe(409);
+  });
+
+  it('sans PIN defini, un administrateur ne peut pas approuver', async () => {
+    if (!seeded) return;
+    await payin(20000);
+    const demande = (await withdraw({ amount: 6000 })).json();
+    const u = await adminUser();
+    const hash = u.withdrawalPinHash;
+    await prisma.user.update({ where: { id: u.id }, data: { withdrawalPinHash: null } });
+
+    const res = await approve(demande.id, PIN);
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe('pin_not_set');
+
+    await prisma.user.update({ where: { id: u.id }, data: { withdrawalPinHash: hash } });
+    await reject(demande.id);
+  });
+});
+
