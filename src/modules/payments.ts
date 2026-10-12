@@ -543,6 +543,8 @@ export function serializePaymentRow(
     customer_phone: payment.customerPhone,
     provider: last?.providerId ?? null,
     attempt_count: payment.attempts.length,
+    /** Ce que le marchand recoit : sans cela, une liste ne montre que le brut. */
+    split: splitOf(payment, last?.providerId ?? null),
     created_at: payment.createdAt.toISOString(),
     succeeded_at: payment.succeededAt?.toISOString() ?? null,
   };
@@ -698,6 +700,27 @@ function serializeAction(attempt: PaymentAttempt | undefined): CustomerAction {
   }
 }
 
+/**
+ * Repartition d'un paiement reussi : qui garde quoi sur ce que le client a paye.
+ *
+ * Le total des frais est fixe (5 %). L'agregateur prend sa commission, Afripaie
+ * le reste ; si l'agregateur prend PLUS que le total, la part d'Afripaie est
+ * negative : Afripaie paie l'ecart, le marchand recoit toujours la meme chose.
+ * `null` tant que le paiement n'a pas abouti (rien n'est reparti).
+ */
+export function splitOf(payment: Payment, aggregator: string | null) {
+  if (payment.status !== 'SUCCEEDED' || payment.providerFeeAmount == null || payment.platformFeeAmount == null) {
+    return null;
+  }
+  return {
+    customer_paid: payment.amount,
+    aggregator,
+    aggregator_fee: payment.providerFeeAmount,
+    afripaie_fee: payment.platformFeeAmount,
+    merchant_receives: payment.amount - payment.providerFeeAmount - payment.platformFeeAmount,
+  };
+}
+
 export function serializePayment(payment: Payment, attempts: PaymentAttempt[]) {
   const current = attempts.find((a) => a.id === payment.currentAttemptId);
 
@@ -722,6 +745,7 @@ export function serializePayment(payment: Payment, attempts: PaymentAttempt[]) {
       provider: payment.providerFeeAmount,
       platform: payment.platformFeeAmount,
     },
+    split: splitOf(payment, current?.providerId ?? null),
     /** Ce que le marchand doit faire executer par son client. */
     action: serializeAction(current),
     provider: current

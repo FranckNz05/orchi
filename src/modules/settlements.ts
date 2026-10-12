@@ -359,3 +359,65 @@ export function serializeBalance(b: HeldBalance) {
     available_at: b.availableAt?.toISOString() ?? null,
   };
 }
+
+/**
+ * D'ou vient le solde, par agregateur et par devise : ce que les clients ont
+ * paye, ce que l'agregateur et Afripaie ont retenu, ce qui revient au marchand,
+ * ce qui en est deja sorti (retraits verses) ou reserve (retraits en cours ou en
+ * attente de validation). `balance` = ce qui reste du.
+ *
+ * Seuls les paiements encaisses sur les comptes d'Afripaie comptent : sur ses
+ * propres comptes, le marchand recoit l'argent directement de l'agregateur.
+ */
+export async function splitSummary(merchantId: string, environment: string) {
+  const payments = await prisma.payment.findMany({
+    where: {
+      merchantId,
+      environment,
+      status: 'SUCCEEDED',
+      attempts: { some: { status: 'SUCCEEDED', providerAccount: { merchantId: { not: merchantId } } } },
+    },
+    select: {
+      amount: true,
+      currency: true,
+      providerFeeAmount: true,
+      platformFeeAmount: true,
+      attempts: { where: { status: 'SUCCEEDED' }, select: { providerId: true }, take: 1 },
+    },
+  });
+  const settlements = await prisma.merchantSettlement.findMany({ where: { merchantId, environment } });
+
+  type Row = {
+    currency: string; provider: string; payments: number; customer_paid: number; aggregator_fees: number;
+    afripaie_fees: number; merchant_net: number; withdrawn: number; withdrawing: number; balance: number;
+  };
+  const rows = new Map<string, Row>();
+  const row = (currency: string, provider: string): Row => {
+    const key = `${currency}:${provider}`;
+    let r = rows.get(key);
+    if (!r) {
+      r = { currency, provider, payments: 0, customer_paid: 0, aggregator_fees: 0, afripaie_fees: 0, merchant_net: 0, withdrawn: 0, withdrawing: 0, balance: 0 };
+      rows.set(key, r);
+    }
+    return r;
+  };
+
+  for (const p of payments) {
+    const r = row(p.currency, p.attempts[0]?.providerId ?? 'inconnu');
+    const agg = p.providerFeeAmount ?? 0;
+    const afr = p.platformFeeAmount ?? 0;
+    r.payments += 1;
+    r.customer_paid += p.amount;
+    r.aggregator_fees += agg;
+    r.afripaie_fees += afr;
+    r.merchant_net += p.amount - agg - afr;
+  }
+  for (const st of settlements) {
+    const r = row(st.currency, st.sourceProviderId);
+    if (st.status === 'PAID') r.withdrawn += st.amount;
+    else if (['PENDING_APPROVAL', 'PROCESSING', 'UNKNOWN'].includes(st.status)) r.withdrawing += st.amount;
+  }
+  for (const r of rows.values()) r.balance = r.merchant_net - r.withdrawn - r.withdrawing;
+  return [...rows.values()];
+}
+

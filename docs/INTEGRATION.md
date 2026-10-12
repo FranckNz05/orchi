@@ -150,6 +150,30 @@ moment :
 curl https://afripaie.online/v1/settlements -H "Authorization: Bearer sk_test_..."
 ```
 
+### Répartition d'un paiement
+
+Sur chaque paiement réussi, **les frais sont de 5 % au total**. L'agrégateur
+(Yabetoo, GeniusPay…) prend sa commission, Afripaie garde le reste. Si
+l'agrégateur prend plus de 5 %, la part d'Afripaie est négative : Afripaie paie
+l'écart, et le marchand reçoit toujours 95 %. Les frais d'envoi d'un retrait sont
+aussi à la charge d'Afripaie.
+
+Chaque paiement (détail et liste) porte un objet `split` :
+
+```json
+"split": {
+  "customer_paid": 1000,
+  "aggregator": "yabetoo",
+  "aggregator_fee": 60,
+  "afripaie_fee": -10,
+  "merchant_receives": 950
+}
+```
+
+`split` vaut `null` tant que le paiement n'a pas abouti. `GET /v1/settlements`
+renvoie aussi `split`, le récapitulatif par agrégateur : payé par les clients,
+frais, net pour le marchand, déjà retiré, retrait en cours, et reste dû.
+
 `balances` donne, par agrégateur, le montant dû (`held`), la part éventuellement
 en cours de règlement (`maturing`, nulle en général : l'argent est retirable dès
 la confirmation du paiement) et le retirable (`available`). `data` liste les reversements reçus, avec la

@@ -653,3 +653,43 @@ describe('validation des retraits par un administrateur (PIN)', () => {
   });
 });
 
+describe('repartition : client, agregateur, Afripaie, marchand', () => {
+  const get = (url: string) => app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${apiKey}` } });
+
+  it('chaque paiement reussi dit qui garde quoi, et la somme retombe sur le montant paye', async () => {
+    if (!seeded) return;
+    await payin(10000);
+    const last = (await get('/v1/payments?limit=1')).json().data[0];
+    expect(last.status).toBe('SUCCEEDED');
+    const sp = last.split;
+    expect(sp.customer_paid).toBe(10000);
+    expect(sp.aggregator).toBe('sandbox');
+    expect(sp.aggregator_fee + sp.afripaie_fee + sp.merchant_receives).toBe(10000);
+    // 5 % de frais au total, quelle que soit la part de l'agregateur.
+    expect(sp.merchant_receives).toBe(9500);
+  });
+
+  it('le recapitulatif explique le solde : net moins retraits verses et en cours', async () => {
+    if (!seeded) return;
+    env.WITHDRAWAL_APPROVAL = 'always';
+    await payin(20000);
+    const demande = await app.inject({
+      method: 'POST', url: '/v1/withdrawals', cookies: { afripaie_session: merchantCookie }, headers: SAME_ORIGIN,
+      payload: { provider: 'sandbox', amount: 3000, phone: '+229 97 99 00 00', network: 'MTN_BENIN', beneficiary_name: 'Titulaire', password: 'une phrase de passe solide' },
+    });
+    expect(demande.json().status).toBe('PENDING_APPROVAL');
+
+    const res = (await get('/v1/settlements')).json();
+    const r = (res.split as { provider: string; currency: string; customer_paid: number; aggregator_fees: number; afripaie_fees: number; merchant_net: number; withdrawn: number; withdrawing: number; balance: number }[])
+      .find((x) => x.provider === 'sandbox' && x.currency === 'XOF')!;
+    expect(r.aggregator_fees + r.afripaie_fees + r.merchant_net).toBe(r.customer_paid);
+    expect(r.withdrawing).toBeGreaterThanOrEqual(3000);
+    expect(r.balance).toBe(r.merchant_net - r.withdrawn - r.withdrawing);
+    // Meme chiffre que le solde du grand livre : le tableau ne raconte pas une autre histoire.
+    expect(r.balance).toBe(await held());
+
+    await admin('POST', `/v1/admin/settlements/${demande.json().id}/reject`, { reason: 'Test de répartition' });
+    env.WITHDRAWAL_APPROVAL = 'risk';
+  });
+});
+

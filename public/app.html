@@ -421,16 +421,25 @@
     // Bloc « Mon argent » : le solde et le chemin vers le retrait, des l'accueil.
     const wallet = (() => {
       const bal = money_ && [...(money_.balances || [])].sort((a, b) => b.available - a.available || b.held - a.held)[0];
-      const cur = bal ? bal.currency : (payments.data[0]?.currency || 'XAF');
+      const split = (money_ && money_.split) || [];
+      const cur = bal ? bal.currency : (split[0]?.currency || payments.data[0]?.currency || 'XAF');
+      const withdrawing = split.filter((r) => r.currency === cur).reduce((s, r) => s + r.withdrawing, 0);
+      const collectedNet = split.filter((r) => r.currency === cur).reduce((s, r) => s + r.merchant_net, 0);
       const held = bal ? bal.held : 0;
       const avail = bal ? bal.available : 0;
       const maturing = bal ? bal.maturing : 0;
       const when = bal && bal.available_at
         ? new Date(bal.available_at).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) : null;
-      const detail = !bal || held <= 0
-        ? `Aucun solde en ${session.environment === 'live' ? 'réel' : 'test'} pour l’instant.`
+      const pendingLine = withdrawing > 0
+        ? `<br><strong style="color:var(--warn)">${money(withdrawing, cur)} ${cur} en cours de retrait</strong> (en attente de validation par Afripaie ou en cours d’envoi) : ce montant est réservé, il n’est plus compté dans le solde.`
+        : '';
+      const detail = (!bal || held <= 0
+        ? (collectedNet > 0
+          ? `Tout ce qui vous revient (${money(collectedNet, cur)} ${cur}) est déjà retiré ou en cours de retrait.`
+          : `Aucun solde en ${session.environment === 'live' ? 'réel' : 'test'} pour l’instant.`)
         : `${avail > 0 ? `<strong style="color:var(--accent)">${money(avail, cur)} ${cur} retirables maintenant</strong>` : 'Rien de retirable maintenant'}`
-          + (maturing > 0 ? ` · ${money(maturing, cur)} ${cur} en cours de règlement chez l’opérateur${when ? `, retirables à partir du <strong>${when}</strong>` : ''}` : '');
+          + (maturing > 0 ? ` · ${money(maturing, cur)} ${cur} en cours de règlement chez l’opérateur${when ? `, retirables à partir du <strong>${when}</strong>` : ''}` : ''))
+        + pendingLine;
       return `<section class="panel" style="border-color:rgba(53,214,164,.4)">
         <header><h2>Mon argent</h2></header>
         <div class="pad" style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between">
@@ -526,12 +535,13 @@
     }
     const who = kind === 'payments' ? 'Client' : 'Bénéficiaire';
     return `<div class="scroll"><table>
-      <thead><tr><th>Référence</th><th>Statut</th><th class="num">Montant</th><th>Pays</th>
+      <thead><tr><th>Référence</th><th>Statut</th><th class="num">Montant</th>${kind === 'payments' ? '<th class="num" title="Montant payé moins 5 % de frais au total">Vous recevez</th>' : ''}<th>Pays</th>
         <th>${who}</th><th>Agrégateur</th><th class="num">Tent.</th><th>Créé</th></tr></thead>
       <tbody>${rows.map((t) => `<tr data-open="${kind}:${esc(t.id)}" style="cursor:pointer">
         <td class="mono">${esc(t.reference)}</td>
         <td>${tag(t.status)}</td>
         <td class="num">${money(t.amount, t.currency)} <span class="muted">${esc(t.currency)}</span></td>
+        ${kind === 'payments' ? `<td class="num">${t.split ? `<strong>${money(t.split.merchant_receives, t.currency)}</strong>` : '<span class="muted">—</span>'}</td>` : ''}
         <td>${esc(t.country)}</td>
         <td class="mono muted">${esc(t.customer_phone || t.recipient_phone || '—')}</td>
         <td class="mono">${esc(t.provider || '—')}</td>
@@ -1082,7 +1092,37 @@
       </section>`;
     }
 
+    const PROV = { geniuspay: 'GeniusPay', yabetoo: 'Yabetoo', sandbox: 'Simulateur' };
+    const splitRows = res.split || [];
+    const splitPanel = `<section class="panel">
+        <header><h2>Comment votre argent est réparti</h2></header>
+        <div class="pad" style="font-size:14px;color:var(--muted);max-width:80ch">
+          Sur chaque paiement, <strong style="color:var(--ink)">les frais sont de 5 % au total</strong>, tout compris :
+          l’agrégateur (Yabetoo, GeniusPay…) prend sa commission, Afripaie garde le reste. Si l’agrégateur prend plus
+          de 5 %, c’est Afripaie qui paie la différence : <strong style="color:var(--ink)">vous recevez toujours 95 %</strong>.
+          Les frais d’envoi de vos retraits sont aussi pris en charge par Afripaie.
+        </div>
+        ${splitRows.length === 0
+          ? '<div class="empty"><strong>Aucun encaissement</strong>Aucun paiement n’est encore passé par les comptes d’Afripaie.</div>'
+          : `<div class="scroll"><table>
+          <thead><tr><th>Agrégateur</th><th class="num">Paiements</th><th class="num">Payé par vos clients</th>
+            <th class="num">Frais agrégateur</th><th class="num">Afripaie</th><th class="num">Pour vous (95 %)</th>
+            <th class="num">Déjà retiré</th><th class="num">Retrait en cours</th><th class="num">Reste dû</th></tr></thead>
+          <tbody>${splitRows.map((r) => `<tr>
+            <td>${esc(PROV[r.provider] || r.provider)}</td>
+            <td class="num">${r.payments}</td>
+            <td class="num mono">${money(r.customer_paid, r.currency)} ${esc(r.currency)}</td>
+            <td class="num mono muted">− ${money(r.aggregator_fees, r.currency)}</td>
+            <td class="num mono muted">${r.afripaie_fees >= 0 ? '− ' + money(r.afripaie_fees, r.currency) : '+ ' + money(-r.afripaie_fees, r.currency) + ' <span title="Afripaie paie l’écart">offert</span>'}</td>
+            <td class="num mono"><strong>${money(r.merchant_net, r.currency)}</strong></td>
+            <td class="num mono muted">${r.withdrawn ? '− ' + money(r.withdrawn, r.currency) : '0'}</td>
+            <td class="num mono" style="${r.withdrawing ? 'color:var(--warn)' : ''}">${r.withdrawing ? '− ' + money(r.withdrawing, r.currency) : '0'}</td>
+            <td class="num mono"><strong>${money(r.balance, r.currency)} ${esc(r.currency)}</strong></td>
+          </tr>`).join('')}</tbody></table></div>`}
+      </section>`;
+
     $('content').innerHTML = `
+      ${splitPanel}
       <section class="panel">
         <header><h2>Solde dû</h2></header>
         ${balances}
@@ -1195,7 +1235,19 @@
     if (!current) return;
     try {
       const data = await api(`/v1/${current.kind}/${current.id}`);
-      $('detail-body').textContent = JSON.stringify(data, null, 2);
+      const sp = data.split;
+      const fmt = (n) => `${money(n, data.currency)} ${data.currency}`;
+      const head = sp
+        ? `RÉPARTITION DE CE PAIEMENT\n`
+          + `  Payé par le client ............ ${fmt(sp.customer_paid)}\n`
+          + `  Frais ${(({ yabetoo: 'Yabetoo ', geniuspay: 'GeniusPay ', sandbox: 'Simulateur ' })[sp.aggregator] || 'agrégateur ').padEnd(24, '.')} − ${fmt(sp.aggregator_fee)}\n`
+          + (sp.afripaie_fee >= 0
+            ? `  Commission Afripaie ........... − ${fmt(sp.afripaie_fee)}\n`
+            : `  Afripaie paie l’écart ......... + ${fmt(-sp.afripaie_fee)} (l’agrégateur a pris plus de 5 %)\n`)
+          + `  ─────────────────────────────────\n`
+          + `  Vous recevez .................. ${fmt(sp.merchant_receives)}\n\n`
+        : '';
+      $('detail-body').textContent = head + JSON.stringify(data, null, 2);
       $('detail-retry').disabled = data.status === 'SUCCEEDED' || data.status === 'UNKNOWN';
     } catch (e) {
       $('detail-body').textContent = 'Erreur : ' + e.message;

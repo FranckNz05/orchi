@@ -738,12 +738,20 @@
     const STATUS = { SUCCEEDED: 'réussi', FAILED: 'échoué', EXPIRED: 'expiré', PROCESSING: 'en cours', CREATED: 'créé' };
     const rows = list.length
       ? `<div class="scroll" style="overflow-x:auto"><table class="txtable">
-          <tr><th>Date</th><th>Client (marchand)</th><th>Référence</th><th style="text-align:right">Montant</th><th>Pays</th><th>Opérateur</th><th>Payeur</th><th>État</th></tr>
+          <tr><th>Date</th><th>Client (marchand)</th><th>Référence</th><th style="text-align:right">Payé</th><th style="text-align:right">Agrégateur</th><th style="text-align:right">Afripaie</th><th style="text-align:right">Marchand</th><th>Pays</th><th>Opérateur</th><th>Payeur</th><th>État</th></tr>
           ${list.map((t) => `<tr>
             <td class="m" style="white-space:nowrap">${date(t.created_at)}${t.environment === 'test' ? ' · test' : ''}</td>
             <td>${esc(t.merchant.name)}</td>
             <td class="m">${esc(t.reference)}</td>
             <td class="n">${money(t.amount)} ${esc(t.currency)}</td>
+            ${(() => {
+              const ok = t.status === 'SUCCEEDED' && t.fees.provider != null && t.fees.platform != null;
+              if (!ok) return '<td class="n m">—</td><td class="n m">—</td><td class="n m">—</td>';
+              const afr = t.fees.platform;
+              return `<td class="n m">${money(t.fees.provider)}</td>
+                <td class="n" style="color:${afr < 0 ? 'var(--danger)' : 'var(--accent)'}" title="${afr < 0 ? 'Afripaie paie l’écart : l’agrégateur a pris plus de 5 %' : 'Commission Afripaie'}">${afr < 0 ? '−' + money(-afr) : money(afr)}</td>
+                <td class="n">${money(t.amount - t.fees.provider - afr)}</td>`;
+            })()}
             <td>${esc(t.country)}</td>
             <td>${esc(t.provider || '—')}${t.network ? `<br><span class="m">${esc(t.network)}</span>` : ''}</td>
             <td class="m">${esc(t.customer_phone || '—')}</td>
@@ -753,7 +761,9 @@
       : '<p class="hint">Aucun paiement pour ce filtre.</p>';
 
     $('tx-admin').innerHTML = `<h2>Paiements des clients</h2>
-      <p class="hint">Les demandes de paiement de tous les marchands, les plus récentes d’abord. Le numéro du payeur est masqué.</p>
+      <p class="hint">Les demandes de paiement de tous les marchands, les plus récentes d’abord. Le numéro du payeur est masqué.
+        Répartition d’un paiement réussi : 5 % de frais au total, l’agrégateur prend sa commission, Afripaie le reste
+        (en rouge quand l’agrégateur prend plus de 5 % et qu’Afripaie paie l’écart), le marchand reçoit 95 %.</p>
       <div class="txbar">
         <select data-tx-env aria-label="Environnement">
           <option value="live"${txEnv === 'live' ? ' selected' : ''}>Réel</option>

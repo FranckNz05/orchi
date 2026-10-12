@@ -14,6 +14,7 @@ import {
   recordSettlement,
   serializeBalance,
   serializeSettlement,
+  splitSummary,
 } from '../../modules/settlements.js';
 import {
   approveWithdrawal,
@@ -122,10 +123,11 @@ export async function settlementRoutes(app: FastifyInstance) {
   /** Cote marchand : solde du et historique, dans l'environnement courant. */
   app.get('/v1/settlements', { preHandler: app.authenticate }, async (request) => {
     const ctx = request.auth!;
-    const [balances, rows, targets] = await Promise.all([
+    const [balances, rows, targets, split] = await Promise.all([
       heldBalances(ctx.merchantId),
       listSettlements(ctx.merchantId, ctx.environment),
       listTargets(ctx.merchantId),
+      splitSummary(ctx.merchantId, ctx.environment),
     ]);
     return {
       object: 'list',
@@ -133,6 +135,8 @@ export async function settlementRoutes(app: FastifyInstance) {
       balances: balances.filter((b) => b.environment === ctx.environment).map(serializeBalance),
       targets: targets.filter((t) => t.environment === ctx.environment).map(serializeTarget),
       withdrawal_minimum: WITHDRAWAL_MIN,
+      /** D'ou vient le solde : paye par les clients, frais, net, retraits. */
+      split,
       count: rows.length,
       data: rows.map((s) => serializeSettlement(s)),
     };
