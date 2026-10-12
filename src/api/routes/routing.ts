@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { env } from '../../core/env.js';
 import { errors } from '../../core/errors.js';
 import { prisma } from '../../db/client.js';
 import { snapshot } from '../../routing/circuit-breaker.js';
@@ -16,8 +17,46 @@ import { healthKey, stats } from '../../routing/health.js';
  * marchand devient indefendable.
  */
 export async function routingRoutes(app: FastifyInstance) {
-  /** Etat des disjoncteurs et sante observee, par (agregateur, pays, canal). */
-  app.get('/v1/routing/health', { preHandler: app.authenticate }, async () => {
+  /**
+   * Etat des disjoncteurs et sante observee, par (agregateur, pays, canal).
+   *
+   * RESERVE AUX ADMINISTRATEURS : ces chiffres couvrent toute la plateforme. Un
+   * client n'a pas a savoir quels agregateurs Afripaie utilise ni dans quel etat
+   * ils sont.
+   */
+  app.get('/v1/routing/health', { preHandler: [app.authenticate, app.requireAdmin] }, async () => ({
+    object: 'list',
+    ...healthList(),
+  }));
+
+  /**
+   * Agregateurs de la plateforme, pour l'administration : comptes connectes
+   * (ceux d'Afripaie et ceux qu'un marchand a branches lui-meme), sans aucun
+   * secret, et sante du routage.
+   */
+  app.get('/v1/admin/providers', { preHandler: [app.authenticate, app.requireAdmin] }, async () => {
+    const accounts = await prisma.providerAccount.findMany({
+      include: { merchant: { select: { id: true, name: true } } },
+      orderBy: [{ environment: 'desc' }, { providerId: 'asc' }],
+    });
+    const platformId = env.PLATFORM_MERCHANT_ID;
+    return {
+      object: 'admin_providers',
+      accounts: accounts.map((a) => ({
+        id: a.id,
+        provider: a.providerId,
+        environment: a.environment,
+        status: a.status,
+        priority: a.priority,
+        owner: { id: a.merchant.id, name: a.merchant.name, platform: a.merchantId === platformId },
+        last_used_at: a.lastUsedAt?.toISOString() ?? null,
+        created_at: a.createdAt.toISOString(),
+      })),
+      health: healthList().data,
+    };
+  });
+
+  function healthList() {
     const breakers = snapshot();
 
     const data = breakers.map((b) => {
@@ -40,8 +79,8 @@ export async function routingRoutes(app: FastifyInstance) {
       };
     });
 
-    return { object: 'list', count: data.length, data };
-  });
+    return { count: data.length, data };
+  }
 
   /** Decisions de routage d'une transaction : candidats, scores, ecartes. */
   app.get('/v1/routing/decisions', { preHandler: app.authenticate }, async (request) => {

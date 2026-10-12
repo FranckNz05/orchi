@@ -1,8 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { withIdempotency } from '../../core/idempotency.js';
+import { errors } from '../../core/errors.js';
 import {
   createPayout,
+  getPayout,
   listPayouts,
   refreshPayout,
   retryPayout,
@@ -98,6 +100,7 @@ export async function payoutRoutes(app: FastifyInstance) {
   app.get('/v1/payouts', { preHandler: app.authenticate }, async (request) => {
     const query = listQuery.parse(request.query);
     return listPayouts(request.auth!.merchantId, {
+      environment: request.auth!.environment,
       ...(query.status ? { status: query.status } : {}),
       ...(query.country ? { country: query.country } : {}),
       ...(query.starting_after ? { startingAfter: query.starting_after } : {}),
@@ -111,6 +114,9 @@ export async function payoutRoutes(app: FastifyInstance) {
    */
   app.get('/v1/payouts/:id', { preHandler: app.authenticate }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    // Meme regle que les paiements : un autre environnement n'existe pas pour l'appelant.
+    const found = await getPayout(request.auth!.merchantId, id);
+    if (found.payout.environment !== request.auth!.environment) throw errors.notFound('Décaissement', id);
     const { payout, attempts } = await refreshPayout(request.auth!.merchantId, id);
     return serializePayout(payout, attempts);
   });

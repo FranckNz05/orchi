@@ -577,3 +577,21 @@ describe('espace administrateur', () => {
   });
 });
 
+describe('cloisonnement test / reel', () => {
+  it('une session en test ne voit ni ne lit les paiements reels', async () => {
+    const client = await newMerchant();
+    const id = `pay_live_${Date.now()}`;
+    await prisma.payment.create({
+      data: {
+        id, merchantId: client.merchantId, reference: `reel-${Date.now()}`, amount: 1000, currency: 'XAF',
+        country: 'CG', channel: 'mobile_money', customerPhone: '+242068000000', environment: 'live', status: 'SUCCEEDED',
+      },
+    });
+    // La session vient de s'inscrire : elle est en environnement test.
+    const liste = await as(client, 'GET', '/v1/payments?limit=100');
+    expect(liste.statusCode).toBe(200);
+    expect((liste.json().data as { id: string }[]).some((p) => p.id === id)).toBe(false);
+    expect((await as(client, 'GET', `/v1/payments/${id}`)).statusCode).toBe(404);
+  });
+});
+

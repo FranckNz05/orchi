@@ -1,8 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { withIdempotency } from '../../core/idempotency.js';
+import { errors } from '../../core/errors.js';
 import {
   createPayment,
+  getPayment,
   listPayments,
   refreshPayment,
   retryPayment,
@@ -100,6 +102,7 @@ export async function paymentRoutes(app: FastifyInstance) {
   app.get('/v1/payments', { preHandler: app.authenticate }, async (request) => {
     const query = listQuery.parse(request.query);
     return listPayments(request.auth!.merchantId, {
+      environment: request.auth!.environment,
       ...(query.status ? { status: query.status } : {}),
       ...(query.country ? { country: query.country } : {}),
       ...(query.starting_after ? { startingAfter: query.starting_after } : {}),
@@ -114,6 +117,10 @@ export async function paymentRoutes(app: FastifyInstance) {
    */
   app.get('/v1/payments/:id', { preHandler: app.authenticate }, async (request) => {
     const { id } = z.object({ id: z.string() }).parse(request.params);
+    // Une transaction d'un autre environnement n'existe pas pour l'appelant :
+    // verifie AVANT d'interroger l'agregateur.
+    const found = await getPayment(request.auth!.merchantId, id);
+    if (found.payment.environment !== request.auth!.environment) throw errors.notFound('Paiement', id);
     const { payment, attempts } = await refreshPayment(request.auth!.merchantId, id);
     return serializePayment(payment, attempts);
   });

@@ -292,7 +292,8 @@ agrégateurs **écartés** avec le motif. Sans cette trace, impossible d'expliqu
 à un marchand pourquoi sa transaction est partie chez tel agrégateur — donc
 impossible de défendre le produit le jour où il conteste.
 
-`GET /v1/routing/health` expose l'état des disjoncteurs, le taux de succès, la
+`GET /v1/routing/health` (administrateurs seulement : un client n'a pas à
+savoir quels agrégateurs Afripaie utilise) expose l'état des disjoncteurs, le taux de succès, la
 latence p95 et le nombre de refus clients (suivis, mais sans effet sur le
 disjoncteur).
 

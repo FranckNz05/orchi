@@ -191,6 +191,10 @@ tableau de bord (Reversements → Retirer mes fonds) : minimum 500 XAF, mot de
 passe redemandé à chaque retrait, argent versé sur le numéro enregistré par
 Afripaie. Cette opération n'est pas ouverte aux clés API.
 
+Les listes et la lecture d'une transaction sont cloisonnées par environnement :
+une clé de test ne voit que les transactions de test, une clé live que les
+transactions réelles.
+
 Un retrait vers un numéro **jamais utilisé** (ou d'un montant élevé) est d'abord
 validé par un administrateur d'Afripaie : il apparaît `PENDING_APPROVAL`, le
 montant est réservé, et l'argent part dès l'approbation. Les retraits suivants
@@ -889,7 +893,7 @@ curl -H "Authorization: Bearer sk_test_..." \
 | `DELETE` | `/v1/webhook-endpoints/:id` | Désactiver un endpoint |
 | `GET` | `/v1/webhook-deliveries` | Journal des livraisons |
 | `GET` | `/v1/reconciliation` | Points à trancher |
-| `GET` | `/v1/routing/health` | État des agrégateurs |
+| `GET` | `/v1/routing/health` | État des agrégateurs (administrateurs Afripaie seulement) |
 | `GET` | `/v1/routing/decisions` | Pourquoi cette transaction est partie là |
 
 ---

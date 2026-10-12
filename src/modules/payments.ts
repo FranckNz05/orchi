@@ -512,6 +512,11 @@ async function attemptsOf(paymentId: string): Promise<PaymentAttempt[]> {
 /* -------------------------------------------------------------------------- */
 
 export interface ListFilters {
+  /**
+   * Environnement de l'appelant. Sans lui, le tableau de bord « Live » additionnait
+   * les transactions de test, et une cle de test lisait les transactions reelles.
+   */
+  environment?: 'test' | 'live';
   status?: string;
   country?: string;
   limit: number;
@@ -554,6 +559,7 @@ export async function listPayments(merchantId: string, filters: ListFilters) {
   const rows = await prisma.payment.findMany({
     where: {
       merchantId,
+      ...(filters.environment ? { environment: filters.environment } : {}),
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.country ? { country: filters.country.toUpperCase() } : {}),
     },

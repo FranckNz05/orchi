@@ -449,6 +449,11 @@ async function attemptsOf(payoutId: string): Promise<PayoutAttempt[]> {
 /* -------------------------------------------------------------------------- */
 
 export interface PayoutListFilters {
+  /**
+   * Environnement de l'appelant. Sans lui, le tableau de bord « Live » additionnait
+   * les transactions de test, et une cle de test lisait les transactions reelles.
+   */
+  environment?: 'test' | 'live';
   status?: string;
   country?: string;
   limit: number;
@@ -481,6 +486,7 @@ export async function listPayouts(merchantId: string, filters: PayoutListFilters
   const rows = await prisma.payout.findMany({
     where: {
       merchantId,
+      ...(filters.environment ? { environment: filters.environment } : {}),
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.country ? { country: filters.country.toUpperCase() } : {}),
     },

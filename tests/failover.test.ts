@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { generateApiKey } from '../src/core/crypto.js';
 import { ID_PREFIX, newId } from '../src/core/ids.js';
 import { prisma } from '../src/db/client.js';
+import { SESSION_COOKIE, createSession, hashPassword } from '../src/modules/auth.js';
 import { connectProviderAccount } from '../src/modules/provider-accounts.js';
 import { ProviderError } from '../src/providers/errors.js';
 import { registerProvider } from '../src/providers/registry.js';
@@ -52,6 +53,7 @@ let app: FastifyInstance;
 let merchantId: string;
 let sandboxAccountId: string;
 let key: string;
+let adminCookie = '';
 let seeded = false;
 let counter = 0;
 const ref = (p: string) => `${p}-${Date.now()}-${(counter += 1)}`;
@@ -104,6 +106,19 @@ beforeAll(async () => {
       contactEmail: `${merchantId}@test.local`,
     },
   });
+
+  // La sante du routage est reservee aux administrateurs de la plateforme.
+  const admin = await prisma.user.create({
+    data: {
+      id: newId(ID_PREFIX.merchant).replace('mch_', 'usr_'),
+      email: `admin-${merchantId}@test.local`,
+      passwordHash: await hashPassword('une phrase de passe solide'),
+      name: 'Admin failover',
+      merchantId,
+      platformAdmin: true,
+    },
+  });
+  adminCookie = (await createSession(admin.id)).token;
 
   const generated = generateApiKey('test');
   key = generated.secret;
@@ -174,6 +189,9 @@ function pay(over: Record<string, unknown> = {}) {
 }
 
 function get(url: string) {
+  if (url.startsWith('/v1/routing/health')) {
+    return app.inject({ method: 'GET', url, cookies: { [SESSION_COOKIE]: adminCookie } });
+  }
   return app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${key}` } });
 }
 
@@ -344,3 +362,20 @@ describe('disjoncteur — quand il n’existe aucune alternative', () => {
     );
   });
 });
+
+describe('sante du routage : administrateurs seulement', () => {
+  it('refuse un marchand (cle API), sert un administrateur', async () => {
+    if (!seeded) return;
+    const marchand = await app.inject({ method: 'GET', url: '/v1/routing/health', headers: { authorization: `Bearer ${key}` } });
+    expect(marchand.statusCode).toBe(403);
+    expect((await get('/v1/routing/health')).statusCode).toBe(200);
+
+    const vue = await app.inject({ method: 'GET', url: '/v1/admin/providers', cookies: { [SESSION_COOKIE]: adminCookie } });
+    expect(vue.statusCode).toBe(200);
+    const compte = (vue.json().accounts as { provider: string; owner: { id: string } }[]).find((a) => a.provider === 'sandbox' && a.owner.id === merchantId);
+    expect(compte).toBeDefined();
+    // Jamais de secret dans la vue d'administration.
+    expect(JSON.stringify(vue.json())).not.toMatch(/secret-failover|credentials|webhook_token/);
+  });
+});
+

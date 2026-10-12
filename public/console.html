@@ -331,9 +331,10 @@
   }
 
   async function loadOverview() {
-    const [recon, health, payments] = await Promise.all([
+    let [recon, health, payments] = await Promise.all([
       api('/v1/reconciliation'),
-      api('/v1/routing/health'),
+      // Reservee aux administrateurs : un client n'a pas a voir l'etat des agregateurs.
+      api('/v1/routing/health').catch(() => null),
       api('/v1/payments?limit=100'),
     ]);
 
@@ -350,13 +351,17 @@
 
     const succeeded = payments.data.filter((p) => p.status === 'SUCCEEDED').length;
     const settled = payments.data.filter((p) => ['SUCCEEDED', 'FAILED', 'EXPIRED'].includes(p.status)).length;
+    const hidden = health === null;
+    if (hidden) health = { data: [] };
+    const hsec = $('health-body').closest('section, .panel, .card');
+    if (hsec) hsec.hidden = hidden;
     const openBreakers = health.data.filter((h) => h.state !== 'CLOSED').length;
 
     $('stats').innerHTML = [
       ['', payments.count, 'encaissements récents'],
       ['', settled ? Math.round((succeeded / settled) * 100) + ' %' : '—', 'taux de succès'],
       [stuck.length ? 'alert' : '', stuck.length, 'décaissements bloqués'],
-      [openBreakers ? 'alert' : '', openBreakers, 'disjoncteurs ouverts'],
+      ...(hidden ? [] : [[openBreakers ? 'alert' : '', openBreakers, 'disjoncteurs ouverts']]),
       [recon.undelivered_events ? 'alert' : '', recon.undelivered_events, 'événements non livrés'],
       [recon.rejected_webhooks_24h ? 'alert' : '', recon.rejected_webhooks_24h, 'webhooks rejetés (24 h)'],
     ].map(([cls, n, l]) => '<div class="stat ' + cls + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>').join('');

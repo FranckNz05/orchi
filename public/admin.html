@@ -216,6 +216,7 @@
     <nav class="jump" aria-label="Aller à">
       <a href="#wd-admin">PIN et retraits à valider</a>
       <a href="#tx-admin">Paiements des clients</a>
+      <a href="#prov-admin">Agrégateurs</a>
       <a href="#clients">Comptes clients</a>
     </nav>
 
@@ -224,6 +225,8 @@
     <section class="wd" id="wd-admin"></section>
 
     <section class="wd" id="tx-admin"></section>
+
+    <section class="wd" id="prov-admin"></section>
 
     <section id="clients">
       <h2 style="font-size:18px;margin:0 0 4px">Comptes clients</h2>
@@ -780,6 +783,54 @@
       ${rows}`;
   }
 
+  /* ------------------------------------------------------------ agregateurs */
+
+  async function loadProviders() {
+    const el = $('prov-admin');
+    let res;
+    try {
+      res = await api('/v1/admin/providers');
+    } catch (e) {
+      el.innerHTML = `<p class="hint">Agrégateurs indisponibles : ${esc(e.message)}</p>`;
+      return;
+    }
+    const NAME = { yabetoo: 'Yabetoo', geniuspay: 'GeniusPay', sandbox: 'Simulateur' };
+    const STATE = { CLOSED: 'opérationnel', OPEN: 'écarté (pannes)', HALF_OPEN: 'en test' };
+    const platform = res.accounts.filter((a) => a.owner.platform);
+    const merchants = res.accounts.filter((a) => !a.owner.platform);
+    const accTable = (list, owner) => list.length === 0 ? '<p class="hint">Aucun.</p>' : `<div style="overflow-x:auto"><table class="txtable">
+        <tr><th>Agrégateur</th>${owner ? '<th>Marchand</th>' : ''}<th>Environnement</th><th>État</th><th>Dernier usage</th><th>Connecté le</th></tr>
+        ${list.map((a) => `<tr>
+          <td><strong>${esc(NAME[a.provider] || a.provider)}</strong></td>
+          ${owner ? `<td>${esc(a.owner.name)}</td>` : ''}
+          <td>${a.environment === 'live' ? '<span class="st SUCCEEDED">réel</span>' : '<span class="st">test</span>'}</td>
+          <td>${a.status === 'ACTIVE' ? '<span class="st SUCCEEDED">actif</span>' : `<span class="st FAILED">${esc(a.status.toLowerCase())}</span>`}</td>
+          <td class="m">${a.last_used_at ? date(a.last_used_at) : '—'}</td>
+          <td class="m">${date(a.created_at)}</td>
+        </tr>`).join('')}
+      </table></div>`;
+    const health = res.health.length === 0 ? '<p class="hint">Aucun appel observé depuis le dernier démarrage du serveur.</p>' : `<div style="overflow-x:auto"><table class="txtable">
+        <tr><th>Agrégateur</th><th>Pays</th><th>Canal</th><th>État</th><th style="text-align:right">Succès</th><th style="text-align:right">Pannes</th><th style="text-align:right">Refus client</th><th style="text-align:right">Temps (p95)</th></tr>
+        ${res.health.map((h) => `<tr>
+          <td><strong>${esc(NAME[h.provider] || h.provider)}</strong></td><td>${esc(h.country)}</td><td class="m">${esc(h.channel)}</td>
+          <td><span class="st ${h.state === 'CLOSED' ? 'SUCCEEDED' : 'FAILED'}">${esc(STATE[h.state] || h.state)}</span></td>
+          <td class="n">${h.successes}</td><td class="n">${h.technical_failures}</td><td class="n">${h.declines}</td>
+          <td class="n">${h.latency_p95_ms != null ? h.latency_p95_ms + ' ms' : '—'}</td>
+        </tr>`).join('')}
+      </table></div>`;
+
+    el.innerHTML = `<h2>Agrégateurs</h2>
+      <p class="hint">Visible des seuls administrateurs : les clients ne voient pas quels agrégateurs Afripaie utilise.</p>
+      <h3 style="font-size:15px;margin:14px 0 6px">Comptes d’Afripaie</h3>
+      <p class="hint">Les comptes de la plateforme : tout marchand sans compte propre encaisse par eux.</p>
+      ${accTable(platform, false)}
+      <h3 style="font-size:15px;margin:18px 0 6px">Comptes branchés par des marchands</h3>
+      ${accTable(merchants, true)}
+      <h3 style="font-size:15px;margin:18px 0 6px">Santé du routage</h3>
+      <p class="hint">Observée sur les derniers appels. Un agrégateur « écarté » reçoit moins de trafic jusqu’à ce qu’il réponde de nouveau ; les refus clients (solde insuffisant…) ne comptent pas comme des pannes.</p>
+      ${health}`;
+  }
+
   /* --------------------------------------------------------------- actions */
 
   async function load() {
@@ -795,6 +846,7 @@
     for (const id of open) loadSettlements(id);
     loadWithdrawals();
     loadPayments();
+    loadProviders();
   }
 
   async function decide(id, decision, note) {

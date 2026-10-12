@@ -264,7 +264,7 @@
 
     <div class="group">Infrastructure</div>
     <a data-view="live"><span class="ico">◎</span> Passage en réel <span class="badge" id="badge-live" hidden>!</span></a>
-    <a data-view="providers"><span class="ico">⛁</span> Agrégateurs</a>
+    <a data-view="providers" id="providers-nav" hidden><span class="ico">⛁</span> Agrégateurs</a>
     <a data-view="webhooks"><span class="ico">⇄</span> Webhooks</a>
 
     <div class="group">Compte</div>
@@ -340,7 +340,6 @@
   let session = null;
   let view = 'overview';
   let current = null;
-  let timer = null;
 
   /* ------------------------------------------------------------------ API -- */
 
@@ -409,11 +408,10 @@
   };
 
   async function renderOverview() {
-    const [recon, payments, payouts, health, money_] = await Promise.all([
+    const [recon, payments, payouts, money_] = await Promise.all([
       api('/v1/reconciliation'),
       api('/v1/payments?limit=100'),
       api('/v1/payouts?limit=100'),
-      api('/v1/routing/health'),
       // Le solde ne doit jamais empecher la vue d'ensemble de s'afficher.
       api('/v1/settlements').catch(() => null),
     ]);
@@ -459,7 +457,6 @@
     const volume = succeeded.reduce((s, p) => s + p.amount, 0);
     const today = succeeded.filter((p) => new Date(p.created_at).toDateString() === new Date().toDateString());
     const todayVolume = today.reduce((s, p) => s + p.amount, 0);
-    const openBreakers = health.data.filter((h) => h.state !== 'CLOSED').length;
 
     // Volume par jour sur 14 jours, calcule cote client : une poignee de
     // transactions ne justifie pas un endpoint d'agregation dedie.
@@ -484,7 +481,6 @@
         ${kpi('Volume encaissé', `${money(volume, currency)} <small>${currency}</small>`, 'sur les 100 dernières transactions')}
         ${kpi('Taux de succès', settled.length ? `${Math.round((succeeded.length / settled.length) * 100)} <small>%</small>` : '—', `${settled.length} transaction${settled.length > 1 ? 's' : ''} conclue${settled.length > 1 ? 's' : ''}`)}
         ${kpi('Décaissements bloqués', recon.indeterminate_payouts.length, 'issue inconnue', recon.indeterminate_payouts.length > 0)}
-        ${kpi('Disjoncteurs ouverts', openBreakers, 'agrégateurs écartés', openBreakers > 0)}
         ${kpi('Événements non livrés', recon.undelivered_events, 'webhooks en attente', recon.undelivered_events > 0)}
       </div>
 
@@ -687,10 +683,9 @@
   }
 
   async function renderDevOverview() {
-    const [keys, endpoints, accounts] = await Promise.all([
+    const [keys, endpoints] = await Promise.all([
       api('/v1/api-keys'),
       api('/v1/webhook-endpoints'),
-      api('/v1/provider-accounts'),
     ]);
 
     const activeKeys = keys.data.filter((k) => !k.revoked).length;
@@ -699,7 +694,6 @@
     // Liste de controle plutot qu'une page de doc : ce qui manque est plus
     // utile a montrer que ce qui est deja fait.
     const steps = [
-      ['Compte agrégateur connecté', accounts.count > 0, 'providers'],
       ['Clé API créée', activeKeys > 0, 'keys'],
       ['Endpoint de webhook déclaré', endpoints.count > 0, 'webhooks'],
     ];
@@ -708,7 +702,6 @@
       <div class="kpis">
         ${kpi('Clés actives', activeKeys, 'pour connecter votre backend')}
         ${kpi('Endpoints', endpoints.count, 'destinataires de nos événements')}
-        ${kpi('Agrégateurs', accounts.count, 'comptes connectés')}
       </div>
 
       <section class="panel">
@@ -924,7 +917,7 @@
     $('content').innerHTML = `
       <section class="panel">
         <header><h2>Changer le mot de passe</h2></header>
-        <form class="pad" id="pw-form" style="display:grid;gap:16px;max-width:480px">
+        <form class="pad" id="pw-form" method="post" style="display:grid;gap:16px;max-width:480px">
           <input type="email" name="username" autocomplete="username" value="${esc(session?.user?.email)}" hidden />
           <label style="${LABEL}">
             Mot de passe actuel
@@ -1050,7 +1043,7 @@
       const name = registered ? registered.beneficiary_name : (session && session.user ? session.user.name : '');
       withdraw = `<section class="panel" id="withdraw-panel">
         <header><h2>Retirer mes fonds</h2></header>
-        <form class="pad" id="withdraw-form" style="display:grid;gap:14px;max-width:460px">
+        <form class="pad" id="withdraw-form" method="post" style="display:grid;gap:14px;max-width:460px">
           <p style="margin:0;font-size:14px;color:var(--muted)">
             Disponible : <strong style="color:var(--ink)">${money(bal.available, bal.currency)} ${esc(bal.currency)}</strong>
             · Minimum : ${money(MIN, bal.currency)} ${esc(bal.currency)}.
@@ -1207,7 +1200,7 @@
   };
 
   async function show(next) {
-    view = next;
+    view = next === 'providers' && !session.user.platform_admin ? 'overview' : next;
     const meta = VIEWS[view];
     $('title').textContent = meta.title;
     $('subtitle').textContent = meta.sub;
@@ -1220,6 +1213,7 @@
       $('content').innerHTML = `<div class="empty"><strong>Impossible de charger cette vue</strong>${esc(e.message)}</div>`;
     }
   }
+
 
   /* --------------------------------------------------------------- Detail -- */
 
@@ -1389,6 +1383,9 @@
 
     $('admin-link').hidden = !session.user.platform_admin;
     $('admin-nav').hidden = !session.user.platform_admin;
+    // Quels agregateurs Afripaie utilise, et dans quel etat : l'affaire de la
+    // plateforme, pas du client.
+    $('providers-nav').hidden = !session.user.platform_admin;
 
     const liveBadge = $('badge-live');
     liveBadge.hidden = session.merchant.kyb_status !== 'REJECTED';
@@ -1401,19 +1398,15 @@
 
     await show(view);
 
-    if (timer) clearInterval(timer);
-    // Les vues de liste se rafraichissent seules ; le detail ouvert ne doit pas
-    // etre ecrase sous les yeux de l'utilisateur.
-    timer = setInterval(() => {
-      if (current) return;
-      // Ne jamais reconstruire la vue sous les doigts de quelqu'un : un champ de
-      // formulaire (mot de passe, montant d'un retrait) se viderait en pleine saisie.
-      const el = document.activeElement;
-      if (el && el.closest && el.closest('#content') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-      // Ou si un champ a ete modifie (saisi, puis la souris est partie ailleurs).
-      if ([...document.querySelectorAll('#content form input')].some((i) => i.type !== 'hidden' && i.value !== i.defaultValue)) return;
-      void show(view);
-    }, 15000);
+    // Aucune actualisation automatique : la page ne bouge que quand l'utilisateur
+    // le demande (bouton « Actualiser » ou changement de vue). Une page qui se
+    // reconstruit seule donne l'impression d'un site instable.
+    $('actions').innerHTML = '<button class="b" id="refresh-view" title="Recharger les chiffres de cette page">↻ Actualiser</button>';
+    $('refresh-view').onclick = async () => {
+      const y = window.scrollY;
+      await show(view);
+      window.scrollTo(0, y);
+    };
   }
 
   /**
