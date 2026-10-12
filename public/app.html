@@ -24,6 +24,14 @@
     --danger-soft: rgba(255, 138, 122, 0.12);
     --warn: #f0c063;
     --warn-soft: rgba(240, 192, 99, 0.12);
+    /* Palette des graphiques : une couleur par sens, pas seulement du vert. */
+    --c-blue: #4aa8ff;
+    --c-violet: #a78bfa;
+    --c-teal: #35d6a4;
+    --c-orange: #ff9f5a;
+    --c-pink: #f472b6;
+    --c-yellow: #f0c063;
+    --c-red: #ff6b6b;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
 
@@ -207,6 +215,42 @@
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13.5px; }
   .empty strong { display: block; color: var(--ink); font-size: 15px; margin-bottom: 5px; }
 
+  /* -------------------------------------------- vue d'ensemble explicite -- */
+  .c-blue { color: var(--c-blue); } .c-violet { color: var(--c-violet); } .c-teal { color: var(--c-teal); }
+  .c-orange { color: var(--c-orange); } .c-pink { color: var(--c-pink); } .c-yellow { color: var(--c-yellow); } .c-red { color: var(--c-red); }
+  .muted { color: var(--muted); }
+  .summary { border-color: rgba(74,168,255,.35);
+    background: linear-gradient(135deg, rgba(74,168,255,.13), rgba(167,139,250,.10) 55%, rgba(53,214,164,.08)), var(--surface); }
+  .summary .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--c-blue); font-weight: 750; }
+  .summary p { font-size: 17px; line-height: 1.6; margin: 6px 0 0; max-width: 92ch; }
+  .wallet { border-color: rgba(53,214,164,.42); background: linear-gradient(135deg, rgba(53,214,164,.11), transparent 60%), var(--surface); }
+  .kpis.five { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
+  .kpi.c { border-top: 3px solid var(--k); }
+  .kpi.c .chip { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-weight: 800;
+    background: color-mix(in srgb, var(--k) 20%, transparent); color: var(--k); }
+  .kpi.c::before { background: linear-gradient(90deg, transparent, var(--k), transparent); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+  .donut { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; font-size: 14px; flex: 1; min-width: 220px; }
+  .legend li { display: flex; gap: 10px; align-items: flex-start; }
+  .legend.row { margin-top: 18px; }
+  .dot { width: 12px; height: 12px; border-radius: 4px; flex: none; margin-top: 4px; }
+  .stack { display: flex; height: 40px; border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  .stack i { display: grid; place-items: center; color: #06121a; font-style: normal; font-weight: 800; font-size: 13px; white-space: nowrap; }
+  .hbars { display: grid; gap: 15px; }
+  .hrow { display: grid; grid-template-columns: minmax(130px, 1.1fr) 2fr auto; gap: 12px; align-items: center; font-size: 14px; }
+  .hl { display: flex; flex-direction: column; }
+  .htrack { height: 14px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .htrack i { display: block; height: 100%; border-radius: 999px; }
+  .hv { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hv small { color: var(--muted); font-weight: 500; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; height: 140px; }
+  .hours > div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+  .hours i { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, var(--c-orange), var(--c-pink)); }
+  .hours span { font-size: 10.5px; color: var(--muted); height: 14px; margin-top: 4px; }
+  .alerts { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
+  @media (max-width: 600px) { .hrow { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } }
+
   .chart { display: flex; align-items: flex-end; gap: 5px; height: 150px; padding: 0 4px; }
   .chart .bar { flex: 1; background: var(--accent-soft); border-radius: 4px 4px 0 0; position: relative; min-height: 2px; }
   .chart .bar > i {
@@ -303,7 +347,9 @@
         <div class="n" id="me-name">—</div>
         <div class="e" id="me-email">—</div>
       </div>
-      <button class="b" id="logout" title="Se déconnecter" style="padding:6px 10px">⏻</button>
+      <button class="b" id="logout" title="Se déconnecter" aria-label="Se déconnecter" style="padding:6px 10px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 7.2a8 8 0 1 0 11.4 0"/></svg>
+        Quitter</button>
     </div>
   </div>
 </aside>
@@ -346,7 +392,9 @@
   async function api(path, options = {}) {
     const res = await fetch(path, {
       ...options,
-      headers: { 'content-type': 'application/json', ...(options.headers || {}) },
+      // Content-type JSON seulement s'il y a un corps : le serveur refuse (400) une
+      // requete annoncee JSON mais vide. C'est ce qui bloquait la deconnexion.
+      headers: { ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) },
     });
     if (res.status === 401) { window.location.href = '/login'; throw new Error('non authentifié'); }
     const text = await res.text();
@@ -387,7 +435,13 @@
     FAILED: 'bad', UNKNOWN: 'bad', OPEN: 'bad',
     EXPIRED: 'neutral', DISABLED: 'neutral',
   };
-  const tag = (v) => `<span class="tag ${CLASSES[v] || 'neutral'}">${esc(v)}</span>`;
+  /** Les statuts en francais courant : « SUCCEEDED » ne dit rien a un commercant. */
+  const LABELS = {
+    SUCCEEDED: 'réussi', FAILED: 'refusé', EXPIRED: 'non confirmé', PROCESSING: 'en cours', CREATED: 'créé',
+    PENDING: 'en attente', UNKNOWN: 'à vérifier', DELIVERED: 'livré', ACTIVE: 'actif', DISABLED: 'désactivé',
+    CLOSED: 'opérationnel', OPEN: 'écarté', HALF_OPEN: 'en test',
+  };
+  const tag = (v) => `<span class="tag ${CLASSES[v] || 'neutral'}">${esc(LABELS[v] || v)}</span>`;
 
   /* ----------------------------------------------------------------- Vues -- */
 
@@ -407,6 +461,88 @@
     settlements:    { title: 'Mon argent', sub: 'Ce qu’Afripaie encaisse pour vous, et vos retraits' },
   };
 
+  /* ----------------------------------------------------- Vue d'ensemble -- */
+  /*
+   * Ecrite pour un commercant, pas pour un developpeur : chaque chiffre dit en
+   * francais courant ce qu'il compte, chaque graphique dit comment le lire. Un
+   * client nous a dit ne pas comprendre l'ancien tableau de bord.
+   */
+
+  const NETWORK_NAMES = {
+    MTN_CG: 'MTN Congo', AIRTEL_CG: 'Airtel Congo', MTN_CI: 'MTN Côte d’Ivoire', ORANGE_CI: 'Orange Côte d’Ivoire',
+    MOOV_CI: 'Moov Côte d’Ivoire', WAVE_CI: 'Wave Côte d’Ivoire', MTN_CM: 'MTN Cameroun', ORANGE_CM: 'Orange Cameroun',
+    MTN_BENIN: 'MTN Bénin', MOOV_BENIN: 'Moov Bénin', ORANGE_SN: 'Orange Sénégal', WAVE_SN: 'Wave Sénégal',
+    FREE_SN: 'Free Sénégal', ORANGE_BF: 'Orange Burkina', MOOV_BF: 'Moov Burkina', ORANGE_ML: 'Orange Mali',
+    MOOV_TG: 'Moov Togo', TMONEY_TG: 'T-Money Togo', AIRTEL_NE: 'Airtel Niger', MOOV_NE: 'Moov Niger',
+  };
+  const networkName = (n) => NETWORK_NAMES[n] || (n ? String(n).replace(/_/g, ' ') : 'Opérateur non précisé');
+  const PROVIDER_NAMES = { yabetoo: 'Yabetoo', geniuspay: 'GeniusPay', sandbox: 'Simulateur' };
+
+  /** Barres verticales en SVG : une par jour, montant ecrit au-dessus des barres non nulles. */
+  function svgBars(days, currency) {
+    const W = 720, H = 230, L = 46, B = 34, T = 22;
+    const peak = Math.max(1, ...days.map((d) => d.total));
+    const step = (W - L - 8) / days.length;
+    const bw = Math.max(8, step * 0.62);
+    const y = (v) => T + (H - T - B) * (1 - v / peak);
+    const grid = [0, 0.5, 1].map((f) => {
+      const v = Math.round(peak * f);
+      return `<line x1="${L}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="3 4"/>
+        <text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${money(v, currency)}</text>`;
+    }).join('');
+    const bars = days.map((d, i) => {
+      const x = L + i * step + (step - bw) / 2;
+      const top = y(d.total);
+      const h = Math.max(d.total > 0 ? 3 : 1, H - B - top);
+      const label = d.total > 0
+        ? `<text x="${x + bw / 2}" y="${top - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${money(d.total, currency)}</text>` : '';
+      const day = d.d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      return `<g><title>${day} : ${money(d.total, currency)} ${currency} reçus (${d.count} paiement${d.count > 1 ? 's' : ''})</title>
+        <rect x="${x}" y="${H - B - h}" width="${bw}" height="${h}" rx="4" fill="${d.total > 0 ? 'url(#gbar)' : 'var(--surface-2)'}"/>${label}
+        ${i % 2 === 0 || days.length <= 8 ? `<text x="${x + bw / 2}" y="${H - B + 18}" text-anchor="middle" font-size="11" fill="var(--muted)">${day}</text>` : ''}</g>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Argent reçu par jour">
+      <defs><linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--c-blue)"/><stop offset="1" stop-color="var(--c-violet)"/></linearGradient></defs>
+      ${grid}${bars}</svg>`;
+  }
+
+  /** Anneau en SVG ; `parts` = [{ label, value, color, hint }]. */
+  function svgDonut(parts, centerBig, centerSmall) {
+    const total = parts.reduce((s, p) => s + p.value, 0);
+    const R = 62, C = 2 * Math.PI * R;
+    let offset = 0;
+    const arcs = total === 0
+      ? `<circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--surface-2)" stroke-width="22"/>`
+      : parts.filter((p) => p.value > 0).map((p) => {
+        const len = (p.value / total) * C;
+        const arc = `<circle cx="90" cy="90" r="${R}" fill="none" stroke="${p.color}" stroke-width="22"
+          stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 90 90)"><title>${p.label} : ${p.value}</title></circle>`;
+        offset += len;
+        return arc;
+      }).join('');
+    const legend = parts.map((p) => `<li>
+        <span class="dot" style="background:${p.color}"></span>
+        <div><strong>${p.label}</strong> — ${p.value} ${total ? `<span class="muted">(${Math.round((p.value / total) * 100)} %)</span>` : ''}
+        <div class="muted" style="font-size:12.5px">${p.hint}</div></div></li>`).join('');
+    return `<div class="donut">
+      <svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="${centerSmall}">
+        ${arcs}
+        <text x="90" y="88" text-anchor="middle" font-size="30" font-weight="800" fill="var(--ink)">${centerBig}</text>
+        <text x="90" y="110" text-anchor="middle" font-size="12" fill="var(--muted)">${centerSmall}</text>
+      </svg>
+      <ul class="legend">${legend}</ul></div>`;
+  }
+
+  /** Barres horizontales : [{ label, value, sub, color }]. */
+  function hBars(rows, currency) {
+    const peak = Math.max(1, ...rows.map((r) => r.value));
+    return `<div class="hbars">${rows.map((r) => `<div class="hrow">
+        <div class="hl"><strong>${esc(r.label)}</strong><span class="muted">${r.sub || ''}</span></div>
+        <div class="htrack"><i style="width:${Math.max(2, (r.value / peak) * 100)}%;background:${r.color}"></i></div>
+        <div class="hv">${money(r.value, currency)} <small>${currency}</small></div>
+      </div>`).join('')}</div>`;
+  }
+
   async function renderOverview() {
     const [recon, payments, payouts, money_] = await Promise.all([
       api('/v1/reconciliation'),
@@ -415,91 +551,178 @@
       // Le solde ne doit jamais empecher la vue d'ensemble de s'afficher.
       api('/v1/settlements').catch(() => null),
     ]);
+    const live = session.environment === 'live';
+    const envWord = live ? 'réel' : 'test';
 
-    // Bloc « Mon argent » : le solde et le chemin vers le retrait, des l'accueil.
-    const wallet = (() => {
-      const bal = money_ && [...(money_.balances || [])].sort((a, b) => b.available - a.available || b.held - a.held)[0];
-      const split = (money_ && money_.split) || [];
-      const cur = bal ? bal.currency : (split[0]?.currency || payments.data[0]?.currency || 'XAF');
-      const withdrawing = split.filter((r) => r.currency === cur).reduce((s, r) => s + r.withdrawing, 0);
-      const collectedNet = split.filter((r) => r.currency === cur).reduce((s, r) => s + r.merchant_net, 0);
-      const held = bal ? bal.held : 0;
-      const avail = bal ? bal.available : 0;
-      const maturing = bal ? bal.maturing : 0;
-      const when = bal && bal.available_at
-        ? new Date(bal.available_at).toLocaleString('fr-FR', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' }) : null;
-      const pendingLine = withdrawing > 0
-        ? `<br><strong style="color:var(--warn)">${money(withdrawing, cur)} ${cur} en cours de retrait</strong> (en attente de validation par Afripaie ou en cours d’envoi) : ce montant est réservé, il n’est plus compté dans le solde.`
-        : '';
-      const detail = (!bal || held <= 0
-        ? (collectedNet > 0
-          ? `Tout ce qui vous revient (${money(collectedNet, cur)} ${cur}) est déjà retiré ou en cours de retrait.`
-          : `Aucun solde en ${session.environment === 'live' ? 'réel' : 'test'} pour l’instant.`)
-        : `${avail > 0 ? `<strong style="color:var(--accent)">${money(avail, cur)} ${cur} retirables maintenant</strong>` : 'Rien de retirable maintenant'}`
-          + (maturing > 0 ? ` · ${money(maturing, cur)} ${cur} en cours de règlement chez l’opérateur${when ? `, retirables à partir du <strong>${when}</strong>` : ''}` : ''))
-        + pendingLine;
-      return `<section class="panel" style="border-color:rgba(53,214,164,.4)">
-        <header><h2>Mon argent</h2></header>
+    // Devise principale : celle de la majorite des paiements reussis.
+    const counts = {};
+    for (const p of payments.data) counts[p.currency] = (counts[p.currency] || 0) + 1;
+    const currency = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'XAF';
+    const mine = payments.data.filter((p) => p.currency === currency);
+
+    const ok = mine.filter((p) => p.status === 'SUCCEEDED');
+    const failed = mine.filter((p) => p.status === 'FAILED');
+    const expired = mine.filter((p) => p.status === 'EXPIRED');
+    const pending = mine.filter((p) => ['CREATED', 'PROCESSING'].includes(p.status));
+    const paid = ok.reduce((s, p) => s + p.amount, 0);
+    const net = ok.reduce((s, p) => s + (p.split ? p.split.merchant_receives : p.amount), 0);
+    const aggFees = ok.reduce((s, p) => s + (p.split ? p.split.aggregator_fee : 0), 0);
+    const afrFees = ok.reduce((s, p) => s + (p.split ? p.split.afripaie_fee : 0), 0);
+    const concluded = ok.length + failed.length + expired.length;
+    const rate = concluded ? Math.round((ok.length / concluded) * 100) : null;
+
+    // Solde.
+    const bal = money_ && [...(money_.balances || [])].sort((a, b) => b.available - a.available || b.held - a.held)[0];
+    const split = (money_ && money_.split) || [];
+    const held = bal ? bal.held : 0;
+    const avail = bal ? bal.available : 0;
+    const withdrawing = split.filter((r) => r.currency === currency).reduce((s, r) => s + r.withdrawing, 0);
+    const withdrawn = split.filter((r) => r.currency === currency).reduce((s, r) => s + r.withdrawn, 0);
+
+    // 14 derniers jours : ce que le marchand recoit (net), jour par jour.
+    const days = [];
+    for (let i = 13; i >= 0; i -= 1) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
+      days.push({ d, total: 0, count: 0 });
+    }
+    for (const p of ok) {
+      const t = new Date(p.created_at); t.setHours(0, 0, 0, 0);
+      const slot = days.find((x) => x.d.getTime() === t.getTime());
+      if (slot) { slot.total += p.split ? p.split.merchant_receives : p.amount; slot.count += 1; }
+    }
+
+    // Par operateur (reseau mobile money) : argent paye.
+    const byNet = {};
+    for (const p of ok) {
+      const k = p.network || p.provider || '—';
+      byNet[k] = byNet[k] || { value: 0, count: 0 };
+      byNet[k].value += p.amount; byNet[k].count += 1;
+    }
+    const NET_COLORS = ['var(--c-yellow)', 'var(--c-red)', 'var(--c-blue)', 'var(--c-violet)', 'var(--c-teal)', 'var(--c-pink)'];
+    const netRows = Object.entries(byNet).sort((a, b) => b[1].value - a[1].value).map(([k, v], i) => ({
+      label: p_networkLabel(k), value: v.value, sub: ` · ${v.count} paiement${v.count > 1 ? 's' : ''}`, color: NET_COLORS[i % NET_COLORS.length],
+    }));
+    function p_networkLabel(k) { return NETWORK_NAMES[k] ? networkName(k) : (PROVIDER_NAMES[k] || networkName(k)); }
+
+    // Heures de paiement (reussis).
+    const hours = Array.from({ length: 24 }, () => 0);
+    for (const p of ok) hours[new Date(p.created_at).getHours()] += 1;
+    const hourPeak = Math.max(1, ...hours);
+    const bestHour = ok.length ? hours.indexOf(Math.max(...hours)) : null;
+
+    /* --- Resume en une phrase ------------------------------------------- */
+    const summary = mine.length === 0
+      ? `Aucun paiement en ${envWord} pour l’instant. Dès que vos clients paieront, vous verrez ici combien vous avez encaissé, ce qui vous revient et ce que vous pouvez retirer.`
+      : `Sur vos ${mine.length} dernières demandes de paiement en ${envWord}, <strong>${ok.length} ont réussi</strong> : vos clients ont payé
+         <strong>${money(paid, currency)} ${currency}</strong>, dont <strong class="c-teal">${money(net, currency)} ${currency} vous reviennent</strong> (95 %).
+         ${avail > 0 ? `Vous pouvez retirer <strong class="c-violet">${money(avail, currency)} ${currency}</strong> dès maintenant.` : (withdrawing > 0 ? `${money(withdrawing, currency)} ${currency} sont en cours de retrait.` : '')}`;
+
+    /* --- Cartes ---------------------------------------------------------- */
+    const card = (color, icon, title, value, explain) => `<div class="kpi c" style="--k:var(${color})">
+        <div class="t"><span class="chip">${icon}</span>${title}</div>
+        <div class="v">${value}</div>
+        <div class="d">${explain}</div></div>`;
+    const cards = `<div class="kpis five">
+      ${card('--c-blue', '↓', 'Payé par vos clients', `${money(paid, currency)} <small>${currency}</small>`, `${ok.length} paiement${ok.length > 1 ? 's' : ''} réussi${ok.length > 1 ? 's' : ''}, avant frais`)}
+      ${card('--c-teal', '✓', 'Ce qui vous revient', `${money(net, currency)} <small>${currency}</small>`, 'Après les 5 % de frais (opérateur + Afripaie)')}
+      ${card('--c-violet', '⇊', 'Retirable maintenant', `${money(avail, currency)} <small>${currency}</small>`, held > avail ? `${money(held - avail, currency)} ${currency} bientôt disponibles` : (withdrawn > 0 ? `Déjà retiré : ${money(withdrawn, currency)} ${currency}` : 'Bouton « Retirer mon argent » ci-dessus'))}
+      ${card('--c-orange', '!', 'Paiements non aboutis', `${failed.length + expired.length}`, `${failed.length} refusé${failed.length > 1 ? 's' : ''} · ${expired.length} non confirmé${expired.length > 1 ? 's' : ''} à temps`)}
+      ${card('--c-pink', '%', 'Taux de réussite', rate === null ? '—' : `${rate} <small>%</small>`, rate === null ? 'Aucun paiement terminé' : `${ok.length} réussi${ok.length > 1 ? 's' : ''} sur ${concluded} terminé${concluded > 1 ? 's' : ''}`)}
+    </div>`;
+
+    /* --- Bloc « Mon argent » ------------------------------------------- */
+    const wallet = `<section class="panel wallet">
         <div class="pad" style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between">
           <div>
-            <div style="color:var(--muted);font-size:13px">Dû par Afripaie</div>
-            <div style="font-size:32px;font-weight:700;letter-spacing:-.03em">${money(held, cur)} <small style="font-size:16px;color:var(--muted)">${cur}</small></div>
-            <div style="color:var(--muted);font-size:13.5px;margin-top:4px;max-width:60ch">${detail}</div>
+            <div style="color:var(--muted);font-size:13px">Mon argent — ce qu’Afripaie vous doit</div>
+            <div style="font-size:34px;font-weight:800;letter-spacing:-.03em">${money(held, currency)} <small style="font-size:16px;color:var(--muted)">${currency}</small></div>
+            <div style="color:var(--muted);font-size:13.5px;margin-top:4px;max-width:62ch">
+              ${avail > 0 ? `<strong class="c-teal">${money(avail, currency)} ${currency} retirables maintenant</strong>` : 'Rien à retirer pour l’instant'}${withdrawing > 0 ? `<br><strong class="c-orange">${money(withdrawing, currency)} ${currency} en cours de retrait</strong> (en attente de validation ou en cours d’envoi).` : ''}
+            </div>
           </div>
           <button class="b solid" data-goto="settlements" data-focus="withdraw-panel" style="padding:15px 26px;font-size:16px;font-weight:700">Retirer mon argent</button>
         </div>
       </section>`;
-    })();
 
-    const currency = payments.data[0]?.currency || payouts.data[0]?.currency || 'XOF';
-    const succeeded = payments.data.filter((p) => p.status === 'SUCCEEDED');
-    const settled = payments.data.filter((p) => ['SUCCEEDED','FAILED','EXPIRED'].includes(p.status));
-    const volume = succeeded.reduce((s, p) => s + p.amount, 0);
-    const today = succeeded.filter((p) => new Date(p.created_at).toDateString() === new Date().toDateString());
-    const todayVolume = today.reduce((s, p) => s + p.amount, 0);
+    /* --- Graphiques ------------------------------------------------------ */
+    const total100 = paid || 1;
+    const share = (v) => Math.round((v / total100) * 1000) / 10;
+    const youPct = share(net), aggPct = share(aggFees), afrPct = Math.max(0, share(afrFees));
+    const splitBar = ok.length === 0 ? '<div class="empty"><strong>Pas encore de paiement réussi</strong>La répartition apparaîtra au premier paiement.</div>' : `
+      <div class="pad">
+        <div class="stack">
+          <i style="width:${youPct}%;background:var(--c-teal)" title="Pour vous">${youPct >= 12 ? `Vous ${youPct} %` : ''}</i>
+          <i style="width:${aggPct}%;background:var(--c-blue)" title="Opérateur">${aggPct >= 6 ? `${aggPct} %` : ''}</i>
+          ${afrPct > 0 ? `<i style="width:${afrPct}%;background:var(--c-violet)" title="Afripaie"></i>` : ''}
+        </div>
+        <ul class="legend row">
+          <li><span class="dot" style="background:var(--c-teal)"></span><div><strong>Pour vous</strong> — ${money(net, currency)} ${currency} (${youPct} %)</div></li>
+          <li><span class="dot" style="background:var(--c-blue)"></span><div><strong>Frais de l’opérateur</strong> — ${money(aggFees, currency)} ${currency} (${aggPct} %)</div></li>
+          <li><span class="dot" style="background:var(--c-violet)"></span><div><strong>Afripaie</strong> — ${afrFees >= 0 ? `${money(afrFees, currency)} ${currency}` : `Afripaie vous offre ${money(-afrFees, currency)} ${currency} : l’opérateur a pris plus de 5 %`}</div></li>
+        </ul>
+      </div>`;
 
-    // Volume par jour sur 14 jours, calcule cote client : une poignee de
-    // transactions ne justifie pas un endpoint d'agregation dedie.
-    const days = [];
-    for (let i = 13; i >= 0; i -= 1) {
-      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
-      days.push({ d, total: 0 });
-    }
-    for (const p of succeeded) {
-      const t = new Date(p.created_at); t.setHours(0,0,0,0);
-      const slot = days.find((x) => x.d.getTime() === t.getTime());
-      if (slot) slot.total += p.amount;
-    }
-    const peak = Math.max(1, ...days.map((d) => d.total));
+    const hourChart = ok.length === 0 ? '' : `<section class="panel">
+        <header><h2>À quelle heure vos clients paient</h2></header>
+        <div class="pad">
+          <div class="hours">${hours.map((n, h) => `<div title="${h} h : ${n} paiement${n > 1 ? 's' : ''}"><i style="height:${Math.round((n / hourPeak) * 100)}%;${n ? '' : 'background:var(--surface-2)'}"></i><span>${h % 3 === 0 ? h + 'h' : ''}</span></div>`).join('')}</div>
+        </div>
+        <div class="foot">Chaque barre est une heure de la journée. ${bestHour !== null ? `Vos clients paient surtout vers <strong>${bestHour} h</strong>.` : ''}</div>
+      </section>`;
+
+    const alerts = [
+      recon.indeterminate_payouts.length ? `<li class="c-red"><strong>${recon.indeterminate_payouts.length} envoi${recon.indeterminate_payouts.length > 1 ? 's' : ''} d’argent à vérifier</strong> : l’opérateur n’a pas répondu clairement. Ne relancez pas, ouvrez « Réconciliation ».</li>` : '',
+      recon.undelivered_events ? `<li class="c-orange"><strong>${recon.undelivered_events} notification${recon.undelivered_events > 1 ? 's' : ''} non reçue${recon.undelivered_events > 1 ? 's' : ''} par votre site</strong> : Afripaie réessaie automatiquement.</li>` : '',
+      pending.length ? `<li class="c-yellow"><strong>${pending.length} paiement${pending.length > 1 ? 's' : ''} en cours</strong> : le client n’a pas encore confirmé sur son téléphone.</li>` : '',
+    ].filter(Boolean);
 
     $('content').innerHTML = `
-      ${wallet}
-      ${recon.indeterminate_payouts.length ? banner(recon.indeterminate_payouts) : ''}
+      <section class="panel summary"><div class="pad">
+        <div class="eyebrow">${live ? 'Argent réel' : 'Mode test — aucun argent réel'}</div>
+        <p>${summary}</p>
+      </div></section>
 
-      <div class="kpis">
-        ${kpi('Volume du jour', `${money(todayVolume, currency)} <small>${currency}</small>`, `${today.length} transaction${today.length > 1 ? 's' : ''} aboutie${today.length > 1 ? 's' : ''}`)}
-        ${kpi('Volume encaissé', `${money(volume, currency)} <small>${currency}</small>`, 'sur les 100 dernières transactions')}
-        ${kpi('Taux de succès', settled.length ? `${Math.round((succeeded.length / settled.length) * 100)} <small>%</small>` : '—', `${settled.length} transaction${settled.length > 1 ? 's' : ''} conclue${settled.length > 1 ? 's' : ''}`)}
-        ${kpi('Décaissements bloqués', recon.indeterminate_payouts.length, 'issue inconnue', recon.indeterminate_payouts.length > 0)}
-        ${kpi('Événements non livrés', recon.undelivered_events, 'webhooks en attente', recon.undelivered_events > 0)}
+      ${wallet}
+      ${cards}
+      ${alerts.length ? `<section class="panel"><header><h2>À surveiller</h2></header><div class="pad"><ul class="alerts">${alerts.join('')}</ul></div></section>` : ''}
+
+      <section class="panel">
+        <header><h2>Argent reçu par jour — 14 derniers jours</h2></header>
+        <div class="pad">${ok.length ? svgBars(days, currency) : '<div class="empty"><strong>Aucun paiement réussi sur la période</strong>Le graphique se remplira au premier paiement.</div>'}</div>
+        <div class="foot">Hauteur d’une barre = ce qui vous revient ce jour-là, après frais. Passez la souris sur une barre pour le détail.</div>
+      </section>
+
+      <div class="grid2">
+        <section class="panel">
+          <header><h2>Vos paiements ont-ils abouti ?</h2></header>
+          <div class="pad">${svgDonut([
+            { label: 'Réussis', value: ok.length, color: 'var(--c-teal)', hint: 'Le client a payé, l’argent est encaissé.' },
+            { label: 'Refusés', value: failed.length, color: 'var(--c-red)', hint: 'Solde insuffisant, code faux, ou refus de l’opérateur.' },
+            { label: 'Non confirmés', value: expired.length, color: 'var(--c-orange)', hint: 'Le client n’a pas validé sur son téléphone à temps.' },
+            { label: 'En cours', value: pending.length, color: 'var(--c-yellow)', hint: 'En attente de la confirmation du client.' },
+          ], rate === null ? '—' : rate + ' %', 'de réussite')}</div>
+        </section>
+
+        <section class="panel">
+          <header><h2>Où va l’argent payé par vos clients</h2></header>
+          ${splitBar}
+          <div class="foot">Les frais sont de 5 % au total. Si l’opérateur prend plus, Afripaie paie la différence : vous gardez toujours 95 %.</div>
+        </section>
+      </div>
+
+      <div class="grid2">
+        <section class="panel">
+          <header><h2>Par opérateur mobile money</h2></header>
+          <div class="pad">${netRows.length ? hBars(netRows, currency) : '<div class="empty"><strong>Aucun paiement réussi</strong></div>'}</div>
+          <div class="foot">Argent payé par vos clients, selon l’opérateur de leur téléphone.</div>
+        </section>
+        ${hourChart || '<section class="panel"><header><h2>À quelle heure vos clients paient</h2></header><div class="empty"><strong>Pas encore de donnée</strong></div></section>'}
       </div>
 
       <section class="panel">
-        <header><h2>Volume encaissé — 14 derniers jours</h2></header>
-        <div class="pad">
-          <div class="chart">
-            ${days.map((d) => `<div class="bar" title="${d.d.toLocaleDateString('fr')} — ${money(d.total, currency)} ${currency}"><i style="height:${Math.round((d.total / peak) * 100)}%"></i></div>`).join('')}
-          </div>
-          <div class="chart-x">
-            ${days.map((d, i) => `<span>${i % 2 === 0 ? d.d.getDate() : ''}</span>`).join('')}
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <header><h2>Dernières transactions</h2><div class="grow"></div>
+        <header><h2>Derniers paiements</h2><div class="grow"></div>
           <button class="b" data-goto="payments">Tout voir</button></header>
-        ${txTable(payments.data.slice(0, 6), 'payments')}
+        ${txTable(payments.data.slice(0, 8), 'payments')}
       </section>`;
   }
 
@@ -532,7 +755,7 @@
     const who = kind === 'payments' ? 'Client' : 'Bénéficiaire';
     return `<div class="scroll"><table>
       <thead><tr><th>Référence</th><th>Statut</th><th class="num">Montant</th>${kind === 'payments' ? '<th class="num" title="Montant payé moins 5 % de frais au total">Vous recevez</th>' : ''}<th>Pays</th>
-        <th>${who}</th><th>Agrégateur</th><th class="num">Tent.</th><th>Créé</th></tr></thead>
+        <th>${who}</th><th>Opérateur</th><th class="num" title="Nombre d’essais">Essais</th><th>Date</th></tr></thead>
       <tbody>${rows.map((t) => `<tr data-open="${kind}:${esc(t.id)}" style="cursor:pointer">
         <td class="mono">${esc(t.reference)}</td>
         <td>${tag(t.status)}</td>
@@ -540,7 +763,7 @@
         ${kind === 'payments' ? `<td class="num">${t.split ? `<strong>${money(t.split.merchant_receives, t.currency)}</strong>` : '<span class="muted">—</span>'}</td>` : ''}
         <td>${esc(t.country)}</td>
         <td class="mono muted">${esc(t.customer_phone || t.recipient_phone || '—')}</td>
-        <td class="mono">${esc(t.provider || '—')}</td>
+        <td>${esc(t.network ? networkName(t.network) : (PROVIDER_NAMES[t.provider] || t.provider || '—'))}</td>
         <td class="num ${t.attempt_count > 1 ? '' : 'muted'}">${t.attempt_count}</td>
         <td class="muted">${ago(t.created_at)}</td></tr>`).join('')}</tbody>
     </table></div>`;
@@ -1338,8 +1561,10 @@
     }
 
     if (e.target.closest('#logout')) {
-      await api('/auth/logout', { method: 'POST' });
-      window.location.href = '/';
+      // Quoi qu'il arrive cote serveur, on quitte : un bouton de deconnexion qui
+      // ne fait rien est pire qu'une session deja expiree.
+      await fetch('/auth/logout', { method: 'POST' }).catch(() => undefined);
+      window.location.href = '/login';
     }
   };
 

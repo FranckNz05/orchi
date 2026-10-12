@@ -545,6 +545,7 @@ export function serializePaymentRow(
     currency: payment.currency,
     country: payment.country,
     channel: payment.channel,
+    network: payment.network,
     customer_phone: payment.customerPhone,
     provider: last?.providerId ?? null,
     attempt_count: payment.attempts.length,
