@@ -462,9 +462,12 @@ export interface PayoutListFilters {
 
 /** Vue compacte. Le detail s'obtient par GET /v1/payouts/:id. */
 export function serializePayoutRow(
-  payout: Payout & { attempts: { providerId: string; status: string }[] },
+  payout: Payout & {
+    attempts: { providerId: string; status: string; providerMessage?: string | null; failureCode?: string | null }[];
+  },
 ) {
   const last = payout.attempts[payout.attempts.length - 1];
+  const ended = payout.status === 'FAILED' || payout.status === 'EXPIRED';
   return {
     object: 'payout',
     id: payout.id,
@@ -475,8 +478,10 @@ export function serializePayoutRow(
     country: payout.country,
     channel: payout.channel,
     recipient_phone: payout.recipientPhone,
+    network: payout.recipientNetwork,
     provider: last?.providerId ?? null,
     attempt_count: payout.attempts.length,
+    failure: ended ? { code: last?.failureCode ?? null, message: last?.providerMessage ?? null } : null,
     created_at: payout.createdAt.toISOString(),
     settled_at: payout.settledAt?.toISOString() ?? null,
   };

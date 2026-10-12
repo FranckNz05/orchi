@@ -7,6 +7,31 @@
 <meta name="robots" content="noindex" />
 <link rel="stylesheet" href="/assets/theme.css" />
 <style>
+  :root {
+    --c-blue: #4aa8ff; --c-violet: #a78bfa; --c-teal: #35d6a4; --c-orange: #ff9f5a;
+    --c-pink: #f472b6; --c-yellow: #f0c063; --c-red: #ff6b6b;
+  }
+  .ov { margin-bottom: 30px; }
+  .ov .head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .ov h2 { font-size: 20px; margin: 0; }
+  .ov .env { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .ov .env button { font: inherit; font-size: 13px; padding: 7px 14px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+  .ov .env button[aria-pressed="true"] { background: var(--c-blue); color: #04121f; font-weight: 700; }
+  .ov .sentence { font-size: 16px; line-height: 1.6; margin: 10px 0 16px; max-width: 95ch; }
+  .ov .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .ov .k { border: 1px solid var(--border); border-top: 3px solid var(--k); border-radius: 14px; padding: 15px 16px;
+    background: linear-gradient(180deg, var(--surface), var(--bg-2)); }
+  .ov .k .t { color: var(--muted); font-size: 13px; }
+  .ov .k .v { font-size: 26px; font-weight: 800; letter-spacing: -.03em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .ov .k .v small { font-size: 14px; color: var(--muted); font-weight: 600; }
+  .ov .k .d { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .ov .box { border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px;
+    background: linear-gradient(180deg, var(--surface), var(--bg-2)); min-width: 0; }
+  .ov .box h3 { margin: 0 0 10px; font-size: 15px; }
+  .ov .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+  .ov .lg { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .ov .lg i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
   body { min-height: 100vh; }
   main { max-width: 1180px; margin: 0 auto; padding: 30px 24px 80px; }
 
@@ -214,13 +239,19 @@
     </p>
 
     <nav class="jump" aria-label="Aller à">
+      <a href="#ov-admin">Vue d’ensemble</a>
+      <a href="#live-admin">Demandes de passage en réel</a>
       <a href="#wd-admin">PIN et retraits à valider</a>
       <a href="#tx-admin">Paiements des clients</a>
       <a href="#prov-admin">Agrégateurs</a>
       <a href="#clients">Comptes clients</a>
     </nav>
 
+    <section class="ov" id="ov-admin"></section>
+
     <div class="stats" id="stats"></div>
+
+    <section class="wd" id="live-admin"></section>
 
     <section class="wd" id="wd-admin"></section>
 
@@ -386,6 +417,143 @@
     }).join('');
   }
 
+
+  /* ----------------------------------------- vue d'ensemble de la plateforme */
+
+  let ovEnv = 'live';
+
+  async function loadStats() {
+    let st;
+    try {
+      st = await api(`/v1/admin/stats?environment=${ovEnv}&days=14`);
+    } catch (e) {
+      $('ov-admin').innerHTML = `<p class="hint">Chiffres indisponibles : ${esc(e.message)}</p>`;
+      return;
+    }
+    const t = [...st.totals].sort((a, b) => b.paid - a.paid)[0]
+      || { currency: 'XAF', ok: 0, failed: 0, expired: 0, pending: 0, paid: 0, aggregator_fees: 0, afripaie_fees: 0, merchant_net: 0, owed_to_merchants: 0 };
+    const cur = t.currency;
+    const done = t.ok + t.failed + t.expired;
+    const rate = done ? Math.round((t.ok / done) * 100) : null;
+    const merchants = st.by_merchant.filter((m) => m.currency === cur);
+    const active = merchants.filter((m) => m.ok > 0).length;
+    const afr = t.afripaie_fees;
+
+    // 14 jours, du plus ancien au plus recent.
+    const days = [];
+    for (let i = 13; i >= 0; i -= 1) {
+      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const row = st.daily.find((x) => x.date === key && x.currency === cur) || { ok: 0, ko: 0, paid: 0 };
+      days.push({ d, ...row });
+    }
+    const peak = Math.max(1, ...days.map((d) => d.paid));
+    const W = 720, H = 210, L = 8, B = 30, T = 22, step = (W - L * 2) / days.length, bw = step * 0.62;
+    const chart = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Argent payé par jour">
+      <defs><linearGradient id="ovg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--c-blue)"/><stop offset="1" stop-color="var(--c-violet)"/></linearGradient></defs>
+      ${days.map((d, i) => {
+        const x = L + i * step + (step - bw) / 2;
+        const h = d.paid ? Math.max(3, ((H - T - B) * d.paid) / peak) : 1;
+        const lab = d.d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+        return `<g><title>${lab} : ${money(d.paid)} ${cur} payés, ${d.ok} réussi(s), ${d.ko} non abouti(s)</title>
+          <rect x="${x}" y="${H - B - h}" width="${bw}" height="${h}" rx="4" fill="${d.paid ? 'url(#ovg)' : 'var(--border)'}"/>
+          ${d.paid ? `<text x="${x + bw / 2}" y="${H - B - h - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${money(d.paid)}</text>` : ''}
+          ${i % 2 === 0 ? `<text x="${x + bw / 2}" y="${H - B + 18}" text-anchor="middle" font-size="11" fill="var(--muted)">${lab}</text>` : ''}</g>`;
+      }).join('')}</svg>`;
+
+    // Repartition de l'argent paye : marchands / operateurs / Afripaie.
+    const share = (v) => (t.paid ? Math.round((v / t.paid) * 1000) / 10 : 0);
+    const split = t.paid ? `<div style="display:flex;height:34px;border-radius:9px;overflow:hidden;background:var(--border)">
+        <div style="width:${share(t.merchant_net)}%;background:var(--c-teal)" title="Marchands"></div>
+        <div style="width:${share(t.aggregator_fees)}%;background:var(--c-blue)" title="Opérateurs"></div>
+        ${afr > 0 ? `<div style="width:${share(afr)}%;background:var(--c-violet)" title="Afripaie"></div>` : ''}
+      </div>
+      <div class="lg">
+        <span><i style="background:var(--c-teal)"></i>Marchands ${money(t.merchant_net)} ${cur} (${share(t.merchant_net)} %)</span>
+        <span><i style="background:var(--c-blue)"></i>Opérateurs ${money(t.aggregator_fees)} ${cur} (${share(t.aggregator_fees)} %)</span>
+        <span><i style="background:var(--c-violet)"></i>Afripaie ${afr >= 0 ? `${money(afr)} ${cur}` : `− ${money(-afr)} ${cur} (écart payé aux marchands)`}</span>
+      </div>` : '<p class="hint">Pas encore de paiement réussi.</p>';
+
+    const STATUS = { VERIFIED: 'réel autorisé', PENDING: 'dossier à examiner', REJECTED: 'refusé', UNVERIFIED: 'test seulement' };
+    const table = merchants.length === 0 ? '<p class="hint">Aucun paiement pour l’instant.</p>' : `<div style="overflow-x:auto"><table class="txtable">
+        <tr><th>Client</th><th style="text-align:right">Réussis</th><th style="text-align:right">Non aboutis</th><th style="text-align:right">Payé par ses clients</th>
+          <th style="text-align:right">Pour lui (95 %)</th><th style="text-align:right">Afripaie</th><th>Dernier paiement</th><th>Statut</th></tr>
+        ${merchants.map((m) => `<tr>
+          <td><strong>${esc(m.merchant.name)}</strong> <span class="m">${esc(m.merchant.country || '')}</span></td>
+          <td class="n" style="color:var(--c-teal)">${m.ok}</td>
+          <td class="n" style="color:${m.failed + m.expired ? 'var(--c-orange)' : 'var(--muted)'}">${m.failed + m.expired}</td>
+          <td class="n"><strong>${money(m.paid)}</strong> ${esc(cur)}</td>
+          <td class="n">${money(m.merchant_net)}</td>
+          <td class="n" style="color:${m.afripaie_fees < 0 ? 'var(--c-red)' : 'var(--c-violet)'}">${m.afripaie_fees < 0 ? '−' + money(-m.afripaie_fees) : money(m.afripaie_fees)}</td>
+          <td class="m">${m.last_payment_at ? date(m.last_payment_at) : '—'}</td>
+          <td class="m">${esc(STATUS[m.merchant.kyb_status] || m.merchant.kyb_status || '')}</td>
+        </tr>`).join('')}
+      </table></div>`;
+
+    const card = (color, title, value, d) => `<div class="k" style="--k:var(${color})"><div class="t">${title}</div><div class="v">${value}</div><div class="d">${d}</div></div>`;
+
+    $('ov-admin').innerHTML = `
+      <div class="head">
+        <h2>Vue d’ensemble de la plateforme</h2>
+        <div class="env" role="group" aria-label="Environnement">
+          <button data-ov-env="live" aria-pressed="${ovEnv === 'live'}">Argent réel</button>
+          <button data-ov-env="test" aria-pressed="${ovEnv === 'test'}">Test</button>
+        </div>
+      </div>
+      <p class="sentence">${t.ok + t.failed + t.expired + t.pending === 0
+        ? `Aucun paiement ${ovEnv === 'live' ? 'réel' : 'de test'} sur la plateforme pour l’instant.`
+        : `Les clients de vos marchands ont payé <strong>${money(t.paid)} ${cur}</strong> en <strong>${t.ok} paiement${t.ok > 1 ? 's' : ''} réussi${t.ok > 1 ? 's' : ''}</strong>
+           chez ${active} marchand${active > 1 ? 's' : ''}. Afripaie doit aujourd’hui <strong>${money(t.owed_to_merchants)} ${cur}</strong> à ses marchands,
+           et ${afr >= 0 ? `a gagné <strong style="color:var(--c-violet)">${money(afr)} ${cur}</strong> de commission` : `a <strong style="color:var(--c-red)">payé ${money(-afr)} ${cur}</strong> de sa poche (opérateur plus cher que 5 %)`}.`}</p>
+      <div class="cards">
+        ${card('--c-blue', 'Payé par les clients', `${money(t.paid)} <small>${cur}</small>`, `${t.ok} paiement${t.ok > 1 ? 's' : ''} réussi${t.ok > 1 ? 's' : ''}`)}
+        ${card('--c-teal', 'Dû aux marchands', `${money(t.owed_to_merchants)} <small>${cur}</small>`, 'Encaissé par Afripaie, pas encore retiré')}
+        ${card(afr >= 0 ? '--c-violet' : '--c-red', 'Résultat Afripaie', `${afr < 0 ? '−' : ''}${money(Math.abs(afr))} <small>${cur}</small>`, afr >= 0 ? 'Commission gagnée' : 'Écart payé : l’opérateur prend plus de 5 %')}
+        ${card('--c-orange', 'Non aboutis', `${t.failed + t.expired}`, `${t.failed} refusé${t.failed > 1 ? 's' : ''} · ${t.expired} non confirmé${t.expired > 1 ? 's' : ''}`)}
+        ${card('--c-pink', 'Taux de réussite', rate === null ? '—' : `${rate} <small>%</small>`, `${done} paiement${done > 1 ? 's' : ''} terminé${done > 1 ? 's' : ''}`)}
+      </div>
+      <div class="box"><h3>Argent payé par jour — 14 derniers jours</h3>${days.some((d) => d.paid) ? chart : '<p class="hint">Aucun paiement réussi sur les 14 derniers jours.</p>'}</div>
+      <div class="two">
+        <div class="box"><h3>Où va l’argent payé</h3>${split}</div>
+        <div class="box"><h3>Ce qu’il faut faire</h3>
+          <ul style="margin:0;padding-left:18px;line-height:1.8;font-size:14px">
+            <li><a href="#live-admin">Demandes de passage en réel</a> : ${counts.PENDING || 0} à examiner</li>
+            <li><a href="#wd-admin">Retraits à valider</a> : voir le compteur ci-dessous</li>
+            <li><a href="#tx-admin">Paiements des clients</a>, un par un</li>
+          </ul></div>
+      </div>
+      <div class="box"><h3>Par client</h3>${table}</div>`;
+  }
+
+  /* ------------------------------------------- demandes de passage en reel */
+
+  /**
+   * Les dossiers en attente, en tete de page : c'etait la decision la plus
+   * importante de l'administration, et elle etait cachee dans la liste des
+   * comptes, derriere un compte a deplier.
+   */
+  function renderLiveRequests() {
+    const pending = data.filter((m) => m.kyb_status === 'PENDING')
+      .sort((a, b) => new Date(a.requested_at || 0) - new Date(b.requested_at || 0));
+    const verified = data.filter((m) => m.kyb_status === 'VERIFIED').length;
+    const cards = pending.length
+      ? pending.map((m) => `<div class="card">
+          <div>
+            <div class="amt" style="font-size:18px">${esc(m.name)} <span style="font-size:13px;color:var(--muted);font-weight:500">· ${esc(m.country)} · ${esc(m.contact_email)}</span></div>
+            <div class="sub">Demande déposée ${date(m.requested_at)}${m.website ? ` · <a href="${esc(m.website)}" target="_blank" rel="noopener noreferrer">${esc(m.website)}</a>` : ''}${m.monthly_volume_minor ? ` · volume annoncé ${money(m.monthly_volume_minor)} / mois` : ''}</div>
+            ${m.activity ? `<div class="sub" style="color:var(--ink);margin-top:8px;max-width:90ch">« ${esc(m.activity)} »</div>` : ''}
+          </div>
+          <div class="acts"><button class="btn solid" data-examine="${esc(m.id)}">Examiner et décider</button></div>
+        </div>`).join('')
+      : `<p class="hint">Aucune demande en attente. Quand un client dépose son dossier (page « Passage en réel » de son tableau de bord),
+          il apparaît ici. ${verified} compte${verified > 1 ? 's' : ''} déjà autorisé${verified > 1 ? 's' : ''} en réel.</p>`;
+
+    $('live-admin').innerHTML = `<h2>Demandes de passage en réel ${pending.length ? `<span class="pill PENDING" style="font-size:13px;vertical-align:middle">${pending.length} à examiner</span>` : ''}</h2>
+      <p class="hint">Un client teste librement ; pour encaisser de l’argent réel, il dépose un dossier. Vérifiez son activité et son site,
+        puis <strong>autorisez</strong> (il peut aussitôt passer en Live et créer des clés réelles) ou <strong>refusez avec un motif</strong>
+        (il le voit et peut corriger). Une autorisation se retire à tout moment depuis « Comptes clients » : ses clés réelles sont alors révoquées.</p>
+      ${cards}`;
+  }
 
   /* ---------------------------------------------------------- reversements */
 
@@ -843,7 +1011,9 @@
     renderStats(overview);
     renderTabs();
     renderRows();
+    renderLiveRequests();
     for (const id of open) loadSettlements(id);
+    loadStats();
     loadWithdrawals();
     loadPayments();
     loadProviders();
@@ -875,6 +1045,26 @@
   });
 
   document.addEventListener('click', async (e) => {
+    const oe = e.target.closest('[data-ov-env]');
+    if (oe) { ovEnv = oe.dataset.ovEnv; await loadStats(); return; }
+
+    const exam = e.target.closest('[data-examine]');
+    if (exam) {
+      const id = exam.dataset.examine;
+      filter = 'PENDING';
+      open.add(id);
+      renderTabs();
+      renderRows();
+      loadSettlements(id);
+      const row = document.querySelector(`.row[data-id="${CSS.escape(id)}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const note = row.querySelector('[data-note]');
+        if (note) setTimeout(() => note.focus({ preventScroll: true }), 400);
+      }
+      return;
+    }
+
     const toggle = e.target.closest('[data-toggle]');
     if (toggle) {
       const id = toggle.dataset.toggle;

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { errors } from '../../core/errors.js';
 import { prisma } from '../../db/client.js';
+import { heldBalances } from '../../modules/settlements.js';
 import {
   requestLiveAccess,
   reviewLiveAccess,
@@ -321,6 +322,106 @@ export async function liveAccessRoutes(app: FastifyInstance) {
             created_at: p.createdAt.toISOString(),
             succeeded_at: p.succeededAt?.toISOString() ?? null,
           };
+        }),
+      };
+    },
+  );
+
+  /**
+   * Chiffres de TOUTE la plateforme, pour la vue d'ensemble de l'administration.
+   *
+   * Le tableau de bord /app d'un administrateur est celui du compte plateforme,
+   * qui n'encaisse rien lui-meme : sans cette vue, l'administrateur ne voyait
+   * aucun chiffre alors que ses clients encaissaient.
+   */
+  app.get(
+    '/v1/admin/stats',
+    { preHandler: [app.authenticate, app.requireAdmin] },
+    async (request) => {
+      const q = z
+        .object({
+          environment: z.enum(['test', 'live']).default('live'),
+          days: z.coerce.number().int().min(7).max(90).default(14),
+        })
+        .parse(request.query);
+
+      const since = new Date();
+      since.setHours(0, 0, 0, 0);
+      since.setDate(since.getDate() - (q.days - 1));
+
+      const [payments, merchants] = await Promise.all([
+        prisma.payment.findMany({
+          where: { environment: q.environment },
+          select: {
+            merchantId: true, status: true, amount: true, currency: true,
+            providerFeeAmount: true, platformFeeAmount: true, createdAt: true,
+          },
+        }),
+        prisma.merchant.findMany({ select: { id: true, name: true, kybStatus: true, country: true } }),
+      ]);
+      const names = new Map(merchants.map((m) => [m.id, m]));
+
+      type Agg = {
+        ok: number; failed: number; expired: number; pending: number;
+        paid: number; aggregator_fees: number; afripaie_fees: number; merchant_net: number;
+      };
+      const blank = (): Agg => ({ ok: 0, failed: 0, expired: 0, pending: 0, paid: 0, aggregator_fees: 0, afripaie_fees: 0, merchant_net: 0 });
+      const add = (a: Agg, p: (typeof payments)[number]) => {
+        if (p.status === 'SUCCEEDED') {
+          const agg = p.providerFeeAmount ?? 0;
+          const afr = p.platformFeeAmount ?? 0;
+          a.ok += 1; a.paid += p.amount; a.aggregator_fees += agg; a.afripaie_fees += afr;
+          a.merchant_net += p.amount - agg - afr;
+        } else if (p.status === 'FAILED') a.failed += 1;
+        else if (p.status === 'EXPIRED') a.expired += 1;
+        else a.pending += 1;
+      };
+
+      const totals = new Map<string, Agg>();
+      const byMerchant = new Map<string, Agg & { last: Date | null }>();
+      const daily = new Map<string, { ok: number; ko: number; paid: number; afripaie: number }>();
+      for (const p of payments) {
+        const t = totals.get(p.currency) ?? blank(); add(t, p); totals.set(p.currency, t);
+        const key = `${p.merchantId}:${p.currency}`;
+        const m = byMerchant.get(key) ?? { ...blank(), last: null };
+        add(m, p);
+        if (!m.last || p.createdAt > m.last) m.last = p.createdAt;
+        byMerchant.set(key, m);
+        if (p.createdAt >= since) {
+          const day = `${p.createdAt.toISOString().slice(0, 10)}:${p.currency}`;
+          const d = daily.get(day) ?? { ok: 0, ko: 0, paid: 0, afripaie: 0 };
+          if (p.status === 'SUCCEEDED') { d.ok += 1; d.paid += p.amount; d.afripaie += p.platformFeeAmount ?? 0; }
+          else if (p.status === 'FAILED' || p.status === 'EXPIRED') d.ko += 1;
+          daily.set(day, d);
+        }
+      }
+
+      // Ce qu'Afripaie doit aux marchands (encaisse sur ses comptes, pas encore retire).
+      const owed = new Map<string, number>();
+      for (const m of merchants) {
+        for (const b of await heldBalances(m.id)) {
+          if (b.environment === q.environment) owed.set(b.currency, (owed.get(b.currency) ?? 0) + b.held);
+        }
+      }
+
+      return {
+        object: 'admin_stats',
+        environment: q.environment,
+        days: q.days,
+        totals: [...totals.entries()].map(([currency, a]) => ({ currency, ...a, owed_to_merchants: owed.get(currency) ?? 0 })),
+        by_merchant: [...byMerchant.entries()]
+          .map(([key, a]) => {
+            const [id, currency] = key.split(':');
+            const m = names.get(id!);
+            return {
+              merchant: { id, name: m?.name ?? id, country: m?.country ?? null, kyb_status: m?.kybStatus ?? null },
+              currency, ...a, last_payment_at: a.last?.toISOString() ?? null,
+            };
+          })
+          .sort((x, y) => y.paid - x.paid),
+        daily: [...daily.entries()].map(([key, d]) => {
+          const [date, currency] = key.split(':');
+          return { date, currency, ...d };
         }),
       };
     },

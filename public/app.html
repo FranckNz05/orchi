@@ -224,12 +224,15 @@
   .summary .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--c-blue); font-weight: 750; }
   .summary p { font-size: 17px; line-height: 1.6; margin: 6px 0 0; max-width: 92ch; }
   .wallet { border-color: rgba(53,214,164,.42); background: linear-gradient(135deg, rgba(53,214,164,.11), transparent 60%), var(--surface); }
-  .kpis.five { grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); }
+  .kpis.five { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); }
   .kpi.c { border-top: 3px solid var(--k); }
   .kpi.c .chip { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-weight: 800;
     background: color-mix(in srgb, var(--k) 20%, transparent); color: var(--k); }
   .kpi.c::before { background: linear-gradient(90deg, transparent, var(--k), transparent); }
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+  /* Une grille s'elargit a la taille minimale de son contenu : sans min-width 0,
+     un tableau large repousse toute la page au lieu de defiler dans son cadre. */
+  main, .grid2 > *, .recon > * { min-width: 0; }
   .donut { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
   .legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; font-size: 14px; flex: 1; min-width: 220px; }
   .legend li { display: flex; gap: 10px; align-items: flex-start; }
@@ -238,8 +241,9 @@
   .stack { display: flex; height: 40px; border-radius: 10px; overflow: hidden; background: var(--surface-2); }
   .stack i { display: grid; place-items: center; color: #06121a; font-style: normal; font-weight: 800; font-size: 13px; white-space: nowrap; }
   .hbars { display: grid; gap: 15px; }
-  .hrow { display: grid; grid-template-columns: minmax(130px, 1.1fr) 2fr auto; gap: 12px; align-items: center; font-size: 14px; }
-  .hl { display: flex; flex-direction: column; }
+  .hrow { display: grid; grid-template-columns: 1fr auto; gap: 7px 14px; align-items: baseline; font-size: 14px; }
+  .hl { display: flex; flex-wrap: wrap; gap: 0 8px; align-items: baseline; }
+  .hrow .htrack { grid-column: 1 / -1; }
   .htrack { height: 14px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
   .htrack i { display: block; height: 100%; border-radius: 999px; }
   .hv { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -248,8 +252,52 @@
   .hours > div { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
   .hours i { width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, var(--c-orange), var(--c-pink)); }
   .hours span { font-size: 10.5px; color: var(--muted); height: 14px; margin-top: 4px; }
+  .intro { border-color: color-mix(in srgb, var(--k) 40%, var(--border));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--k) 12%, transparent), transparent 70%), var(--surface); }
+  .intro .pad { display: flex; gap: 14px; align-items: flex-start; }
+  .intro .chip, .recon .chip { display: inline-grid; place-items: center; min-width: 30px; height: 30px; border-radius: 9px; font-weight: 800;
+    background: color-mix(in srgb, var(--k) 22%, transparent); color: var(--k); flex: none; padding: 0 6px; }
+  .intro strong { font-size: 15.5px; }
+  .intro p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.55; max-width: 95ch; }
+  .hero .pad { display: flex; gap: 16px; align-items: center; }
+  .hero .big { font-size: 30px; font-weight: 800; width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; flex: none; }
+  .hero strong { font-size: 18px; }
+  .hero p { margin: 4px 0 0; color: var(--muted); }
+  .hero.ok { border-color: rgba(53,214,164,.45); } .hero.ok .big { background: var(--accent-soft); color: var(--c-teal); }
+  .hero.warn { border-color: rgba(255,159,90,.5); } .hero.warn .big { background: rgba(255,159,90,.15); color: var(--c-orange); }
+  .recon { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+  .recon .item .pad { display: flex; gap: 18px; }
+  .recon .item .n { font-size: 36px; font-weight: 800; min-width: 44px; color: var(--muted); }
+  .recon .item.on { border-color: color-mix(in srgb, var(--k) 55%, var(--border)); }
+  .recon .item.on .n { color: var(--k); }
+  .recon .item strong { display: flex; gap: 8px; align-items: center; }
+  .recon .item p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; }
+  .recon .k { font-weight: 700; color: var(--ink); }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filters .b { padding: 5px 11px; font-size: 12.5px; }
+  .filters .b.on { border-color: var(--c-blue); color: var(--c-blue); background: rgba(74,168,255,.1); }
+  .legend.inline { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 10px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .steps li { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+  .steps li > div { flex: 1; }
+  .steps .num { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800;
+    background: rgba(74,168,255,.15); color: var(--c-blue); flex: none; }
+  .steps li.done { border-color: rgba(53,214,164,.35); }
+  .steps li.done .num { background: var(--accent-soft); color: var(--c-teal); }
+  .stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; counter-reset: s; }
+  .stepper li { position: relative; padding-top: 42px; text-align: center; font-size: 13px; color: var(--muted); }
+  .stepper li span { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 800; background: var(--surface-2); border: 2px solid var(--border-lit); color: var(--muted); }
+  .stepper li::before { content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--border-lit); z-index: 0; }
+  .stepper li:first-child::before { display: none; }
+  .stepper li span { z-index: 1; }
+  .stepper li.done { color: var(--ink); } .stepper li.done span { background: var(--c-teal); border-color: var(--c-teal); color: #04221a; }
+  .stepper li.done::before { background: var(--c-teal); }
+  .stepper li.next { color: var(--ink); font-weight: 650; } .stepper li.next span { border-color: var(--c-blue); color: var(--c-blue); }
+  .stepper li.bad { color: var(--c-red); } .stepper li.bad span { border-color: var(--c-red); color: var(--c-red); }
+  @media (max-width: 600px) { .stepper { grid-template-columns: 1fr 1fr; row-gap: 18px; } .stepper li::before { display: none; } }
   .alerts { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
-  @media (max-width: 600px) { .hrow { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
 
   .chart { display: flex; align-items: flex-end; gap: 5px; height: 150px; padding: 0 4px; }
   .chart .bar { flex: 1; background: var(--accent-soft); border-radius: 4px 4px 0 0; position: relative; min-height: 2px; }
@@ -538,8 +586,8 @@
     const peak = Math.max(1, ...rows.map((r) => r.value));
     return `<div class="hbars">${rows.map((r) => `<div class="hrow">
         <div class="hl"><strong>${esc(r.label)}</strong><span class="muted">${r.sub || ''}</span></div>
+        <div class="hv">${currency ? `${money(r.value, currency)} <small>${currency}</small>` : `${r.value} <small>cas</small>`}</div>
         <div class="htrack"><i style="width:${Math.max(2, (r.value / peak) * 100)}%;background:${r.color}"></i></div>
-        <div class="hv">${money(r.value, currency)} <small>${currency}</small></div>
       </div>`).join('')}</div>`;
   }
 
@@ -676,7 +724,18 @@
       pending.length ? `<li class="c-yellow"><strong>${pending.length} paiement${pending.length > 1 ? 's' : ''} en cours</strong> : le client n’a pas encore confirmé sur son téléphone.</li>` : '',
     ].filter(Boolean);
 
+    // Un administrateur arrive ici sur le compte de la plateforme, qui n'encaisse
+    // rien lui-meme : sans explication, il croit que les chiffres sont perdus.
+    const adminNote = session.user && session.user.platform_admin ? `<section class="panel intro" style="--k:var(--c-violet)"><div class="pad">
+        <span class="chip">⚑</span>
+        <div style="flex:1"><strong>Vous êtes sur le compte de la plateforme Afripaie</strong>
+          <p>Ce compte n’encaisse rien lui-même : il est normal qu’il soit vide. Les paiements de vos clients (LuxEvent…), leurs montants,
+            vos commissions et les demandes de passage en réel sont dans l’administration.</p></div>
+        <a class="b solid" href="/admin" style="text-decoration:none;align-self:center;white-space:nowrap">Voir toute la plateforme</a>
+      </div></section>` : '';
+
     $('content').innerHTML = `
+      ${adminNote}
       <section class="panel summary"><div class="pad">
         <div class="eyebrow">${live ? 'Argent réel' : 'Mode test — aucun argent réel'}</div>
         <p>${summary}</p>
@@ -747,53 +806,209 @@
     </div>`;
   }
 
+  /* ------------------------------------------------------ aides communes -- */
+
+  /** Bandeau en tete de page : a quoi sert cette page, en une phrase simple. */
+  function intro(color, icon, title, text) {
+    return `<section class="panel intro" style="--k:var(${color})"><div class="pad">
+        <span class="chip">${icon}</span>
+        <div><strong>${title}</strong><p>${text}</p></div>
+      </div></section>`;
+  }
+
+  /** Carte chiffree coloree, avec une phrase qui dit ce qu'elle compte. */
+  function colorCard(color, icon, title, value, explain) {
+    return `<div class="kpi c" style="--k:var(${color})">
+        <div class="t"><span class="chip">${icon}</span>${title}</div>
+        <div class="v">${value}</div>
+        <div class="d">${explain}</div></div>`;
+  }
+
+  const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+  const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  /** Pourquoi une transaction n'a pas abouti, en mots simples. */
+  const FAILURE_TEXT = {
+    declined: 'Refusé par l’opérateur : solde insuffisant, code faux ou plafond atteint',
+    timeout: 'L’opérateur n’a pas répondu à temps',
+    unavailable: 'Service de l’opérateur momentanément indisponible',
+    rate_limited: 'Opérateur surchargé, réessayer plus tard',
+    authentication: 'Problème de configuration chez Afripaie (prévenez-nous)',
+    invalid_request: 'Demande refusée : numéro ou montant invalide',
+    malformed_response: 'Réponse incompréhensible de l’opérateur',
+    indeterminate: 'Issue incertaine, en cours de vérification',
+  };
+  function failureText(t) {
+    if (t.status === 'EXPIRED') return 'Le client n’a pas confirmé sur son téléphone à temps';
+    if (!t.failure) return '';
+    const m = t.failure.message || '';
+    if (/LOW_BALANCE|INSUFFICIENT|solde insuffisant/i.test(m)) return 'Solde insuffisant ou plafond atteint sur le compte du client';
+    if (/NOT_ALLOWED|blocked|bloqu/i.test(m)) return 'Compte du client bloqué ou non autorisé par l’opérateur';
+    if (/cancel|annul|rejected by user|refus/i.test(m)) return 'Le client a refusé ou annulé sur son téléphone';
+    // Un message deja lisible (phrase) est garde ; un code technique est traduit.
+    if (m && !/[A-Z]{3,}_[A-Z]/.test(m) && /\s/.test(m)) return m;
+    return FAILURE_TEXT[t.failure.code] || 'Refusé par l’opérateur';
+  }
+
+  /** Barres empilees par jour : reussis (vert) et non aboutis (orange). */
+  function svgDailyStack(days) {
+    const W = 720, H = 210, L = 30, B = 32, T = 18;
+    const peak = Math.max(1, ...days.map((d) => d.ok + d.ko));
+    const step = (W - L - 8) / days.length;
+    const bw = Math.max(8, step * 0.6);
+    const hOf = (v) => ((H - T - B) * v) / peak;
+    const bars = days.map((d, i) => {
+      const x = L + i * step + (step - bw) / 2;
+      const hOk = hOf(d.ok), hKo = hOf(d.ko);
+      const base = H - B;
+      const day = d.d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      const total = d.ok + d.ko;
+      return `<g><title>${day} : ${d.ok} réussi${d.ok > 1 ? 's' : ''}, ${d.ko} non abouti${d.ko > 1 ? 's' : ''}</title>
+        ${total === 0 ? `<rect x="${x}" y="${base - 1}" width="${bw}" height="1" fill="var(--surface-2)"/>` : ''}
+        ${d.ok ? `<rect x="${x}" y="${base - hOk}" width="${bw}" height="${hOk}" rx="3" fill="var(--c-teal)"/>` : ''}
+        ${d.ko ? `<rect x="${x}" y="${base - hOk - hKo}" width="${bw}" height="${hKo}" rx="3" fill="var(--c-orange)"/>` : ''}
+        ${total ? `<text x="${x + bw / 2}" y="${base - hOk - hKo - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${total}</text>` : ''}
+        ${i % 2 === 0 ? `<text x="${x + bw / 2}" y="${H - B + 18}" text-anchor="middle" font-size="11" fill="var(--muted)">${day}</text>` : ''}</g>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Transactions par jour">${bars}</svg>
+      <ul class="legend row inline">
+        <li><span class="dot" style="background:var(--c-teal)"></span><div>Réussis</div></li>
+        <li><span class="dot" style="background:var(--c-orange)"></span><div>Refusés ou non confirmés</div></li>
+      </ul>`;
+  }
+
   function txTable(rows, kind) {
     if (!rows.length) {
-      return `<div class="empty"><strong>Aucune transaction</strong>
-        ${kind === 'payments' ? 'Créez votre première transaction depuis votre backend.' : 'Aucun virement sortant pour le moment.'}</div>`;
+      return `<div class="empty"><strong>Aucune transaction ici</strong>
+        ${kind === 'payments' ? 'Les paiements de vos clients apparaîtront dès le premier achat.' : 'Aucun envoi d’argent pour le moment.'}</div>`;
     }
-    const who = kind === 'payments' ? 'Client' : 'Bénéficiaire';
+    const pay = kind === 'payments';
     return `<div class="scroll"><table>
-      <thead><tr><th>Référence</th><th>Statut</th><th class="num">Montant</th>${kind === 'payments' ? '<th class="num" title="Montant payé moins 5 % de frais au total">Vous recevez</th>' : ''}<th>Pays</th>
-        <th>${who}</th><th>Opérateur</th><th class="num" title="Nombre d’essais">Essais</th><th>Date</th></tr></thead>
-      <tbody>${rows.map((t) => `<tr data-open="${kind}:${esc(t.id)}" style="cursor:pointer">
-        <td class="mono">${esc(t.reference)}</td>
+      <thead><tr><th>Date</th><th>État</th><th class="num">${pay ? 'Payé par le client' : 'Montant envoyé'}</th>${pay ? '<th class="num" title="Après 5 % de frais au total">Pour vous</th>' : ''}
+        <th>${pay ? 'Pourquoi, si non abouti' : 'Détail'}</th><th>${pay ? 'Téléphone du client' : 'Bénéficiaire'}</th><th>Opérateur</th><th>Votre référence</th></tr></thead>
+      <tbody>${rows.map((t) => `<tr data-open="${kind}:${esc(t.id)}" style="cursor:pointer" title="Cliquez pour le détail">
+        <td style="white-space:nowrap">${dateTime(t.created_at)}<div class="muted" style="font-size:12px">${ago(t.created_at)}</div></td>
         <td>${tag(t.status)}</td>
-        <td class="num">${money(t.amount, t.currency)} <span class="muted">${esc(t.currency)}</span></td>
-        ${kind === 'payments' ? `<td class="num">${t.split ? `<strong>${money(t.split.merchant_receives, t.currency)}</strong>` : '<span class="muted">—</span>'}</td>` : ''}
-        <td>${esc(t.country)}</td>
+        <td class="num"><strong>${money(t.amount, t.currency)}</strong> <span class="muted">${esc(t.currency)}</span></td>
+        ${pay ? `<td class="num">${t.split ? `<strong class="c-teal">${money(t.split.merchant_receives, t.currency)}</strong>` : '<span class="muted">—</span>'}</td>` : ''}
+        <td class="muted" style="max-width:300px;font-size:13px">${esc(failureText(t)) || (t.status === 'SUCCEEDED' ? '<span class="c-teal">Payé</span>' : '')}</td>
         <td class="mono muted">${esc(t.customer_phone || t.recipient_phone || '—')}</td>
         <td>${esc(t.network ? networkName(t.network) : (PROVIDER_NAMES[t.provider] || t.provider || '—'))}</td>
-        <td class="num ${t.attempt_count > 1 ? '' : 'muted'}">${t.attempt_count}</td>
-        <td class="muted">${ago(t.created_at)}</td></tr>`).join('')}</tbody>
+        <td class="mono muted" style="font-size:12.5px">${esc(t.reference)}</td></tr>`).join('')}</tbody>
     </table></div>`;
   }
 
+  let listFilter = 'ALL';
+
   async function renderList(kind) {
-    const list = await api(`/v1/${kind}?limit=50`);
-    $('content').innerHTML = `<section class="panel">
-      <header><h2>${list.count} transaction${list.count > 1 ? 's' : ''}</h2></header>
-      ${txTable(list.data, kind)}
-      <div class="foot">Cliquez une ligne pour interroger l’agrégateur et voir le détail des tentatives.</div>
-    </section>`;
+    const list = await api(`/v1/${kind}?limit=100`);
+    const pay = kind === 'payments';
+    const rows = list.data;
+    const counts = {};
+    for (const t of rows) counts[t.currency] = (counts[t.currency] || 0) + 1;
+    const currency = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'XAF';
+    const is = (...st) => rows.filter((t) => st.includes(t.status));
+    const ok = is('SUCCEEDED'), ko = is('FAILED'), exp = is('EXPIRED'), wait = is('CREATED', 'PROCESSING', 'PENDING', 'UNKNOWN');
+    const sum = (arr) => arr.filter((t) => t.currency === currency).reduce((s, t) => s + t.amount, 0);
+    const net = ok.filter((t) => t.currency === currency).reduce((s, t) => s + (t.split ? t.split.merchant_receives : t.amount), 0);
+
+    const days = [];
+    for (let i = 13; i >= 0; i -= 1) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
+      days.push({ d, ok: 0, ko: 0 });
+    }
+    for (const t of rows) {
+      const day = new Date(t.created_at); day.setHours(0, 0, 0, 0);
+      const slot = days.find((x) => x.d.getTime() === day.getTime());
+      if (!slot) continue;
+      if (t.status === 'SUCCEEDED') slot.ok += 1;
+      else if (t.status === 'FAILED' || t.status === 'EXPIRED') slot.ko += 1;
+    }
+
+    // Raisons des echecs, les plus frequentes d'abord.
+    const reasons = {};
+    for (const t of [...ko, ...exp]) { const r = failureText(t); reasons[r] = (reasons[r] || 0) + 1; }
+    const reasonRows = Object.entries(reasons).sort((a, b) => b[1] - a[1]);
+
+    const FILTERS = {
+      ALL: ['Tout', rows], OK: ['Réussis', ok], KO: ['Refusés', ko], EXP: ['Non confirmés', exp], WAIT: ['En cours', wait],
+    };
+    const [, shown] = FILTERS[listFilter] || FILTERS.ALL;
+
+    $('content').innerHTML = `
+      ${pay
+        ? intro('--c-blue', '↓', 'Les paiements de vos clients', 'Chaque ligne est une demande de paiement envoyée au téléphone d’un client. « Réussi » : l’argent est encaissé, vous pouvez livrer. « Refusé » ou « non confirmé » : le client n’a pas payé, ne livrez pas.')
+        : intro('--c-violet', '↑', 'Les envois d’argent déclenchés par votre site', 'Ce sont les paiements que votre site envoie vers des numéros mobile money (remboursements, prestataires…). Pour transférer votre propre argent vers votre téléphone, utilisez plutôt « Retirer mon argent ».')}
+
+      <div class="kpis five">
+        ${colorCard('--c-teal', '✓', pay ? 'Réussis' : 'Envoyés', `${ok.length}`, `${money(sum(ok), currency)} ${currency}${pay ? ` payés · ${money(net, currency)} ${currency} pour vous` : ''}`)}
+        ${colorCard('--c-red', '✗', 'Refusés', `${ko.length}`, pay ? 'Le client ou son opérateur a refusé' : 'L’opérateur a refusé l’envoi')}
+        ${colorCard('--c-orange', '…', 'Non confirmés', `${exp.length}`, pay ? 'Le client n’a pas validé à temps' : 'Délai dépassé')}
+        ${colorCard('--c-yellow', '~', 'En cours', `${wait.length}`, pay ? 'En attente du client' : 'En cours chez l’opérateur')}
+        ${colorCard('--c-pink', '%', 'Taux de réussite', ok.length + ko.length + exp.length ? `${Math.round((ok.length / (ok.length + ko.length + exp.length)) * 100)} <small>%</small>` : '—', `sur ${ok.length + ko.length + exp.length} terminé${ok.length + ko.length + exp.length > 1 ? 's' : ''}`)}
+      </div>
+
+      <div class="grid2">
+        <section class="panel">
+          <header><h2>${pay ? 'Paiements' : 'Envois'} par jour — 14 derniers jours</h2></header>
+          <div class="pad">${svgDailyStack(days)}</div>
+          <div class="foot">Le chiffre au-dessus de chaque barre est le nombre de ${pay ? 'paiements' : 'envois'} du jour.</div>
+        </section>
+        <section class="panel">
+          <header><h2>Pourquoi certains n’ont pas abouti</h2></header>
+          <div class="pad">${reasonRows.length
+            ? hBars(reasonRows.map(([label, n], i) => ({ label, value: n, sub: '', color: ['var(--c-orange)', 'var(--c-red)', 'var(--c-pink)', 'var(--c-yellow)'][i % 4] })), null)
+            : `<div class="empty" style="padding:24px 0"><strong>Aucun échec</strong>Tous les ${pay ? 'paiements' : 'envois'} terminés ont réussi.</div>`}</div>
+          <div class="foot">Un refus vient presque toujours du client (solde, code, plafond) : ce n’est pas une panne.</div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <header><h2>Liste détaillée</h2><div class="grow"></div>
+          <div class="filters">${Object.entries(FILTERS).map(([k, [label, arr]]) =>
+            `<button class="b ${listFilter === k ? 'on' : ''}" data-list-filter="${k}">${label} <span class="muted">${arr.length}</span></button>`).join('')}</div>
+        </header>
+        ${txTable(shown, kind)}
+        <div class="foot">Cliquez sur une ligne pour voir tout le détail, dont la répartition de l’argent.</div>
+      </section>`;
   }
 
   async function renderReconciliation() {
     const recon = await api('/v1/reconciliation');
+    const items = [
+      { n: recon.indeterminate_payouts.length, color: '--c-red', icon: '!', title: 'Envois d’argent à vérifier',
+        what: 'L’opérateur n’a pas dit clairement si l’argent est parti.',
+        todo: 'Ne refaites pas l’envoi : Afripaie interroge l’opérateur chaque minute et tranchera seul. Vous pouvez aussi cliquer sur « Interroger » ci-dessous.' },
+      { n: recon.stuck_payments, color: '--c-orange', icon: '…', title: 'Paiements sans réponse depuis plus de 24 h',
+        what: 'Le client n’a jamais confirmé et l’opérateur n’a pas donné de réponse finale.',
+        todo: 'En général rien à faire : ils passeront en « non confirmé ». Ne livrez pas tant qu’ils ne sont pas « réussis ».' },
+      { n: recon.undelivered_events, color: '--c-yellow', icon: '✉', title: 'Notifications non reçues par votre site',
+        what: 'Afripaie n’a pas réussi à prévenir votre site d’un changement (paiement réussi, refusé…).',
+        todo: 'Afripaie réessaie jusqu’à 5 fois. Si le nombre reste élevé, vérifiez que l’adresse déclarée dans « Webhooks » répond.' },
+      { n: recon.rejected_webhooks_24h, color: '--c-pink', icon: '✗', title: 'Messages suspects reçus (24 h)',
+        what: 'Des messages se faisant passer pour un opérateur sont arrivés avec une fausse signature. Ils ont été ignorés.',
+        todo: 'Rien à faire, ils sont bloqués. Prévenez Afripaie s’il y en a beaucoup.' },
+    ];
+    const todo = items.filter((i) => i.n > 0).length;
+
     $('content').innerHTML = `
+      ${todo === 0
+        ? `<section class="panel hero ok"><div class="pad"><span class="big">✓</span><div><strong>Tout est en ordre</strong>
+            <p>Aucun paiement ni envoi d’argent n’a besoin de votre attention. Cette page vous préviendra si un cas demande une décision.</p></div></div></section>`
+        : `<section class="panel hero warn"><div class="pad"><span class="big">!</span><div><strong>${todo > 1 ? `${todo} points demandent` : '1 point demande'} votre attention</strong>
+            <p>Lisez « Que faire ? » sous chaque point. Dans la plupart des cas, Afripaie règle la situation seule.</p></div></div></section>`}
+
       ${recon.indeterminate_payouts.length ? banner(recon.indeterminate_payouts) : ''}
-      <div class="kpis">
-        ${kpi('Décaissements bloqués', recon.indeterminate_payouts.length, 'issue inconnue', recon.indeterminate_payouts.length > 0)}
-        ${kpi('Paiements enlisés', recon.stuck_payments, 'en cours depuis plus de 24 h', recon.stuck_payments > 0)}
-        ${kpi('Événements non livrés', recon.undelivered_events, 'webhooks en attente', recon.undelivered_events > 0)}
-        ${kpi('Webhooks rejetés', recon.rejected_webhooks_24h, 'sur 24 h — signal de sécurité', recon.rejected_webhooks_24h > 0)}
-      </div>
-      <section class="panel"><div class="pad muted" style="font-size:13.5px">
-        Un décaissement à l’issue inconnue ne peut pas être relancé : l’argent est
-        peut-être parti. Seule une interrogation de l’agrégateur lève le blocage.
-        Le balayeur s’en charge automatiquement chaque minute ; ce tableau montre
-        ce qu’il n’a pas encore pu trancher.
-      </div></section>`;
+
+      <div class="recon">${items.map((i) => `<section class="panel item ${i.n ? 'on' : ''}" style="--k:var(${i.color})">
+        <div class="pad">
+          <div class="n">${i.n}</div>
+          <div>
+            <strong><span class="chip">${i.icon}</span>${i.title}</strong>
+            <p class="muted">${i.what}</p>
+            <p><span class="k">Que faire ?</span> ${i.todo}</p>
+          </div>
+        </div></section>`).join('')}</div>`;
   }
 
   async function renderProviders() {
@@ -849,59 +1064,92 @@
       </section>`;
   }
 
+  /** Les evenements envoyes a votre site, en francais. */
+  const EVENT_NAMES = {
+    'payment.succeeded': 'Paiement réussi', 'payment.failed': 'Paiement refusé', 'payment.expired': 'Paiement non confirmé',
+    'payment.processing': 'Paiement en cours', 'payment.created': 'Paiement créé',
+    'payout.succeeded': 'Envoi réussi', 'payout.failed': 'Envoi refusé', 'payout.unknown': 'Envoi à vérifier',
+    'payout.processing': 'Envoi en cours', 'payout.created': 'Envoi créé',
+  };
+  const eventName = (t) => EVENT_NAMES[t] || t;
+  const DELIVERY = {
+    DELIVERED: '<span class="tag ok">reçu par votre site</span>',
+    PENDING: '<span class="tag warn">en attente, nouvel essai prévu</span>',
+    FAILED: '<span class="tag bad">abandonné après 5 essais</span>',
+  };
+  const deliveryTag = (s) => DELIVERY[s] || tag(s);
+
+  function deliveryCards(list) {
+    const n = (s) => list.filter((d) => d.status === s).length;
+    return `<div class="kpis">
+      ${colorCard('--c-teal', '✓', 'Reçues par votre site', `${n('DELIVERED')}`, 'Votre site a bien répondu')}
+      ${colorCard('--c-yellow', '…', 'En attente', `${n('PENDING')}`, 'Afripaie va réessayer automatiquement')}
+      ${colorCard('--c-red', '✗', 'Abandonnées', `${n('FAILED')}`, 'Votre site n’a jamais répondu : à vérifier')}
+    </div>`;
+  }
+
   async function renderWebhooks() {
     const [endpoints, deliveries] = await Promise.all([
       api('/v1/webhook-endpoints'),
-      api('/v1/webhook-deliveries?limit=25'),
+      api('/v1/webhook-deliveries?limit=50'),
     ]);
 
     $('content').innerHTML = `
+      ${intro('--c-violet', '✉', 'Prévenir votre site automatiquement', 'Quand un paiement réussit ou échoue, Afripaie envoie un message à l’adresse de votre site déclarée ici. Votre site peut alors valider la commande tout seul, sans que personne n’ait à vérifier.')}
+      ${deliveryCards(deliveries.data)}
+
       <section class="panel">
-        <header><h2>Endpoints</h2><div class="grow"></div>
-          <button class="b solid" id="add-endpoint">Déclarer un endpoint</button></header>
-        ${endpoints.count === 0 ? `<div class="empty"><strong>Aucun endpoint</strong>
-          Sans endpoint, il vous faut interroger l’API pour connaître l’issue d’un paiement.</div>` :
+        <header><h2>Adresses de votre site qui reçoivent les messages</h2><div class="grow"></div>
+          <button class="b solid" id="add-endpoint">Ajouter une adresse</button></header>
+        ${endpoints.count === 0 ? `<div class="empty"><strong>Aucune adresse déclarée</strong>
+          Sans adresse, votre site doit interroger Afripaie lui-même pour connaître l’issue d’un paiement.</div>` :
         `<div class="scroll"><table>
-          <thead><tr><th>URL</th><th>État</th><th>Événements</th><th>Créé</th></tr></thead>
+          <thead><tr><th>Adresse</th><th>État</th><th>Messages envoyés</th><th>Ajoutée</th></tr></thead>
           <tbody>${endpoints.data.map((e) => `<tr>
             <td class="mono">${esc(e.url)}</td><td>${tag(e.status)}</td>
-            <td class="muted">${e.events.map(esc).join(', ')}</td>
+            <td class="muted">${e.events.map((x) => esc(x === '*' ? 'Tous' : eventName(x))).join(', ')}</td>
             <td class="muted">${ago(e.created_at)}</td></tr>`).join('')}</tbody></table></div>`}
         <div id="endpoint-out"></div>
       </section>
 
       <section class="panel">
-        <header><h2>Journal de livraison</h2></header>
-        ${deliveries.count === 0 ? '<div class="empty"><strong>Aucune livraison</strong>Les événements apparaîtront ici.</div>' :
+        <header><h2>Derniers messages envoyés</h2></header>
+        ${deliveries.count === 0 ? '<div class="empty"><strong>Aucun message pour l’instant</strong>Ils apparaîtront au prochain paiement.</div>' :
         `<div class="scroll"><table>
-          <thead><tr><th>Événement</th><th>Type</th><th>État</th><th class="num">Tentatives</th><th>Code</th><th>Créé</th></tr></thead>
+          <thead><tr><th>Quand</th><th>Message</th><th>Résultat</th><th class="num">Essais</th><th>Réponse de votre site</th></tr></thead>
           <tbody>${deliveries.data.map((d) => `<tr>
-            <td class="mono">${esc(d.event_id)}</td><td class="muted">${esc(d.event_type)}</td>
-            <td>${tag(d.status)}</td><td class="num">${d.attempts}</td>
-            <td class="mono muted">${d.last_status_code ?? '—'}</td>
-            <td class="muted">${ago(d.created_at)}</td></tr>`).join('')}</tbody></table></div>`}
-        <div class="foot">Livraison au moins une fois, 5 tentatives espacées de 30 s à 6 h. Sans ordre garanti.</div>
+            <td style="white-space:nowrap">${dateTime(d.created_at)}</td>
+            <td><strong>${esc(eventName(d.event_type))}</strong><div class="mono muted" style="font-size:11.5px">${esc(d.event_id)}</div></td>
+            <td>${deliveryTag(d.status)}</td><td class="num">${d.attempts}</td>
+            <td class="mono muted">${d.last_status_code ? `code ${d.last_status_code}${d.last_status_code < 300 ? ' (OK)' : ''}` : '—'}</td></tr>`).join('')}</tbody></table></div>`}
+        <div class="foot">Si votre site ne répond pas, Afripaie réessaie 5 fois, de 30 secondes à 6 heures plus tard.</div>
       </section>`;
   }
 
   async function renderKeys() {
     const keys = await api('/v1/api-keys');
+    const active = keys.data.filter((k) => !k.revoked);
     $('content').innerHTML = `
+      ${intro('--c-orange', '#', 'Les clés de connexion de votre site', 'Une clé API permet à votre site de demander des paiements à Afripaie. Gardez-la secrète comme un mot de passe : quiconque la possède peut créer des paiements en votre nom. Une clé de test ne déplace jamais d’argent réel.')}
+      <div class="kpis">
+        ${colorCard('--c-teal', '✓', 'Clés actives', `${active.length}`, `en ${session.environment === 'live' ? 'réel' : 'test'}`)}
+        ${colorCard('--c-red', '✗', 'Clés révoquées', `${keys.data.length - active.length}`, 'ne fonctionnent plus')}
+      </div>
       <section class="panel">
-        <header><h2>Clés API</h2><div class="grow"></div>
-          <button class="b solid" id="new-key">Créer une clé ${session.environment}</button></header>
-        ${keys.count === 0 ? '<div class="empty"><strong>Aucune clé</strong>Créez-en une pour connecter votre backend.</div>' :
+        <header><h2>Vos clés</h2><div class="grow"></div>
+          <button class="b solid" id="new-key">Créer une clé ${session.environment === 'live' ? 'réelle' : 'de test'}</button></header>
+        ${keys.count === 0 ? '<div class="empty"><strong>Aucune clé</strong>Créez-en une pour connecter votre site.</div>' :
         `<div class="scroll"><table>
-          <thead><tr><th>Libellé</th><th>Préfixe</th><th>Env.</th><th>État</th><th>Dernier usage</th><th></th></tr></thead>
+          <thead><tr><th>Nom</th><th>Début de la clé</th><th>Type</th><th>État</th><th>Dernière utilisation</th><th></th></tr></thead>
           <tbody>${keys.data.map((k) => `<tr>
             <td>${esc(k.label)}</td><td class="mono">${esc(k.prefix)}…</td>
-            <td>${tag(k.environment === 'live' ? 'LIVE' : 'TEST')}</td>
+            <td>${k.environment === 'live' ? '<span class="tag bad">réelle</span>' : '<span class="tag neutral">test</span>'}</td>
             <td>${k.revoked ? '<span class="tag bad">révoquée</span>' : '<span class="tag ok">active</span>'}</td>
             <td class="muted">${k.last_used_at ? ago(k.last_used_at) : 'jamais'}</td>
             <td class="num">${k.revoked ? '' : `<button class="b" data-revoke="${esc(k.id)}">Révoquer</button>`}</td>
           </tr>`).join('')}</tbody></table></div>`}
         <div id="key-out"></div>
-        <div class="foot">Le secret n’est affiché qu’à la création. Afripaie n’en conserve qu’une empreinte : il est irrécupérable.</div>
+        <div class="foot">La clé complète n’est montrée qu’une fois, à sa création : notez-la. Afripaie ne peut pas la retrouver. Si elle a fuité, révoquez-la et créez-en une autre.</div>
       </section>`;
   }
 
@@ -913,91 +1161,99 @@
 
     const activeKeys = keys.data.filter((k) => !k.revoked).length;
     const base = session.public_base_url;
-
-    // Liste de controle plutot qu'une page de doc : ce qui manque est plus
-    // utile a montrer que ce qui est deja fait.
     const steps = [
-      ['Clé API créée', activeKeys > 0, 'keys'],
-      ['Endpoint de webhook déclaré', endpoints.count > 0, 'webhooks'],
+      ['Créer une clé API', 'Elle permet à votre site de parler à Afripaie.', activeKeys > 0, 'keys'],
+      ['Déclarer l’adresse de votre site', 'Pour qu’il soit prévenu dès qu’un paiement réussit.', endpoints.count > 0, 'webhooks'],
+      ['Faire un paiement de test', 'Avec un numéro de test : aucun argent réel ne bouge.', false, null],
     ];
 
     $('content').innerHTML = `
+      ${intro('--c-blue', '</>', 'Brancher votre site sur Afripaie', 'Cette partie est destinée à la personne qui développe votre site. Trois étapes suffisent ; ensuite vos clients paient par mobile money directement depuis vos pages.')}
       <div class="kpis">
-        ${kpi('Clés actives', activeKeys, 'pour connecter votre backend')}
-        ${kpi('Endpoints', endpoints.count, 'destinataires de nos événements')}
+        ${colorCard('--c-orange', '#', 'Clés actives', `${activeKeys}`, 'pour connecter votre site')}
+        ${colorCard('--c-violet', '✉', 'Adresses déclarées', `${endpoints.count}`, 'qui reçoivent nos messages')}
       </div>
 
       <section class="panel">
         <header><h2>Où en est votre intégration</h2></header>
-        <div class="scroll"><table><tbody>
-          ${steps.map(([label, done, view]) => `<tr>
-            <td>${done ? '<span class="tag ok">fait</span>' : '<span class="tag warn">à faire</span>'}</td>
-            <td>${label}</td>
-            <td class="num">${done ? '' : `<button class="b" data-goto="${view}">Configurer</button>`}</td>
-          </tr>`).join('')}
-        </tbody></table></div>
+        <div class="pad"><ol class="steps">
+          ${steps.map(([label, why, done, view], i) => `<li class="${done ? 'done' : ''}">
+            <span class="num">${done ? '✓' : i + 1}</span>
+            <div><strong>${label}</strong><div class="muted">${why}</div></div>
+            ${!done && view ? `<button class="b" data-goto="${view}">Faire maintenant</button>` : ''}
+          </li>`).join('')}
+        </ol></div>
       </section>
 
       <section class="panel">
-        <header><h2>Votre premier encaissement</h2></header>
+        <header><h2>Exemple : demander un paiement</h2></header>
         <div class="pad">
-          <pre style="margin:0;background:#05070a;border:1px solid var(--border);border-radius:12px;padding:18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.7">curl -X POST ${esc(base)}/v1/payments \
-  -H "Authorization: Bearer sk_${esc(session.environment)}_..." \
-  -H "Idempotency-Key: cmd-1-a" \
-  -H "content-type: application/json" \
-  -d '{"reference":"cmd-1","amount":15000,"currency":"XOF",
-       "country":"${esc(session.merchant.country === 'CM' ? 'CM' : 'BJ')}","channel":"mobile_money",
-       "customer":{"phone":"+22997000000"}}'</pre>
+          <pre style="margin:0;background:#05070a;border:1px solid var(--border);border-radius:12px;padding:18px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.7">curl -X POST ${esc(base)}/v1/payments \\
+  -H "Authorization: Bearer sk_${esc(session.environment)}_..." \\
+  -H "Idempotency-Key: cmd-1-a" \\
+  -H "content-type: application/json" \\
+  -d '{"reference":"cmd-1","amount":1000,"currency":"XAF",
+       "channel":"mobile_money","customer":{"phone":"+242000000000"}}'</pre>
         </div>
         <div class="foot">
-          En environnement de test, le numéro se terminant par <strong>0003</strong> produit un
-          état indéterminé — le scénario qu'il faut absolument avoir traité avant la production.
+          En test, un numéro dont la partie nationale ne contient que des zéros simule le paiement ; le dernier chiffre
+          choisit l’issue (0 : réussi, 2 : refusé, 7 : non confirmé). Le pays est déduit de l’indicatif.
         </div>
       </section>`;
   }
 
   async function renderEvents() {
     const list = await api('/v1/webhook-deliveries?limit=50');
-    $('content').innerHTML = `<section class="panel">
-      <header><h2>${list.count} événement${list.count > 1 ? 's' : ''} émis</h2></header>
-      ${list.count === 0 ? '<div class="empty"><strong>Aucun événement</strong>Ils apparaîtront dès qu’une transaction changera d’état.</div>' :
-      `<div class="scroll"><table>
-        <thead><tr><th>Événement</th><th>Type</th><th>État</th><th class="num">Tentatives</th><th>Code HTTP</th><th>Erreur</th><th>Émis</th></tr></thead>
-        <tbody>${list.data.map((d) => `<tr>
-          <td class="mono">${esc(d.event_id)}</td>
-          <td class="muted">${esc(d.event_type)}</td>
-          <td>${tag(d.status)}</td>
-          <td class="num">${d.attempts}</td>
-          <td class="mono muted">${d.last_status_code ?? '—'}</td>
-          <td class="muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${esc(d.last_error || '—')}</td>
-          <td class="muted">${ago(d.created_at)}</td></tr>`).join('')}</tbody>
-      </table></div>`}
-      <div class="foot">Livraison au moins une fois, 5 tentatives de 30 s à 6 h. Sans ordre garanti.</div>
-    </section>`;
+    $('content').innerHTML = `
+      ${intro('--c-violet', '✉', 'Les messages qu’Afripaie a envoyés à votre site', 'Chaque changement d’un paiement (réussi, refusé…) produit un message vers votre site. Vous voyez ici s’il l’a bien reçu.')}
+      ${deliveryCards(list.data)}
+      <section class="panel">
+        <header><h2>${plural(list.count, 'message')}</h2></header>
+        ${list.count === 0 ? '<div class="empty"><strong>Aucun message</strong>Ils apparaîtront dès qu’une transaction changera d’état.</div>' :
+        `<div class="scroll"><table>
+          <thead><tr><th>Quand</th><th>Message</th><th>Résultat</th><th class="num">Essais</th><th>Réponse de votre site</th><th>Erreur</th></tr></thead>
+          <tbody>${list.data.map((d) => `<tr>
+            <td style="white-space:nowrap">${dateTime(d.created_at)}</td>
+            <td><strong>${esc(eventName(d.event_type))}</strong><div class="mono muted" style="font-size:11.5px">${esc(d.event_id)}</div></td>
+            <td>${deliveryTag(d.status)}</td>
+            <td class="num">${d.attempts}</td>
+            <td class="mono muted">${d.last_status_code ?? '—'}</td>
+            <td class="muted" style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${esc(d.last_error || '—')}</td></tr>`).join('')}</tbody>
+        </table></div>`}
+        <div class="foot">Si votre site ne répond pas, Afripaie réessaie 5 fois, de 30 secondes à 6 heures plus tard.</div>
+      </section>`;
   }
+
+  const OUTCOME = {
+    APPLIED: '<span class="tag ok">pris en compte</span>', RECEIVED: '<span class="tag warn">reçu</span>',
+    IGNORED: '<span class="tag neutral">sans effet</span>', REJECTED: '<span class="tag bad">rejeté (signature fausse)</span>',
+    DUPLICATE: '<span class="tag neutral">doublon</span>', POLLED: '<span class="tag ok">vérifié auprès de l’opérateur</span>',
+  };
 
   async function renderLogs() {
     const list = await api('/v1/inbound-webhooks?limit=50');
-    $('content').innerHTML = `<section class="panel">
-      <header><h2>${list.count} notification${list.count > 1 ? 's' : ''} reçue${list.count > 1 ? 's' : ''}</h2></header>
-      ${list.count === 0 ? `<div class="empty"><strong>Aucune notification reçue</strong>
-        Déclarez l’URL de callback chez votre agrégateur pour être notifié immédiatement.</div>` :
-      `<div class="scroll"><table>
-        <thead><tr><th>Agrégateur</th><th>Signature</th><th>Traitement</th><th>Sens</th><th>Statut</th><th>Référence</th><th>Reçu</th></tr></thead>
-        <tbody>${list.data.map((w) => `<tr>
-          <td class="mono">${esc(w.provider)}</td>
-          <td>${w.signature_valid ? '<span class="tag ok">valide</span>' : '<span class="tag bad">invalide</span>'}</td>
-          <td>${tag(w.outcome)}</td>
-          <td class="muted">${esc(w.kind)}</td>
-          <td class="muted">${esc(w.status || '—')}</td>
-          <td class="mono muted">${esc(w.provider_reference || '—')}</td>
-          <td class="muted">${ago(w.created_at)}</td></tr>`).join('')}</tbody>
-      </table></div>`}
-      <div class="foot">
-        Les notifications mal signées sont conservées volontairement : une rafale
-        de signatures invalides est un signal de sécurité, pas un non-événement.
+    const bad = list.data.filter((w) => !w.signature_valid).length;
+    $('content').innerHTML = `
+      ${intro('--c-pink', '⇄', 'Les messages reçus des opérateurs', 'Quand un client paie, son opérateur prévient Afripaie par un message. Afripaie vérifie la signature de chaque message : un message mal signé est ignoré, c’est une protection contre la fraude.')}
+      <div class="kpis">
+        ${colorCard('--c-teal', '✓', 'Messages authentiques', `${list.data.length - bad}`, 'signature vérifiée')}
+        ${colorCard('--c-red', '✗', 'Messages rejetés', `${bad}`, 'signature fausse : ignorés')}
       </div>
-    </section>`;
+      <section class="panel">
+        <header><h2>${plural(list.count, 'message reçu')}</h2></header>
+        ${list.count === 0 ? '<div class="empty"><strong>Aucun message reçu</strong>Ils apparaîtront au prochain paiement.</div>' :
+        `<div class="scroll"><table>
+          <thead><tr><th>Quand</th><th>Opérateur</th><th>Authentique ?</th><th>Traitement</th><th>Concerne</th><th>Référence</th></tr></thead>
+          <tbody>${list.data.map((w) => `<tr>
+            <td style="white-space:nowrap">${dateTime(w.created_at)}</td>
+            <td>${esc(PROVIDER_NAMES[w.provider] || w.provider)}</td>
+            <td>${w.signature_valid ? '<span class="tag ok">oui</span>' : '<span class="tag bad">non</span>'}</td>
+            <td>${OUTCOME[w.outcome] || tag(w.outcome)}</td>
+            <td class="muted">${w.kind === 'payin' ? 'un paiement' : w.kind === 'payout' ? 'un envoi' : '—'}${w.status ? ` (${esc(LABELS[w.status] || w.status)})` : ''}</td>
+            <td class="mono muted">${esc(w.provider_reference || '—')}</td></tr>`).join('')}</tbody>
+        </table></div>`}
+        <div class="foot">Les messages rejetés sont gardés volontairement : beaucoup de rejets d’un coup signale une tentative de fraude.</div>
+      </section>`;
   }
 
   /* ------------------------------------------------------- Passage en reel -- */
@@ -1012,31 +1268,38 @@
    */
   const LIVE_UI = {
     UNVERIFIED: {
-      pill: 'non verifie',
-      title: 'Votre compte est en environnement de test',
-      body: 'Tout fonctionne : routage, bascule, webhooks, reconciliation. Aucun '
-          + 'argent reel ne circule. Pour encaisser de vrais paiements, deposez '
-          + 'un dossier ci-dessous.',
+      pill: 'non vérifié',
+      title: 'Votre compte est en mode test',
+      body: 'Tout fonctionne déjà : paiements, notifications, tableau de bord. Mais aucun argent réel ne circule. '
+          + 'Pour encaisser de vrais paiements, déposez votre dossier ci-dessous : une personne d’Afripaie le vérifie.',
     },
     PENDING: {
-      pill: 'en cours d examen',
-      title: 'Votre dossier est en cours d examen',
-      body: 'Nous verifions votre activite et votre immatriculation. Vous '
-          + 'continuez a travailler en test sans aucune limite pendant ce temps.',
+      pill: 'en cours d’examen',
+      title: 'Votre dossier est en cours d’examen',
+      body: 'Nous vérifions votre activité et votre immatriculation. Pendant ce temps, vous pouvez continuer à tout tester, sans limite.',
     },
     VERIFIED: {
-      pill: 'verifie',
-      title: 'L environnement reel est ouvert',
-      body: 'Vous pouvez basculer en Live et creer des cles sk_live_. Les '
-          + 'transactions passees avec ces cles deplacent de l argent reel.',
+      pill: 'vérifié',
+      title: 'Les paiements réels sont ouverts',
+      body: 'Passez sur « Live » en bas à gauche et créez une clé réelle : les paiements faits avec cette clé encaissent de l’argent réel.',
     },
     REJECTED: {
-      pill: 'refuse',
-      title: 'Votre demande a ete refusee',
-      body: 'Le motif figure ci-dessous. Corrigez ce qui est signale, puis '
-          + 'deposez une nouvelle demande.',
+      pill: 'refusé',
+      title: 'Votre demande a été refusée',
+      body: 'Le motif est indiqué ci-dessous. Corrigez ce qui est signalé, puis déposez une nouvelle demande.',
     },
   };
+
+  /** Frise : ou en est le marchand sur le chemin vers les paiements reels. */
+  function liveStepper(status) {
+    const at = { UNVERIFIED: 1, PENDING: 2, REJECTED: 2, VERIFIED: 4 }[status] || 1;
+    const steps = ['Compte créé', 'Dossier déposé', 'Vérification par Afripaie', 'Paiements réels ouverts'];
+    return `<ol class="stepper">${steps.map((label, i) => {
+      const n = i + 1;
+      const state = status === 'REJECTED' && n === 3 ? 'bad' : n <= at ? 'done' : n === at + 1 ? 'next' : '';
+      return `<li class="${state}"><span>${state === 'done' ? '✓' : state === 'bad' ? '✗' : n}</span>${label}</li>`;
+    }).join('')}</ol>`;
+  }
 
   const FIELD = 'font:inherit;font-size:15px;padding:11px 14px;border-radius:10px;'
               + 'border:1px solid var(--border);background:#05070a;color:var(--ink)';
@@ -1054,7 +1317,8 @@
           <span class="tag">${esc(ui.pill)}</span>
         </header>
         <div class="pad">
-          <p style="margin:0;color:var(--muted);font-size:14.5px;max-width:70ch">${esc(ui.body)}</p>
+          ${liveStepper(state.status)}
+          <p style="margin:18px 0 0;color:var(--muted);font-size:14.5px;max-width:70ch">${esc(ui.body)}</p>
         </div>
       </section>
 
@@ -1138,6 +1402,7 @@
   async function renderSecurity() {
     const LABEL = 'display:grid;gap:7px;font-size:13.5px;font-weight:600';
     $('content').innerHTML = `
+      ${intro('--c-teal', '✓', 'Protéger votre compte', 'Votre mot de passe donne accès à votre argent : choisissez une phrase longue (au moins 12 caractères), que vous n’utilisez nulle part ailleurs. Il vous est redemandé à chaque retrait.')}
       <section class="panel">
         <header><h2>Changer le mot de passe</h2></header>
         <form class="pad" id="pw-form" method="post" style="display:grid;gap:16px;max-width:480px">
@@ -1337,7 +1602,30 @@
           </tr>`).join('')}</tbody></table></div>`}
       </section>`;
 
+    const main = splitRows[0]?.currency || bal?.currency || 'XAF';
+    const tot = (k) => splitRows.filter((r) => r.currency === main).reduce((s, r) => s + r[k], 0);
+    const paidAll = tot('customer_paid'), netAll = tot('merchant_net'), outAll = tot('withdrawn'), goingAll = tot('withdrawing');
+    const flow = paidAll === 0 ? '' : `<section class="panel">
+        <header><h2>Le parcours de votre argent</h2></header>
+        <div class="pad">${hBars([
+          { label: 'Payé par vos clients', value: paidAll, sub: `${tot('payments')} paiement${tot('payments') > 1 ? 's' : ''} réussi${tot('payments') > 1 ? 's' : ''}`, color: 'var(--c-blue)' },
+          { label: 'Frais (5 %)', value: paidAll - netAll, sub: 'opérateur + Afripaie', color: 'var(--c-orange)' },
+          { label: 'Pour vous', value: netAll, sub: '95 % de ce qui a été payé', color: 'var(--c-teal)' },
+          { label: 'Déjà retiré', value: outAll, sub: 'arrivé sur votre téléphone', color: 'var(--c-violet)' },
+          { label: 'Retrait en cours', value: goingAll, sub: 'en validation ou en envoi', color: 'var(--c-yellow)' },
+          { label: 'Reste à retirer', value: netAll - outAll - goingAll, sub: 'votre solde', color: 'var(--c-pink)' },
+        ], main)}</div>
+        <div class="foot">Lisez de haut en bas : ce que vos clients ont payé, ce qui vous revient, puis ce que vous en avez déjà retiré.</div>
+      </section>`;
+
     $('content').innerHTML = `
+      ${intro('--c-teal', '⇊', 'Votre argent, et comment le retirer', 'Quand vos clients paient, l’argent arrive chez Afripaie, qui le garde pour vous. Vous le retirez quand vous voulez vers un numéro mobile money, en bas de cette page. Les frais de retrait sont offerts.')}
+      <div class="kpis">
+        ${colorCard('--c-blue', '=', 'Ce qu’Afripaie vous doit', `${money(bal ? bal.held : 0, main)} <small>${main}</small>`, 'Tout votre solde')}
+        ${colorCard('--c-teal', '✓', 'Retirable maintenant', `${money(bal ? bal.available : 0, main)} <small>${main}</small>`, 'Formulaire « Retirer mes fonds » ci-dessous')}
+        ${colorCard('--c-violet', '↑', 'Déjà retiré', `${money(outAll, main)} <small>${main}</small>`, goingAll ? `${money(goingAll, main)} ${main} en cours de retrait` : 'Depuis le début')}
+      </div>
+      ${flow}
       ${splitPanel}
       <section class="panel">
         <header><h2>Solde dû</h2></header>
@@ -1423,6 +1711,7 @@
   };
 
   async function show(next) {
+    if (next !== view) listFilter = 'ALL';
     view = next === 'providers' && !session.user.platform_admin ? 'overview' : next;
     const meta = VIEWS[view];
     $('title').textContent = meta.title;
@@ -1490,6 +1779,9 @@
     // Tout clic hors du menu le referme : un panneau qui reste ouvert par
     // inadvertance masque la moitie de la barre laterale.
     if (!e.target.closest('#devmenu')) closeDevMenu();
+
+    const lf = e.target.closest('[data-list-filter]');
+    if (lf) { listFilter = lf.dataset.listFilter; await renderList(view); return; }
 
     const nav = e.target.closest('[data-view]');
     if (nav) { e.preventDefault(); closeDevMenu(); return show(nav.dataset.view); }

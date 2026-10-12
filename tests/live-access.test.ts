@@ -595,3 +595,26 @@ describe('cloisonnement test / reel', () => {
   });
 });
 
+describe('chiffres de toute la plateforme', () => {
+  it('reserves aux administrateurs, avec une repartition qui retombe sur le montant paye', async () => {
+    const client = await newMerchant();
+    const admin = await newMerchant();
+    await makeAdmin(admin);
+    await prisma.payment.create({
+      data: {
+        id: `pay_stats_${Date.now()}`, merchantId: client.merchantId, reference: `st-${Date.now()}`, amount: 1000, currency: 'XAF',
+        country: 'CG', channel: 'mobile_money', environment: 'live', status: 'SUCCEEDED', providerFeeAmount: 60, platformFeeAmount: -10,
+      },
+    });
+
+    expect((await as(client, 'GET', '/v1/admin/stats')).statusCode).toBe(403);
+
+    const res = await as(admin, 'GET', '/v1/admin/stats?environment=live');
+    expect(res.statusCode).toBe(200);
+    const ligne = (res.json().by_merchant as { merchant: { id: string }; ok: number; paid: number; aggregator_fees: number; afripaie_fees: number; merchant_net: number }[])
+      .find((m) => m.merchant.id === client.merchantId)!;
+    expect(ligne).toMatchObject({ ok: 1, paid: 1000, aggregator_fees: 60, afripaie_fees: -10, merchant_net: 950 });
+    expect(ligne.aggregator_fees + ligne.afripaie_fees + ligne.merchant_net).toBe(ligne.paid);
+  });
+});
+

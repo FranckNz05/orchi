@@ -533,9 +533,12 @@ export interface ListFilters {
  * s'obtient par GET /v1/payments/:id.
  */
 export function serializePaymentRow(
-  payment: Payment & { attempts: { providerId: string; status: string }[] },
+  payment: Payment & {
+    attempts: { providerId: string; status: string; providerMessage?: string | null; failureCode?: string | null }[];
+  },
 ) {
   const last = payment.attempts[payment.attempts.length - 1];
+  const ended = payment.status === 'FAILED' || payment.status === 'EXPIRED';
   return {
     object: 'payment',
     id: payment.id,
@@ -549,6 +552,8 @@ export function serializePaymentRow(
     customer_phone: payment.customerPhone,
     provider: last?.providerId ?? null,
     attempt_count: payment.attempts.length,
+    /** Pourquoi le paiement n'a pas abouti : la premiere question d'un commercant. */
+    failure: ended ? { code: last?.failureCode ?? null, message: last?.providerMessage ?? null } : null,
     /** Ce que le marchand recoit : sans cela, une liste ne montre que le brut. */
     split: splitOf(payment, last?.providerId ?? null),
     created_at: payment.createdAt.toISOString(),
