@@ -528,7 +528,7 @@ describe('correction d’identite par un administrateur', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('espace administrateur', () => {
-  it('envoie un administrateur sur /admin a la connexion, un marchand sur /app', async () => {
+  it('envoie tout le monde sur /app a la connexion (l administration y est en onglets)', async () => {
     const marchand = await newMerchant();
     const admin = await newMerchant();
     await makeAdmin(admin);
@@ -543,7 +543,7 @@ describe('espace administrateur', () => {
     };
 
     expect((await login(marchand)).json().next).toBe('/app');
-    expect((await login(admin)).json().next).toBe('/admin');
+    expect((await login(admin)).json().next).toBe('/app');
   });
 
   it('liste les paiements de tous les clients, aux seuls administrateurs, numero masque', async () => {

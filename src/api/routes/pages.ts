@@ -169,7 +169,9 @@ export async function pageRoutes(app: FastifyInstance, serviceIndex: () => Servi
    * evite de dupliquer la regle d'acces a deux endroits qui finiraient par
    * diverger.
    */
-  app.get('/admin', async (request, reply) => serve(reply, 'admin.html', request));
+  // L'administration vit dans /app (onglets « Administration Afripaie »).
+  // L'ancienne adresse reste valable : favoris et liens deja envoyes.
+  app.get('/admin', async (_request, reply) => reply.redirect('/app', 302));
 
   /**
    * Console d'exploitation : refusee par defaut en production, car elle invite

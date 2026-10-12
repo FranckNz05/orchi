@@ -296,6 +296,49 @@
   .stepper li.next { color: var(--ink); font-weight: 650; } .stepper li.next span { border-color: var(--c-blue); color: var(--c-blue); }
   .stepper li.bad { color: var(--c-red); } .stepper li.bad span { border-color: var(--c-red); color: var(--c-red); }
   @media (max-width: 600px) { .stepper { grid-template-columns: 1fr 1fr; row-gap: 18px; } .stepper li::before { display: none; } }
+  .kpi.c.alert-k { border-color: color-mix(in srgb, var(--k) 60%, var(--border)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--k) 35%, transparent); }
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(160%); z-index: 90;
+    background: var(--surface); border: 1px solid var(--border-lit); border-radius: 12px; padding: 13px 20px; font-size: 14.5px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.6); transition: transform .3s cubic-bezier(.2,.8,.3,1); max-width: min(640px, 92vw); }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: rgba(53,214,164,.6); } .toast.ko { border-color: rgba(255,107,107,.6); }
+  button.b.danger { border-color: rgba(255,107,107,.45); color: var(--c-red); }
+  button.b.danger:hover { background: rgba(255,107,107,.1); border-color: var(--c-red); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 22px; margin-bottom: 16px; }
+  .facts .k { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .facts .v { font-size: 14px; margin-top: 3px; word-break: break-word; }
+  .facts a { color: var(--c-blue); }
+  .quote { background: #05070a; border: 1px solid var(--border); border-left: 3px solid var(--c-blue); border-radius: 0 12px 12px 0;
+    padding: 13px 17px; margin-bottom: 16px; font-size: 14.5px; white-space: pre-wrap; }
+  .verdict { border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 14px; border: 1px solid var(--border); }
+  .verdict.ok { border-color: rgba(53,214,164,.35); background: var(--accent-soft); }
+  .verdict.ko { border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.08); }
+  .verdict .who { color: var(--muted); font-size: 12px; margin-top: 5px; }
+  .decide { display: grid; gap: 10px; }
+  .decide textarea { font: inherit; font-size: 14px; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border);
+    background: #05070a; color: var(--ink); resize: vertical; min-height: 70px; width: 100%; box-sizing: border-box; }
+  .decide .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .pinform { display: flex; flex-wrap: wrap; gap: 10px; }
+  .wdcard { border-color: rgba(240,192,99,.45); }
+  .wdcard .pad { display: grid; grid-template-columns: 1fr auto; gap: 14px 22px; align-items: center; }
+  .wdcard .amt { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+  .wdcard .acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .wdcard .acts input { font: inherit; font-size: 16px; letter-spacing: .3em; width: 110px; text-align: center; padding: 9px 12px;
+    border-radius: 9px; border: 1px solid var(--border); background: #05070a; color: var(--ink); }
+  .acl > header { gap: 12px; }
+  .acl .chev { color: var(--muted); font-size: 11px; transition: transform .2s; }
+  .acl.open .chev { transform: rotate(90deg); }
+  .acl .body { display: none; border-top: 1px solid var(--border); }
+  .acl.open .body { display: block; }
+  .settle h3 { font-size: 15px; margin: 22px 0 6px; }
+  .settle details { margin: 14px 0; }
+  .settle summary { cursor: pointer; color: var(--c-blue); font-size: 13.5px; }
+  .settle .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 12px 0; }
+  .settle .form label { display: grid; gap: 5px; font-size: 12.5px; color: var(--muted); }
+  .settle .form label.check { display: flex; align-items: center; gap: 8px; }
+  .settle input, .settle select { font: inherit; font-size: 14px; padding: 8px 11px; border-radius: 9px;
+    border: 1px solid var(--border); background: #05070a; color: var(--ink); }
+  @media (max-width: 720px) { .wdcard .pad { grid-template-columns: 1fr; } }
   .alerts { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; }
   @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
 
@@ -345,7 +388,16 @@
   </div>
 
   <nav id="nav">
-    <a href="/admin" id="admin-nav" hidden style="border:1px solid rgba(53,214,164,.45);color:var(--accent);font-weight:700"><span class="ico">⚑</span> Administration d’Afripaie</a>
+    <div id="admin-group" hidden>
+      <div class="group" style="color:var(--c-violet)">Administration Afripaie</div>
+      <a data-view="adm_overview"><span class="ico">⚑</span> Plateforme</a>
+      <a data-view="adm_live"><span class="ico">◎</span> Demandes de réel <span class="badge" id="badge-adm-live" hidden>0</span></a>
+      <a data-view="adm_withdrawals"><span class="ico">⇊</span> Retraits à valider <span class="badge" id="badge-adm-wd" hidden>0</span></a>
+      <a data-view="adm_payments"><span class="ico">↓</span> Paiements clients</a>
+      <a data-view="adm_clients"><span class="ico">◆</span> Clients</a>
+      <a data-view="providers"><span class="ico">⛁</span> Agrégateurs</a>
+      <div class="group">Compte plateforme</div>
+    </div>
     <a data-view="overview" aria-current="true"><span class="ico">◈</span> Vue d'ensemble</a>
     <a data-view="reconciliation"><span class="ico">⚖</span> Réconciliation <span class="badge" id="badge-recon" hidden>0</span></a>
 
@@ -356,7 +408,6 @@
 
     <div class="group">Infrastructure</div>
     <a data-view="live"><span class="ico">◎</span> Passage en réel <span class="badge" id="badge-live" hidden>!</span></a>
-    <a data-view="providers" id="providers-nav" hidden><span class="ico">⛁</span> Agrégateurs</a>
     <a data-view="webhooks"><span class="ico">⇄</span> Webhooks</a>
 
     <div class="group">Compte</div>
@@ -380,7 +431,7 @@
       <a href="/docs" target="_blank"><span class="ico">▤</span> Documentation de l'API <span class="ext">↗</span></a>
       <a href="/console" target="_blank"><span class="ico">▦</span> Console technique <span class="ext">↗</span></a>
       <a data-view="keys"><span class="ico">⚿</span> Clés API</a>
-      <a href="/admin" id="admin-link" hidden><span class="ico">⚑</span> Administration <span class="ext">↗</span></a>
+      <a data-view="adm_overview" id="admin-link" hidden><span class="ico">⚑</span> Administration</a>
     </div>
   </div>
 
@@ -414,6 +465,8 @@
   <div id="content"></div>
 </main>
 
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <dialog id="detail">
   <h2 id="detail-title">Détail</h2>
   <pre id="detail-body"></pre>
@@ -433,6 +486,7 @@
 
   let session = null;
   let view = 'overview';
+  let booted = false;
   let current = null;
 
   /* ------------------------------------------------------------------ API -- */
@@ -502,7 +556,12 @@
     payments:       { title: 'Encaissements', sub: 'Tous vos paiements entrants' },
     payouts:        { title: 'Décaissements', sub: 'Tous vos virements sortants' },
     live:           { title: 'Passage en réel', sub: 'Encaisser de vrais paiements demande une vérification' },
-    providers:      { title: 'Agrégateurs', sub: 'Comptes connectés et santé du routage' },
+    providers:      { title: 'Agrégateurs', sub: 'Administration — les opérateurs par lesquels passe l’argent' },
+    adm_overview:   { title: 'Plateforme', sub: 'Administration — tous les marchands, tous les chiffres' },
+    adm_live:       { title: 'Demandes de passage en réel', sub: 'Administration — les dossiers à décider' },
+    adm_withdrawals:{ title: 'Retraits à valider', sub: 'Administration — avec votre PIN' },
+    adm_payments:   { title: 'Paiements des clients', sub: 'Administration — tous les marchands' },
+    adm_clients:    { title: 'Clients', sub: 'Administration — fiches, dossiers et reversements' },
     webhooks:       { title: 'Webhooks', sub: 'Endpoints déclarés et journal de livraison' },
     keys:           { title: 'Clés API', sub: 'Pour connecter votre backend' },
     security:       { title: 'Sécurité', sub: 'Mot de passe de votre compte' },
@@ -730,8 +789,8 @@
         <span class="chip">⚑</span>
         <div style="flex:1"><strong>Vous êtes sur le compte de la plateforme Afripaie</strong>
           <p>Ce compte n’encaisse rien lui-même : il est normal qu’il soit vide. Les paiements de vos clients (LuxEvent…), leurs montants,
-            vos commissions et les demandes de passage en réel sont dans l’administration.</p></div>
-        <a class="b solid" href="/admin" style="text-decoration:none;align-self:center;white-space:nowrap">Voir toute la plateforme</a>
+            vos commissions et les demandes de passage en réel sont dans les onglets « Administration Afripaie » du menu.</p></div>
+        <button class="b solid" data-goto="adm_overview" style="align-self:center;white-space:nowrap">Voir toute la plateforme</button>
       </div></section>` : '';
 
     $('content').innerHTML = `
@@ -1009,83 +1068,6 @@
             <p><span class="k">Que faire ?</span> ${i.todo}</p>
           </div>
         </div></section>`).join('')}</div>`;
-  }
-
-  async function renderProviders() {
-    const [accounts, health, coverage] = await Promise.all([
-      api('/v1/provider-accounts'),
-      api('/v1/routing/health'),
-      api(`/v1/coverage?country=${session.merchant.country}`),
-    ]);
-
-    $('content').innerHTML = `
-      <section class="panel">
-        <header><h2>Comptes connectés</h2></header>
-        ${accounts.count === 0 ? `<div class="empty"><strong>Aucun compte agrégateur</strong>
-          Sans compte connecté, aucune transaction ne peut partir.</div>` :
-        `<div class="scroll"><table>
-          <thead><tr><th>Agrégateur</th><th>État</th><th class="num">Priorité</th><th>Credentials</th><th>URL de callback</th></tr></thead>
-          <tbody>${accounts.data.map((a) => `<tr>
-            <td class="mono">${esc(a.provider)}</td><td>${tag(a.status)}</td>
-            <td class="num">${a.priority}</td>
-            <td class="muted">${a.credential_keys.map(esc).join(', ')}</td>
-            <td class="mono muted" style="max-width:320px;overflow:hidden;text-overflow:ellipsis">${esc(a.callback_url)}</td>
-          </tr>`).join('')}</tbody></table></div>`}
-        <div class="foot">L’URL de callback est à déclarer chez l’agrégateur. Son jeton identifie le compte.</div>
-      </section>
-
-      <section class="panel">
-        <header><h2>Santé du routage</h2></header>
-        ${health.count === 0 ? '<div class="empty"><strong>Aucun appel observé</strong>La fenêtre glissante est de 5 minutes.</div>' :
-        `<div class="scroll"><table>
-          <thead><tr><th>Agrégateur</th><th>Pays</th><th>Canal</th><th>Disjoncteur</th>
-            <th class="num">Succès</th><th class="num">Échecs</th><th class="num">Refus client</th><th class="num">p95</th></tr></thead>
-          <tbody>${health.data.map((h) => `<tr>
-            <td class="mono">${esc(h.provider)}</td><td>${esc(h.country)}</td>
-            <td class="muted">${esc(h.channel)}</td><td>${tag(h.state)}</td>
-            <td class="num">${h.successes}</td><td class="num">${h.technical_failures}</td>
-            <td class="num muted">${h.declines}</td>
-            <td class="num">${h.latency_p95_ms == null ? '—' : h.latency_p95_ms + ' ms'}</td>
-          </tr>`).join('')}</tbody></table></div>`}
-        <div class="foot">Les refus clients n’ouvrent jamais un disjoncteur : un agrégateur qui transmet des refus fonctionne.</div>
-      </section>
-
-      <section class="panel">
-        <header><h2>Couverture — ${esc(coverage.country.name)}</h2></header>
-        <div class="scroll"><table>
-          <thead><tr><th>Agrégateur</th><th>Branché</th><th>Canaux</th><th class="num">Frais</th><th>Réseaux</th></tr></thead>
-          <tbody>${coverage.providers.map((p) => `<tr>
-            <td class="mono">${esc(p.id)}</td>
-            <td>${p.connected ? '<span class="tag ok">oui</span>' : '<span class="tag neutral">non</span>'}</td>
-            <td class="muted">${p.channels.map(esc).join(', ')}</td>
-            <td class="num">${(p.fees.min_bps / 100).toFixed(2)} %</td>
-            <td class="mono muted" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">${esc(p.networks.join(', ') || '—')}</td>
-          </tr>`).join('')}</tbody></table></div>
-      </section>`;
-  }
-
-  /** Les evenements envoyes a votre site, en francais. */
-  const EVENT_NAMES = {
-    'payment.succeeded': 'Paiement réussi', 'payment.failed': 'Paiement refusé', 'payment.expired': 'Paiement non confirmé',
-    'payment.processing': 'Paiement en cours', 'payment.created': 'Paiement créé',
-    'payout.succeeded': 'Envoi réussi', 'payout.failed': 'Envoi refusé', 'payout.unknown': 'Envoi à vérifier',
-    'payout.processing': 'Envoi en cours', 'payout.created': 'Envoi créé',
-  };
-  const eventName = (t) => EVENT_NAMES[t] || t;
-  const DELIVERY = {
-    DELIVERED: '<span class="tag ok">reçu par votre site</span>',
-    PENDING: '<span class="tag warn">en attente, nouvel essai prévu</span>',
-    FAILED: '<span class="tag bad">abandonné après 5 essais</span>',
-  };
-  const deliveryTag = (s) => DELIVERY[s] || tag(s);
-
-  function deliveryCards(list) {
-    const n = (s) => list.filter((d) => d.status === s).length;
-    return `<div class="kpis">
-      ${colorCard('--c-teal', '✓', 'Reçues par votre site', `${n('DELIVERED')}`, 'Votre site a bien répondu')}
-      ${colorCard('--c-yellow', '…', 'En attente', `${n('PENDING')}`, 'Afripaie va réessayer automatiquement')}
-      ${colorCard('--c-red', '✗', 'Abandonnées', `${n('FAILED')}`, 'Votre site n’a jamais répondu : à vérifier')}
-    </div>`;
   }
 
   async function renderWebhooks() {
@@ -1694,6 +1676,674 @@
     }
   }
 
+  /* ============================================================ ADMINISTRATION
+   * Les ecrans de l'administrateur d'Afripaie, dans le meme tableau de bord que
+   * les marchands : un onglet par sujet plutot qu'une longue page unique. Ils
+   * suivent le bouton Test / Live du menu. Les routes /v1/admin/* restent
+   * reservees aux administrateurs cote serveur : masquer l'onglet ne protege rien.
+   */
+
+  const isAdmin = () => Boolean(session && session.user && session.user.platform_admin);
+  const KYB = {
+    UNVERIFIED: ['test seulement', 'neutral'], PENDING: ['dossier à examiner', 'warn'],
+    VERIFIED: ['réel autorisé', 'ok'], REJECTED: ['refusé', 'bad'],
+  };
+  const kybTag = (st) => `<span class="tag ${(KYB[st] || [])[1] || 'neutral'}">${esc((KYB[st] || [st])[0])}</span>`;
+  const dShort = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—');
+  /** Montant en unites mineures, sans devise (devises sans decimales : XAF, XOF). */
+  const mA = (minor) => (minor === null || minor === undefined ? '—' : String(minor).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
+  const METHOD = { BANK_TRANSFER: 'Virement bancaire', MOBILE_MONEY: 'Mobile money', OTHER: 'Autre' };
+  const envWordA = () => (session.environment === 'live' ? 'réel' : 'test');
+
+  function notify(text, tone = 'ok') {
+    const el = $('toast');
+    el.textContent = text;
+    el.className = `toast show ${tone}`;
+    clearTimeout(notify.t);
+    notify.t = setTimeout(() => { el.className = 'toast'; }, 5200);
+  }
+
+  /** Pastilles du menu : ce qui attend une decision. */
+  async function refreshAdminBadges() {
+    if (!isAdmin()) return;
+    try {
+      const o = await api('/v1/admin/overview');
+      const set = (id, n) => { const b = $(id); b.hidden = !n; b.textContent = n; };
+      set('badge-adm-live', o.pending_reviews);
+      set('badge-adm-wd', o.pending_withdrawals || 0);
+      return o;
+    } catch { return null; }
+  }
+
+  /* ------------------------------------------------------------- Plateforme */
+
+  async function renderAdmOverview() {
+    const [st, o] = await Promise.all([
+      api(`/v1/admin/stats?environment=${session.environment}&days=30`),
+      refreshAdminBadges(),
+    ]);
+    const t = [...st.totals].sort((a, b) => b.paid - a.paid)[0]
+      || { currency: 'XAF', ok: 0, failed: 0, expired: 0, pending: 0, paid: 0, aggregator_fees: 0, afripaie_fees: 0, merchant_net: 0, owed_to_merchants: 0 };
+    const cur = t.currency;
+    const done = t.ok + t.failed + t.expired;
+    const rate = done ? Math.round((t.ok / done) * 100) : null;
+    const afr = t.afripaie_fees;
+    const merchants = st.by_merchant.filter((m) => m.currency === cur);
+    const active = merchants.filter((m) => m.ok > 0).length;
+
+    const days = [];
+    for (let i = 29; i >= 0; i -= 1) {
+      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const row = st.daily.find((x) => x.date === key && x.currency === cur);
+      days.push({ d, total: row ? row.paid : 0, count: row ? row.ok : 0 });
+    }
+    const pending = o ? o.pending_reviews : 0;
+    const wd = o ? (o.pending_withdrawals || 0) : 0;
+
+    const share = (v) => (t.paid ? Math.round((v / t.paid) * 1000) / 10 : 0);
+    const split = t.paid === 0 ? '<div class="empty"><strong>Pas encore de paiement réussi</strong></div>' : `<div class="pad">
+        <div class="stack">
+          <i style="width:${share(t.merchant_net)}%;background:var(--c-teal)">${share(t.merchant_net) >= 12 ? `Marchands ${share(t.merchant_net)} %` : ''}</i>
+          <i style="width:${share(t.aggregator_fees)}%;background:var(--c-blue)">${share(t.aggregator_fees) >= 6 ? `${share(t.aggregator_fees)} %` : ''}</i>
+          ${afr > 0 ? `<i style="width:${share(afr)}%;background:var(--c-violet)"></i>` : ''}
+        </div>
+        <ul class="legend row">
+          <li><span class="dot" style="background:var(--c-teal)"></span><div><strong>Pour les marchands</strong> — ${mA(t.merchant_net)} ${cur}</div></li>
+          <li><span class="dot" style="background:var(--c-blue)"></span><div><strong>Pour les opérateurs</strong> — ${mA(t.aggregator_fees)} ${cur}</div></li>
+          <li><span class="dot" style="background:var(--c-violet)"></span><div><strong>Pour Afripaie</strong> — ${afr >= 0 ? `${mA(afr)} ${cur}` : `<span class="c-red">− ${mA(-afr)} ${cur}</span> (Afripaie paie l’écart quand l’opérateur prend plus de 5 %)`}</div></li>
+        </ul></div>`;
+
+    $('content').innerHTML = `
+      ${intro('--c-violet', '⚑', 'La plateforme Afripaie, tous clients confondus', `Les chiffres ${session.environment === 'live' ? 'de l’argent <strong>réel</strong>' : 'de <strong>test</strong>'} de tous vos marchands. Changez avec le bouton Test / Live en bas à gauche. Les onglets « Administration » du menu traitent chacun un sujet.`)}
+
+      <div class="kpis">
+        <div class="kpi c ${pending ? 'alert-k' : ''}" style="--k:var(--c-orange);cursor:pointer" data-goto="adm_live">
+          <div class="t"><span class="chip">!</span>Dossiers à examiner</div><div class="v">${pending}</div>
+          <div class="d">${pending ? 'Des clients attendent votre réponse → cliquez' : 'Aucun client n’attend'}</div></div>
+        <div class="kpi c ${wd ? 'alert-k' : ''}" style="--k:var(--c-yellow);cursor:pointer" data-goto="adm_withdrawals">
+          <div class="t"><span class="chip">⇊</span>Retraits à valider</div><div class="v">${wd}</div>
+          <div class="d">${wd ? 'De l’argent attend votre PIN → cliquez' : 'Aucun retrait en attente'}</div></div>
+        ${colorCard('--c-blue', '◆', 'Marchands actifs', `${active}`, `ont encaissé en ${envWordA()} · ${o ? o.merchants : '—'} inscrits au total`)}
+      </div>
+
+      <section class="panel summary"><div class="pad">
+        <div class="eyebrow">${session.environment === 'live' ? 'Argent réel' : 'Mode test'}</div>
+        <p>${done + t.pending === 0
+          ? `Aucun paiement ${envWordA()} sur la plateforme pour l’instant.`
+          : `Les clients de vos marchands ont payé <strong>${mA(t.paid)} ${cur}</strong> en <strong>${t.ok} paiement${t.ok > 1 ? 's' : ''} réussi${t.ok > 1 ? 's' : ''}</strong>.
+             Afripaie leur doit <strong class="c-teal">${mA(t.owed_to_merchants)} ${cur}</strong> et
+             ${afr >= 0 ? `a gagné <strong class="c-violet">${mA(afr)} ${cur}</strong> de commission` : `a <strong class="c-red">payé ${mA(-afr)} ${cur}</strong> de sa poche (opérateur plus cher que 5 %)`}.`}</p>
+      </div></section>
+
+      <div class="kpis five">
+        ${colorCard('--c-blue', '↓', 'Payé par les clients', `${mA(t.paid)} <small>${cur}</small>`, `${t.ok} paiement${t.ok > 1 ? 's' : ''} réussi${t.ok > 1 ? 's' : ''}`)}
+        ${colorCard('--c-teal', '=', 'Dû aux marchands', `${mA(t.owed_to_merchants)} <small>${cur}</small>`, 'Encaissé par Afripaie, pas encore retiré')}
+        ${colorCard(afr >= 0 ? '--c-violet' : '--c-red', '%', 'Résultat Afripaie', `${afr < 0 ? '−' : ''}${mA(Math.abs(afr))} <small>${cur}</small>`, afr >= 0 ? 'Commission gagnée' : 'Écart payé aux marchands')}
+        ${colorCard('--c-orange', '✗', 'Non aboutis', `${t.failed + t.expired}`, `${t.failed} refusé${t.failed > 1 ? 's' : ''} · ${t.expired} non confirmé${t.expired > 1 ? 's' : ''}`)}
+        ${colorCard('--c-pink', '✓', 'Taux de réussite', rate === null ? '—' : `${rate} <small>%</small>`, `${done} terminé${done > 1 ? 's' : ''}`)}
+      </div>
+
+      <section class="panel">
+        <header><h2>Argent payé par jour — 30 derniers jours</h2></header>
+        <div class="pad">${days.some((d) => d.total) ? svgBars(days, cur) : '<div class="empty"><strong>Aucun paiement réussi sur la période</strong></div>'}</div>
+        <div class="foot">Total payé par les clients de tous les marchands, chaque jour.</div>
+      </section>
+
+      <div class="grid2">
+        <section class="panel"><header><h2>Les paiements ont-ils abouti ?</h2></header>
+          <div class="pad">${svgDonut([
+            { label: 'Réussis', value: t.ok, color: 'var(--c-teal)', hint: 'Payé, encaissé.' },
+            { label: 'Refusés', value: t.failed, color: 'var(--c-red)', hint: 'Solde, code faux, plafond…' },
+            { label: 'Non confirmés', value: t.expired, color: 'var(--c-orange)', hint: 'Le client n’a pas validé à temps.' },
+            { label: 'En cours', value: t.pending, color: 'var(--c-yellow)', hint: 'En attente du client.' },
+          ], rate === null ? '—' : rate + ' %', 'de réussite')}</div></section>
+        <section class="panel"><header><h2>Où va l’argent payé</h2></header>${split}
+          <div class="foot">Frais : 5 % au total pour le marchand. L’opérateur se sert d’abord, Afripaie garde le reste.</div></section>
+      </div>
+
+      <div class="grid2">
+        <section class="panel"><header><h2>Argent payé, par marchand</h2></header>
+          <div class="pad">${merchants.filter((m) => m.paid).length ? hBars(merchants.filter((m) => m.paid).map((m, i) => ({
+            label: m.merchant.name, value: m.paid, sub: ` · ${m.ok} réussi${m.ok > 1 ? 's' : ''}`,
+            color: ['var(--c-blue)', 'var(--c-teal)', 'var(--c-violet)', 'var(--c-orange)', 'var(--c-pink)'][i % 5],
+          })), cur) : '<div class="empty"><strong>Aucun encaissement</strong></div>'}</div></section>
+        <section class="panel"><header><h2>Réussite, par marchand</h2></header>
+          <div class="pad">${merchants.filter((m) => m.ok + m.failed + m.expired).length ? hBars(merchants.filter((m) => m.ok + m.failed + m.expired).map((m) => {
+            const n = m.ok + m.failed + m.expired;
+            const r = Math.round((m.ok / n) * 100);
+            return { label: m.merchant.name, value: r, sub: ` · ${m.ok}/${n}`, color: r >= 70 ? 'var(--c-teal)' : r >= 40 ? 'var(--c-yellow)' : 'var(--c-red)' };
+          }), null).replace(/ <small>cas<\/small>/g, ' <small>%</small>') : '<div class="empty"><strong>Aucun paiement terminé</strong></div>'}</div>
+          <div class="foot">Vert : plus de 70 % de réussite. Rouge : moins de 40 %, à regarder avec le marchand.</div></section>
+      </div>
+
+      <section class="panel"><header><h2>Par marchand</h2><div class="grow"></div><button class="b" data-goto="adm_clients">Voir les fiches</button></header>
+        ${merchants.length === 0 ? '<div class="empty"><strong>Aucun paiement pour l’instant</strong></div>' : `<div class="scroll"><table>
+          <thead><tr><th>Marchand</th><th class="num">Réussis</th><th class="num">Non aboutis</th><th class="num">Payé par ses clients</th><th class="num">Pour lui</th><th class="num">Afripaie</th><th>Dernier paiement</th><th>Statut</th></tr></thead>
+          <tbody>${merchants.map((m) => `<tr>
+            <td><strong>${esc(m.merchant.name)}</strong> <span class="muted">${esc(m.merchant.country || '')}</span></td>
+            <td class="num c-teal">${m.ok}</td><td class="num ${m.failed + m.expired ? 'c-orange' : 'muted'}">${m.failed + m.expired}</td>
+            <td class="num"><strong>${mA(m.paid)}</strong> <span class="muted">${esc(cur)}</span></td>
+            <td class="num">${mA(m.merchant_net)}</td>
+            <td class="num ${m.afripaie_fees < 0 ? 'c-red' : 'c-violet'}">${m.afripaie_fees < 0 ? '−' + mA(-m.afripaie_fees) : mA(m.afripaie_fees)}</td>
+            <td class="muted">${m.last_payment_at ? ago(m.last_payment_at) : '—'}</td>
+            <td>${kybTag(m.merchant.kyb_status)}</td></tr>`).join('')}</tbody></table></div>`}
+      </section>`;
+  }
+
+  /* ---------------------------------------------------- Demandes de reel */
+
+  let admMerchants = { data: [], counts: {} };
+
+  async function loadAdmMerchants() {
+    admMerchants = await api('/v1/admin/merchants');
+    return admMerchants;
+  }
+
+  function decisionBlockA(m) {
+    const buttons = m.kyb_status === 'VERIFIED'
+      ? `<button class="b danger" data-adm-act="revoke" data-id="${esc(m.id)}">Retirer l’accès réel</button>`
+      : `<button class="b solid" data-adm-act="approve" data-id="${esc(m.id)}">Autoriser le réel</button>
+         <button class="b danger" data-adm-act="reject" data-id="${esc(m.id)}">Refuser</button>`;
+    return `<div class="decide">
+      <textarea data-adm-note="${esc(m.id)}" placeholder="Motif — obligatoire pour un refus ou un retrait. Le marchand le voit : sans lui, il ne peut pas corriger son dossier."></textarea>
+      <div class="buttons">${buttons}</div></div>`;
+  }
+
+  function dossierA(m) {
+    const verdict = m.reviewed_at ? `<div class="verdict ${m.kyb_status === 'VERIFIED' ? 'ok' : 'ko'}">
+        ${m.note ? esc(m.note) : (m.kyb_status === 'VERIFIED' ? 'Accès accordé.' : 'Accès refusé.')}
+        <div class="who">${dShort(m.reviewed_at)} · ${esc(m.reviewed_by || 'inconnu')}</div></div>` : '';
+    return `<div class="facts">
+        <div><div class="k">Contact</div><div class="v">${esc(m.contact_email)}</div></div>
+        <div><div class="k">Pays · forme</div><div class="v">${esc(m.country)} · ${esc(m.legal_type)}</div></div>
+        <div><div class="k">Site</div><div class="v">${m.website ? `<a href="${esc(m.website)}" target="_blank" rel="noopener noreferrer">${esc(m.website)}</a>` : '—'}</div></div>
+        <div><div class="k">Immatriculation</div><div class="v">${esc(m.registration_number || '—')}</div></div>
+        <div><div class="k">Volume annoncé</div><div class="v">${m.monthly_volume_minor ? mA(m.monthly_volume_minor) + ' / mois' : '—'}</div></div>
+        <div><div class="k">Dossier déposé</div><div class="v">${dShort(m.requested_at)}</div></div>
+        <div><div class="k">Compte créé</div><div class="v">${dShort(m.created_at)}</div></div>
+        <div><div class="k">Paiements · clés API</div><div class="v">${m.counts ? `${m.counts.payments} · ${m.counts.api_keys}` : '—'}</div></div>
+      </div>
+      ${m.activity ? `<div class="quote">${esc(m.activity)}</div>` : '<p class="muted" style="margin:0 0 16px">Aucun dossier déposé : ce marchand n’a pas encore demandé le réel.</p>'}
+      ${verdict}${decisionBlockA(m)}`;
+  }
+
+  async function renderAdmLive() {
+    const { data } = await loadAdmMerchants();
+    await refreshAdminBadges();
+    const pending = data.filter((m) => m.kyb_status === 'PENDING')
+      .sort((a, b) => new Date(a.requested_at || 0) - new Date(b.requested_at || 0));
+    const decided = data.filter((m) => m.reviewed_at).sort((a, b) => new Date(b.reviewed_at) - new Date(a.reviewed_at)).slice(0, 15);
+    const n = (k) => data.filter((m) => m.kyb_status === k).length;
+
+    $('content').innerHTML = `
+      ${intro('--c-orange', '◎', 'Demandes de passage en réel', 'Un marchand teste librement ; pour encaisser de l’argent réel, il dépose un dossier depuis sa page « Passage en réel ». Lisez son activité, ouvrez son site, puis <strong>autorisez</strong> (il peut aussitôt passer en Live) ou <strong>refusez avec un motif</strong> (il le voit et peut corriger).')}
+      <div class="kpis">
+        ${colorCard('--c-orange', '!', 'À examiner', `${pending.length}`, pending.length ? 'Attendent votre réponse' : 'Rien en attente')}
+        ${colorCard('--c-teal', '✓', 'Réel autorisé', `${n('VERIFIED')}`, 'marchands')}
+        ${colorCard('--c-red', '✗', 'Refusés', `${n('REJECTED')}`, 'peuvent redéposer')}
+        ${colorCard('--c-blue', '~', 'Test seulement', `${n('UNVERIFIED')}`, 'pas encore de dossier')}
+      </div>
+      ${pending.length === 0
+        ? '<section class="panel hero ok"><div class="pad"><span class="big">✓</span><div><strong>Aucun dossier en attente</strong><p>Quand un marchand déposera son dossier, il apparaîtra ici avec les boutons de décision.</p></div></div></section>'
+        : pending.map((m) => `<section class="panel" style="border-color:rgba(255,159,90,.45)">
+            <header><h2>${esc(m.name)}</h2>${kybTag(m.kyb_status)}<div class="grow"></div><span class="muted" style="font-size:13px">déposé ${ago(m.requested_at)}</span></header>
+            <div class="pad">${dossierA(m)}</div></section>`).join('')}
+      <section class="panel"><header><h2>Décisions récentes</h2></header>
+        ${decided.length === 0 ? '<div class="empty"><strong>Aucune décision pour l’instant</strong></div>' : `<div class="scroll"><table>
+          <thead><tr><th>Quand</th><th>Marchand</th><th>Décision</th><th>Motif</th><th>Par</th></tr></thead>
+          <tbody>${decided.map((m) => `<tr><td class="muted">${dShort(m.reviewed_at)}</td><td><strong>${esc(m.name)}</strong></td>
+            <td>${kybTag(m.kyb_status)}</td><td class="muted">${esc(m.note || '—')}</td><td class="muted" style="font-size:12px">${esc(m.reviewed_by || '')}</td></tr>`).join('')}</tbody></table></div>`}
+      </section>`;
+  }
+
+  async function decideA(id, decision, note) {
+    if (decision !== 'approve' && !note.trim()) return notify('Un refus ou un retrait d’accès doit être motivé.', 'ko');
+    if (decision === 'revoke' && !confirm('Retirer l’accès réel ? Ses clés réelles seront révoquées immédiatement.')) return;
+    try {
+      await api(`/v1/admin/merchants/${encodeURIComponent(id)}/review`, {
+        method: 'POST', body: JSON.stringify({ decision, ...(note.trim() ? { note: note.trim() } : {}) }),
+      });
+      notify(decision === 'approve' ? 'Accès réel autorisé : le marchand peut passer en Live.' : 'Décision enregistrée.', 'ok');
+      admOpen.add(id);
+      await show(view);
+    } catch (e) {
+      notify(e.message, 'ko');
+    }
+  }
+
+  /* ---------------------------------------------------- Retraits a valider */
+
+  async function renderAdmWithdrawals() {
+    const [list, pin] = await Promise.all([api('/v1/admin/withdrawals'), api('/v1/admin/pin')]);
+    await refreshAdminBadges();
+    const total = list.data.reduce((s2, w) => s2 + w.amount, 0);
+    const cur = list.data[0]?.currency || 'XAF';
+    const lock = pin.locked_until ? ` <span class="c-red">— verrouillé jusqu’à ${new Date(pin.locked_until).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
+
+    $('content').innerHTML = `
+      ${intro('--c-yellow', '⇊', 'Retraits à valider', 'Un retrait vers un numéro jamais utilisé, ou d’au moins 100 000 XAF, attend ici : c’est la protection contre un compte de marchand piraté. Vérifiez le numéro et le titulaire, tapez <strong>votre PIN</strong> puis « Approuver » : l’argent part aussitôt. « Refuser » rend le montant au marchand.')}
+      <div class="kpis">
+        ${colorCard('--c-yellow', '⇊', 'En attente', `${list.data.length}`, list.data.length ? 'À approuver ou refuser' : 'Rien à valider')}
+        ${colorCard('--c-orange', '=', 'Montant en attente', `${mA(total)} <small>${cur}</small>`, 'Réservé, pas encore parti')}
+        ${colorCard(pin.is_set ? '--c-teal' : '--c-red', pin.is_set ? '✓' : '!', 'Votre PIN', pin.is_set ? 'défini' : 'à définir', pin.is_set ? 'Vous pouvez approuver' : 'Obligatoire pour approuver')}
+      </div>
+
+      <section class="panel" style="${pin.is_set ? '' : 'border-color:rgba(255,107,107,.5)'}">
+        <header><h2>${pin.is_set ? '✓ Votre PIN de validation' : '⚠ Définissez votre PIN de validation'}${lock}</h2></header>
+        <div class="pad">
+          <p class="muted" style="margin:0 0 12px;font-size:14px">${pin.is_set ? 'Vous le tapez pour approuver un retrait. Vous pouvez le changer ici.' : 'Sans PIN, aucun retrait ne peut être approuvé. 4 à 6 chiffres, ni suite ni chiffres identiques. Seuls les administrateurs d’Afripaie ont un PIN.'}</p>
+          <div class="pinform">
+            <input type="password" id="adm-pin-password" autocomplete="current-password" placeholder="Mot de passe de votre compte" style="${FIELD}" />
+            <input type="password" id="adm-pin-new" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="${pin.is_set ? 'Nouveau PIN' : 'Votre PIN'} (4 à 6 chiffres)" style="${FIELD}" />
+            <button class="b ${pin.is_set ? '' : 'solid'}" data-adm-pin-save>${pin.is_set ? 'Changer mon PIN' : 'Définir mon PIN'}</button>
+          </div>
+        </div>
+      </section>
+
+      ${list.data.length === 0
+        ? '<section class="panel hero ok"><div class="pad"><span class="big">✓</span><div><strong>Aucun retrait à valider</strong><p>Les retraits vers un numéro déjà utilisé partent seuls ; les autres apparaîtront ici.</p></div></div></section>'
+        : list.data.map((w) => `<section class="panel wdcard">
+            <div class="pad">
+              <div>
+                <div class="amt">${mA(w.amount)} ${esc(w.currency)} <span class="muted" style="font-size:14px;font-weight:500">· ${esc(w.merchant.name)}${w.environment === 'test' ? ' · test' : ''}</span></div>
+                <div class="muted" style="font-size:13.5px;margin-top:4px">Vers <strong style="color:var(--ink)">${esc(w.destination)}</strong> (${esc(networkName(w.network))}) · titulaire « ${esc(w.beneficiary_name || '—')} » · demandé ${ago(w.created_at)}</div>
+                <div class="c-orange" style="font-size:13.5px;margin-top:4px">Pourquoi valider : ${esc(w.approval_reason || 'validation requise')}</div>
+              </div>
+              <div class="acts">
+                <input type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="PIN" data-adm-wd-pin="${esc(w.id)}" aria-label="Votre PIN" />
+                <button class="b solid" data-adm-wd-approve="${esc(w.id)}">Approuver</button>
+                <button class="b danger" data-adm-wd-reject="${esc(w.id)}">Refuser</button>
+              </div>
+            </div></section>`).join('')}`;
+    admWdList = list.data;
+  }
+
+  let admWdList = [];
+
+  async function approveWithdrawalA(id) {
+    const pin = (document.querySelector(`[data-adm-wd-pin="${CSS.escape(id)}"]`)?.value || '').trim();
+    if (!/^\d{4,6}$/.test(pin)) return notify('Tapez votre PIN (4 à 6 chiffres).', 'ko');
+    const w = admWdList.find((x) => x.id === id);
+    if (!confirm(`Envoyer ${mA(w.amount)} ${w.currency} au ${w.destination} (${w.beneficiary_name || ''}) ?\n\nL’argent part immédiatement.`)) return;
+    try {
+      const r = await api(`/v1/admin/settlements/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify({ pin }) });
+      const SAID = { PAID: 'Retrait approuvé : l’argent est parti.', PROCESSING: 'Retrait approuvé et envoyé : confirmation en cours.',
+        UNKNOWN: 'Envoyé, mais l’opérateur n’a pas répondu clairement : à vérifier avant tout nouvel envoi.', FAILED: `Refusé par l’opérateur : ${r.failure_reason || ''} Le montant est rendu au marchand.` };
+      notify(SAID[r.status] || 'Retrait traité.', r.status === 'FAILED' || r.status === 'UNKNOWN' ? 'ko' : 'ok');
+    } catch (e) {
+      notify(e.message, 'ko');
+    }
+    await show(view);
+  }
+
+  async function rejectWithdrawalA(id) {
+    const reason = prompt('Motif du refus (le marchand le verra) :');
+    if (!reason || reason.trim().length < 5) return;
+    try {
+      await api(`/v1/admin/settlements/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) });
+      notify('Retrait refusé : le montant est rendu au marchand.', 'ok');
+    } catch (e) {
+      notify(e.message, 'ko');
+    }
+    await show(view);
+  }
+
+  async function savePinA() {
+    try {
+      await api('/v1/admin/pin', { method: 'PUT', body: JSON.stringify({ password: $('adm-pin-password').value, pin: $('adm-pin-new').value.trim() }) });
+      notify('PIN enregistré.', 'ok');
+      await show(view);
+    } catch (e) {
+      notify(e.message, 'ko');
+    }
+  }
+
+  /* ------------------------------------------------------ Paiements clients */
+
+  let admTxStatus = '';
+  let admTxMerchant = '';
+
+  function failTextA(t) {
+    if (t.status === 'EXPIRED') return 'Le client n’a pas confirmé à temps';
+    return failureText({ status: t.status, failure: t.failure ? { message: String(t.failure), code: null } : null });
+  }
+
+  async function renderAdmPayments() {
+    const qs = new URLSearchParams({ limit: '200', environment: session.environment,
+      ...(admTxStatus ? { status: admTxStatus } : {}), ...(admTxMerchant ? { merchant: admTxMerchant } : {}) });
+    const [res, ms] = await Promise.all([api(`/v1/admin/payments?${qs}`), admMerchants.data.length ? admMerchants : loadAdmMerchants()]);
+    const list = res.data;
+    const is = (...st) => list.filter((t) => st.includes(t.status));
+    const ok = is('SUCCEEDED'), ko = is('FAILED'), ex = is('EXPIRED'), wait = is('CREATED', 'PROCESSING');
+    const cur = ok[0]?.currency || list[0]?.currency || 'XAF';
+    const paid = ok.reduce((s2, t) => s2 + (t.currency === cur ? t.amount : 0), 0);
+    const afr = ok.reduce((s2, t) => s2 + (t.currency === cur && t.fees.platform != null ? t.fees.platform : 0), 0);
+
+    const days = [];
+    for (let i = 13; i >= 0; i -= 1) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
+      days.push({ d, ok: 0, ko: 0 });
+    }
+    for (const t of list) {
+      const dd = new Date(t.created_at); dd.setHours(0, 0, 0, 0);
+      const slot = days.find((x) => x.d.getTime() === dd.getTime());
+      if (!slot) continue;
+      if (t.status === 'SUCCEEDED') slot.ok += 1; else if (t.status === 'FAILED' || t.status === 'EXPIRED') slot.ko += 1;
+    }
+    const reasons = {};
+    for (const t of [...ko, ...ex]) { const r = failTextA(t) || 'Autre'; reasons[r] = (reasons[r] || 0) + 1; }
+    const byNet = {};
+    for (const t of ok) { const k = t.network || t.provider || '—'; byNet[k] = (byNet[k] || 0) + t.amount; }
+    const STATUS = { SUCCEEDED: 'Réussis', FAILED: 'Refusés', EXPIRED: 'Non confirmés', PROCESSING: 'En cours' };
+
+    $('content').innerHTML = `
+      ${intro('--c-teal', '↓', 'Les paiements des clients de tous vos marchands', `Chaque demande de paiement faite par les sites de vos marchands, en ${envWordA()}. Pour un paiement réussi, le tableau montre qui garde quoi : l’opérateur, Afripaie (en rouge quand il paie l’écart), le marchand. Le numéro du client est masqué.`)}
+      <div class="filters" style="margin-bottom:14px">
+        <select data-adm-tx-merchant style="${FIELD};padding:8px 12px;font-size:13.5px">
+          <option value="">Tous les marchands</option>
+          ${ms.data.map((m) => `<option value="${esc(m.id)}"${admTxMerchant === m.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}
+        </select>
+        <select data-adm-tx-status style="${FIELD};padding:8px 12px;font-size:13.5px">
+          <option value="">Tous les états</option>
+          ${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${admTxStatus === k ? ' selected' : ''}>${v}</option>`).join('')}
+        </select>
+        <span class="muted" style="font-size:13px;align-self:center">${list.length} paiement${list.length > 1 ? 's' : ''} affiché${list.length > 1 ? 's' : ''}</span>
+      </div>
+      <div class="kpis five">
+        ${colorCard('--c-teal', '✓', 'Réussis', `${ok.length}`, `${mA(paid)} ${cur} payés`)}
+        ${colorCard('--c-red', '✗', 'Refusés', `${ko.length}`, 'Solde, code faux, plafond…')}
+        ${colorCard('--c-orange', '…', 'Non confirmés', `${ex.length}`, 'Pas validé à temps')}
+        ${colorCard('--c-yellow', '~', 'En cours', `${wait.length}`, 'En attente du client')}
+        ${colorCard(afr >= 0 ? '--c-violet' : '--c-red', '%', 'Résultat Afripaie', `${afr < 0 ? '−' : ''}${mA(Math.abs(afr))} <small>${cur}</small>`, 'Sur ces paiements')}
+      </div>
+      <div class="grid2">
+        <section class="panel"><header><h2>Paiements par jour — 14 jours</h2></header><div class="pad">${svgDailyStack(days)}</div></section>
+        <section class="panel"><header><h2>Pourquoi certains n’ont pas abouti</h2></header>
+          <div class="pad">${Object.keys(reasons).length ? hBars(Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([label, n2], i) => ({ label, value: n2, sub: '', color: ['var(--c-orange)', 'var(--c-red)', 'var(--c-pink)', 'var(--c-yellow)'][i % 4] })), null)
+            : '<div class="empty" style="padding:24px 0"><strong>Aucun échec</strong></div>'}</div></section>
+      </div>
+      <div class="grid2">
+        <section class="panel"><header><h2>Argent payé, par opérateur</h2></header>
+          <div class="pad">${Object.keys(byNet).length ? hBars(Object.entries(byNet).sort((a, b) => b[1] - a[1]).map(([k, v], i) => ({ label: NETWORK_NAMES[k] ? networkName(k) : (PROVIDER_NAMES[k] || k), value: v, sub: '', color: ['var(--c-yellow)', 'var(--c-red)', 'var(--c-blue)', 'var(--c-violet)'][i % 4] })), cur) : '<div class="empty"><strong>Aucun paiement réussi</strong></div>'}</div></section>
+        <section class="panel"><header><h2>Les paiements ont-ils abouti ?</h2></header>
+          <div class="pad">${svgDonut([
+            { label: 'Réussis', value: ok.length, color: 'var(--c-teal)', hint: 'Payé.' },
+            { label: 'Refusés', value: ko.length, color: 'var(--c-red)', hint: 'Refusé par le client ou l’opérateur.' },
+            { label: 'Non confirmés', value: ex.length, color: 'var(--c-orange)', hint: 'Pas validé à temps.' },
+            { label: 'En cours', value: wait.length, color: 'var(--c-yellow)', hint: 'En attente.' },
+          ], ok.length + ko.length + ex.length ? Math.round((ok.length / (ok.length + ko.length + ex.length)) * 100) + ' %' : '—', 'de réussite')}</div></section>
+      </div>
+      <section class="panel"><header><h2>Liste détaillée</h2></header>
+        ${list.length === 0 ? '<div class="empty"><strong>Aucun paiement pour ce filtre</strong></div>' : `<div class="scroll"><table>
+          <thead><tr><th>Date</th><th>Marchand</th><th>État</th><th class="num">Payé</th><th class="num">Opérateur</th><th class="num">Afripaie</th><th class="num">Marchand</th><th>Opérateur mobile</th><th>Client</th><th>Pourquoi</th></tr></thead>
+          <tbody>${list.map((t) => {
+            const done2 = t.status === 'SUCCEEDED' && t.fees.provider != null && t.fees.platform != null;
+            return `<tr>
+              <td style="white-space:nowrap">${dateTime(t.created_at)}</td>
+              <td><strong>${esc(t.merchant.name)}</strong></td>
+              <td>${tag(t.status)}</td>
+              <td class="num"><strong>${mA(t.amount)}</strong> <span class="muted">${esc(t.currency)}</span></td>
+              <td class="num muted">${done2 ? mA(t.fees.provider) : '—'}</td>
+              <td class="num ${done2 && t.fees.platform < 0 ? 'c-red' : 'c-violet'}">${done2 ? (t.fees.platform < 0 ? '−' + mA(-t.fees.platform) : mA(t.fees.platform)) : '—'}</td>
+              <td class="num c-teal">${done2 ? mA(t.amount - t.fees.provider - t.fees.platform) : '—'}</td>
+              <td>${esc(t.network ? networkName(t.network) : (PROVIDER_NAMES[t.provider] || t.provider || '—'))}</td>
+              <td class="mono muted">${esc(t.customer_phone || '—')}</td>
+              <td class="muted" style="font-size:12.5px;max-width:240px">${esc(failTextA(t))}</td></tr>`;
+          }).join('')}</tbody></table></div>`}
+      </section>`;
+  }
+
+  /* --------------------------------------------------------------- Clients */
+
+  let admKyb = 'ALL';
+  const admOpen = new Set();
+  const settleData = {};
+
+  async function renderAdmClients() {
+    const [{ data, counts }, st] = await Promise.all([
+      loadAdmMerchants(),
+      api(`/v1/admin/stats?environment=${session.environment}&days=30`).catch(() => null),
+    ]);
+    const statOf = (id) => (st ? st.by_merchant.filter((x) => x.merchant.id === id) : []);
+    const list = admKyb === 'ALL' ? data : data.filter((m) => m.kyb_status === admKyb);
+    const TABS = [['ALL', 'Tous', data.length], ['PENDING', 'Dossier à examiner', counts.PENDING || 0], ['VERIFIED', 'Réel autorisé', counts.VERIFIED || 0],
+      ['UNVERIFIED', 'Test seulement', counts.UNVERIFIED || 0], ['REJECTED', 'Refusés', counts.REJECTED || 0]];
+    const kybRows = [['VERIFIED', 'Réel autorisé', 'var(--c-teal)'], ['PENDING', 'Dossier à examiner', 'var(--c-orange)'],
+      ['UNVERIFIED', 'Test seulement', 'var(--c-blue)'], ['REJECTED', 'Refusés', 'var(--c-red)']];
+
+    $('content').innerHTML = `
+      ${intro('--c-violet', '◆', 'Vos clients (marchands)', '<strong>Cliquez sur un marchand</strong> pour ouvrir sa fiche : coordonnées, dossier de passage en réel avec les boutons Autoriser / Refuser, ce qu’Afripaie lui doit, ses retraits et reversements.')}
+      <div class="grid2">
+        <section class="panel"><header><h2>Où en sont vos marchands</h2></header>
+          <div class="pad">${svgDonut(kybRows.map(([k, label, color]) => ({ label, value: counts[k] || 0, color, hint: '' })), String(data.length), 'marchands')}</div></section>
+        <section class="panel"><header><h2>Argent payé en ${envWordA()}, par marchand</h2></header>
+          <div class="pad">${st && st.by_merchant.some((m) => m.paid) ? hBars(st.by_merchant.filter((m) => m.paid).map((m, i) => ({ label: m.merchant.name, value: m.paid, sub: ` · ${m.ok} réussi${m.ok > 1 ? 's' : ''}`, color: ['var(--c-blue)', 'var(--c-teal)', 'var(--c-violet)', 'var(--c-orange)'][i % 4] })), st.by_merchant[0].currency)
+            : '<div class="empty"><strong>Aucun encaissement</strong></div>'}</div></section>
+      </div>
+      <div class="filters" style="margin-bottom:12px">${TABS.map(([k, label, n]) => `<button class="b ${admKyb === k ? 'on' : ''}" data-adm-kyb="${k}">${label} <span class="muted">${n}</span></button>`).join('')}</div>
+      ${list.length === 0 ? '<div class="empty"><strong>Aucun marchand dans cette catégorie</strong></div>' : list.map((m) => {
+        const s2 = statOf(m.id)[0];
+        return `<section class="panel acl ${admOpen.has(m.id) ? 'open' : ''}" data-adm-row="${esc(m.id)}">
+          <header data-adm-toggle="${esc(m.id)}" style="cursor:pointer">
+            <span class="chev">▶</span>
+            <div><h2>${esc(m.name)}</h2><div class="muted" style="font-size:12.5px">${esc(m.country)} · ${esc(m.contact_email)}</div></div>
+            <div class="grow"></div>
+            ${s2 ? `<span class="muted" style="font-size:13px">${s2.ok} réussi${s2.ok > 1 ? 's' : ''} · ${mA(s2.paid)} ${esc(s2.currency)}</span>` : `<span class="muted" style="font-size:13px">${m.counts ? m.counts.payments : 0} paiement${m.counts && m.counts.payments > 1 ? 's' : ''}</span>`}
+            ${kybTag(m.kyb_status)}
+          </header>
+          <div class="body pad">${dossierA(m)}<section class="settle" data-settle="${esc(m.id)}"><p class="muted">Chargement de ce qu’Afripaie lui doit…</p></section></div>
+        </section>`;
+      }).join('')}`;
+    for (const id of admOpen) loadSettlementsA(id);
+  }
+
+  async function loadSettlementsA(id) {
+    try {
+      settleData[id] = await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements`);
+      renderSettleA(id);
+    } catch (e) {
+      const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+      if (el) el.innerHTML = `<p class="muted">Indisponible : ${esc(e.message)}</p>`;
+    }
+  }
+
+  const SETTLE_STATUS = {
+    PAID: ['versé', 'ok'], PROCESSING: ['en cours', 'warn'], UNKNOWN: ['à vérifier', 'bad'], FAILED: ['échoué', 'bad'],
+    CANCELLED: ['annulé', 'neutral'], PENDING_APPROVAL: ['à valider (PIN)', 'warn'], REJECTED: ['refusé', 'bad'],
+  };
+
+  function settleActionA(st2, merchantId) {
+    const [label, tone] = SETTLE_STATUS[st2.status] || [st2.status, 'neutral'];
+    const pill = `<span class="tag ${tone}" title="${esc(st2.failure_reason || st2.cancel_reason || st2.decision_note || '')}">${label}</span>`;
+    if (st2.status === 'PROCESSING') return `${pill} <button class="b" data-adm-s-refresh="${esc(st2.id)}" data-merchant="${esc(merchantId)}">Interroger</button>`;
+    if (st2.status === 'UNKNOWN') return `${pill} <button class="b danger" data-adm-s-resolve="${esc(st2.id)}" data-merchant="${esc(merchantId)}">Trancher</button>`;
+    if (st2.status === 'PAID' && st2.mode === 'MANUAL') return `${pill} <button class="b danger" data-adm-s-cancel="${esc(st2.id)}" data-merchant="${esc(merchantId)}">Annuler</button>`;
+    if (st2.status === 'PENDING_APPROVAL') return `${pill} <button class="b" data-goto="adm_withdrawals">Valider</button>`;
+    return pill;
+  }
+
+  function renderSettleA(id) {
+    const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+    const d = settleData[id];
+    if (!el || !d) return;
+    const envW = (b) => (b.environment === 'live' ? 'réel' : 'test');
+    const balances = d.balances.length ? `<div class="scroll"><table>
+        <thead><tr><th>Argent</th><th>Via</th><th class="num">Dû</th><th class="num">Pas encore réglé</th><th class="num">Reversable</th></tr></thead>
+        <tbody>${d.balances.map((b) => `<tr><td>${envW(b)}</td><td>${esc(PROVIDER_NAMES[b.provider] || b.provider)}</td>
+          <td class="num">${mA(b.held)} ${esc(b.currency)}</td><td class="num muted">${mA(b.maturing)}</td><td class="num"><strong class="c-teal">${mA(b.available)}</strong></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted">Rien : aucun paiement de ce marchand n’est passé par les comptes d’Afripaie.</p>';
+
+    const payable = d.balances.map((b, i) => ({ b, i })).filter(({ b }) => b.available > 0);
+    const targets = d.targets || [];
+    const auto = targets.map((t) => {
+      const bal = d.balances.find((b) => b.environment === t.environment && b.provider === t.provider && b.currency === t.currency);
+      const available = bal ? bal.available : 0;
+      return `<tr><td>${t.environment === 'live' ? 'réel' : 'test'}</td><td>${esc(PROVIDER_NAMES[t.provider] || t.provider)}</td>
+        <td>${esc(t.phone)} · ${esc(networkName(t.network))}<div class="muted" style="font-size:12px">${esc(t.beneficiary_name)}</div></td>
+        <td>${t.auto_enabled ? `chaque jour dès ${mA(t.min_amount)} ${esc(t.currency)}` : 'à la demande'}</td>
+        <td class="num">${mA(available)} ${esc(t.currency)}</td>
+        <td>${available > 0 ? `<button class="b solid" data-adm-s-send="${esc(id)}" data-env="${esc(t.environment)}" data-provider="${esc(t.provider)}" data-amount="${available}" data-currency="${esc(t.currency)}">Reverser maintenant</button>` : ''}</td></tr>`;
+    }).join('');
+
+    const history = d.data.length ? `<div class="scroll"><table>
+        <thead><tr><th>Date</th><th class="num">Montant</th><th>Moyen</th><th>Vers</th><th>Référence</th><th>Par</th><th>État</th></tr></thead>
+        <tbody>${d.data.map((x) => `<tr>
+          <td style="white-space:nowrap">${dShort(x.created_at)}${x.environment === 'test' ? ' · test' : ''}</td>
+          <td class="num">${mA(x.amount)} ${esc(x.currency)}${x.fee_absorbed ? `<div class="muted" style="font-size:11.5px">frais Afripaie ${mA(x.fee_absorbed)}</div>` : ''}</td>
+          <td>${esc(METHOD[x.method] || x.method)}</td><td>${esc(x.destination)}</td>
+          <td class="mono">${esc(x.external_reference || x.provider_reference || '—')}</td>
+          <td class="muted" style="font-size:12px">${x.mode === 'AUTOMATIC' ? 'retrait ou envoi auto · ' : ''}${esc(x.recorded_by || '')}</td>
+          <td>${settleActionA(x, id)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Aucun retrait ni reversement.</p>';
+
+    el.innerHTML = `<h3>Ce qu’Afripaie doit à ce marchand</h3>
+      <p class="muted" style="font-size:13.5px">Ce que ses clients ont payé sur les comptes d’Afripaie, 5 % déduits, pas encore retiré. « Reversable » : ce qu’on peut lui envoyer tout de suite.</p>
+      ${balances}
+      <h3>Retraits et reversements</h3>${history}
+      <h3>Reversement automatique (mobile money)</h3>
+      <p class="muted" style="font-size:13.5px">Afripaie envoie elle-même, depuis son compte Yabetoo, vers le numéro enregistré. Les 1,5 % de frais d’envoi sont à la charge d’Afripaie.</p>
+      ${auto ? `<div class="scroll"><table><thead><tr><th>Argent</th><th>Depuis</th><th>Vers</th><th>Fréquence</th><th class="num">Reversable</th><th></th></tr></thead><tbody>${auto}</tbody></table></div>` : ''}
+      <details><summary>${targets.length ? 'Modifier le numéro de reversement' : 'Enregistrer un numéro de reversement'}</summary>
+        <div class="form">
+          <label>Argent <select data-t="environment"><option value="live">réel</option><option value="test">test</option></select></label>
+          <label>Depuis <select data-t="provider"><option value="yabetoo">Yabetoo (Congo)</option><option value="sandbox">Simulateur (test)</option></select></label>
+          <label>Numéro <input data-t="phone" placeholder="+242 06 123 45 67" /></label>
+          <label>Réseau <select data-t="network"><option value="">d’après le numéro</option><option value="MTN_CG">MTN</option><option value="AIRTEL_CG">Airtel</option></select></label>
+          <label>Titulaire <input data-t="name" placeholder="Nom inscrit chez l’opérateur" /></label>
+          <label>Minimum par envoi <input data-t="min" type="number" min="100" step="100" value="5000" /></label>
+          <label class="check"><input data-t="auto" type="checkbox" /> Reverser chaque jour automatiquement</label>
+        </div>
+        <button class="b" data-adm-s-target="${esc(id)}">Enregistrer</button>
+      </details>
+      ${payable.length ? `<details><summary>Enregistrer un virement fait à la main (GeniusPay…)</summary>
+        <p class="muted" style="font-size:13px">À faire seulement APRÈS le virement, avec sa référence : c’est la preuve.</p>
+        <div class="form">
+          <label>Fonds <select data-f="line">${payable.map(({ b, i }) => `<option value="${i}">${envW(b)} · ${esc(PROVIDER_NAMES[b.provider] || b.provider)} · ${mA(b.available)} ${esc(b.currency)}</option>`).join('')}</select></label>
+          <label>Montant viré <input data-f="amount" type="number" min="1" step="1" value="${payable[0].b.available}" /></label>
+          <label>Moyen <select data-f="method">${Object.entries(METHOD).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+          <label>Vers <input data-f="destination" placeholder="RIB ou numéro" /></label>
+          <label>Référence du virement <input data-f="reference" /></label>
+          <label>Note <input data-f="note" placeholder="Facultatif" /></label>
+        </div>
+        <button class="b solid" data-adm-s-record="${esc(id)}">Enregistrer le reversement</button>
+      </details>` : ''}`;
+  }
+
+  async function saveTargetA(id) {
+    const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+    const v = (k) => el.querySelector(`[data-t="${k}"]`);
+    try {
+      await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlement-targets`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          environment: v('environment').value, provider: v('provider').value, phone: v('phone').value.trim(),
+          beneficiary_name: v('name').value.trim(), ...(v('network').value ? { network: v('network').value } : {}),
+          min_amount: Number(v('min').value) || 5000, auto_enabled: v('auto').checked,
+        }),
+      });
+      notify('Numéro de reversement enregistré.', 'ok');
+      await loadSettlementsA(id);
+    } catch (e) { notify(e.message, 'ko'); }
+  }
+
+  async function sendNowA(btn) {
+    const { admSSend: id, env: e2, provider, amount, currency } = btn.dataset;
+    if (!confirm(`Reverser maintenant ${mA(Number(amount))} ${currency} (${e2 === 'live' ? 'RÉEL' : 'test'}) ?\n\nL’argent part immédiatement vers le numéro enregistré.`)) return;
+    try {
+      const x = await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements/send`, { method: 'POST', body: JSON.stringify({ environment: e2, provider }) });
+      const [label] = SETTLE_STATUS[x.status] || [x.status];
+      notify(`Reversement ${label}.${x.failure_reason ? ' ' + x.failure_reason : ''}`, x.status === 'FAILED' || x.status === 'UNKNOWN' ? 'ko' : 'ok');
+      await loadSettlementsA(id);
+    } catch (e) { notify(e.message, 'ko'); }
+  }
+
+  async function refreshOneA(settlementId, merchantId) {
+    try {
+      const x = await api(`/v1/admin/settlements/${encodeURIComponent(settlementId)}/refresh`, { method: 'POST', body: '{}' });
+      notify(`État : ${(SETTLE_STATUS[x.status] || [x.status])[0]}.`, 'ok');
+      await loadSettlementsA(merchantId);
+    } catch (e) { notify(e.message, 'ko'); }
+  }
+
+  async function resolveOneA(settlementId, merchantId) {
+    const paid = confirm('Vérifiez d’abord dans le tableau de bord de l’opérateur.\n\nOK : l’envoi a bien eu lieu.\nAnnuler : il n’a pas eu lieu (le montant redevient dû).');
+    const reason = prompt(paid ? 'Ce que vous avez constaté :' : 'Pourquoi l’envoi n’a pas eu lieu :');
+    if (!reason || reason.trim().length < 5) return;
+    const reference = paid ? prompt('Référence de l’envoi chez l’opérateur :') : null;
+    if (paid && (!reference || reference.trim().length < 3)) return;
+    try {
+      await api(`/v1/admin/settlements/${encodeURIComponent(settlementId)}/resolve`, {
+        method: 'POST', body: JSON.stringify({ outcome: paid ? 'paid' : 'failed', reason: reason.trim(), ...(paid ? { external_reference: reference.trim() } : {}) }),
+      });
+      notify('Tranché.', 'ok');
+      await loadSettlementsA(merchantId);
+    } catch (e) { notify(e.message, 'ko'); }
+  }
+
+  async function recordSettlementA(id) {
+    const el = document.querySelector(`[data-settle="${CSS.escape(id)}"]`);
+    const f = (k) => el.querySelector(`[data-f="${k}"]`).value.trim();
+    const line = settleData[id].balances[Number(f('line'))];
+    const amount = Number(f('amount'));
+    if (!Number.isInteger(amount) || amount <= 0) return notify('Montant invalide.', 'ko');
+    if (f('destination').length < 3 || f('reference').length < 3) return notify('Destination et référence du virement sont obligatoires.', 'ko');
+    if (!confirm(`Enregistrer un reversement de ${mA(amount)} ${line.currency} ?\n\nSeulement APRÈS avoir fait le virement.`)) return;
+    try {
+      await api(`/v1/admin/merchants/${encodeURIComponent(id)}/settlements`, {
+        method: 'POST',
+        body: JSON.stringify({ environment: line.environment, currency: line.currency, amount, source_provider: line.provider,
+          method: f('method'), destination: f('destination'), external_reference: f('reference'), ...(f('note') ? { note: f('note') } : {}) }),
+      });
+      notify('Reversement enregistré.', 'ok');
+      await loadSettlementsA(id);
+    } catch (e) { notify(e.message, 'ko'); }
+  }
+
+  async function cancelSettlementA(settlementId, merchantId) {
+    const reason = prompt('Motif de l’annulation :');
+    if (!reason || reason.trim().length < 5) return;
+    try {
+      await api(`/v1/admin/settlements/${encodeURIComponent(settlementId)}/cancel`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) });
+      notify('Annulé : le montant est de nouveau dû au marchand.', 'ok');
+      await loadSettlementsA(merchantId);
+    } catch (e) { notify(e.message, 'ko'); }
+  }
+
+  /* ------------------------------------------------------------ Agregateurs */
+
+  async function renderAdmProviders() {
+    const res = await api('/v1/admin/providers');
+    const STATE = { CLOSED: 'opérationnel', OPEN: 'écarté (pannes)', HALF_OPEN: 'en test' };
+    const platform = res.accounts.filter((a) => a.owner.platform);
+    const merchants = res.accounts.filter((a) => !a.owner.platform);
+    const liveActive = platform.filter((a) => a.environment === 'live' && a.status === 'ACTIVE');
+    const down = res.health.filter((h) => h.state !== 'CLOSED');
+    const acc = (list, owner) => list.length === 0 ? '<div class="empty"><strong>Aucun</strong></div>' : `<div class="scroll"><table>
+        <thead><tr><th>Agrégateur</th>${owner ? '<th>Marchand</th>' : ''}<th>Argent</th><th>État</th><th>Dernier usage</th><th>Branché le</th></tr></thead>
+        <tbody>${list.map((a) => `<tr><td><strong>${esc(PROVIDER_NAMES[a.provider] || a.provider)}</strong></td>${owner ? `<td>${esc(a.owner.name)}</td>` : ''}
+          <td>${a.environment === 'live' ? '<span class="tag ok">réel</span>' : '<span class="tag neutral">test</span>'}</td>
+          <td>${a.status === 'ACTIVE' ? '<span class="tag ok">actif</span>' : `<span class="tag bad">${esc(a.status.toLowerCase())}</span>`}</td>
+          <td class="muted">${a.last_used_at ? ago(a.last_used_at) : 'jamais'}</td><td class="muted">${dShort(a.created_at)}</td></tr>`).join('')}</tbody></table></div>`;
+
+    $('content').innerHTML = `
+      ${intro('--c-pink', '⛁', 'Les agrégateurs d’Afripaie', 'Les opérateurs par lesquels passe l’argent : Yabetoo au Congo, GeniusPay en Côte d’Ivoire… <strong>Visible des seuls administrateurs</strong>. Si l’un tombe en panne, Afripaie l’écarte seul et envoie les paiements ailleurs.')}
+      <div class="kpis">
+        ${colorCard('--c-teal', '✓', 'Comptes réels d’Afripaie', `${liveActive.length}`, liveActive.map((a) => PROVIDER_NAMES[a.provider] || a.provider).join(', ') || 'Aucun')}
+        ${colorCard('--c-violet', '◆', 'Comptes de marchands', `${merchants.length}`, 'Branchés par les marchands eux-mêmes')}
+        ${colorCard(down.length ? '--c-red' : '--c-blue', down.length ? '!' : '✓', 'En panne', `${down.length}`, down.length ? 'Écartés automatiquement' : 'Tout fonctionne')}
+      </div>
+      <section class="panel"><header><h2>Santé des agrégateurs</h2></header>
+        <div class="pad">${res.health.length ? hBars(res.health.map((h) => {
+          const n = h.successes + h.technical_failures;
+          const r = n ? Math.round((h.successes / n) * 100) : 100;
+          return { label: `${PROVIDER_NAMES[h.provider] || h.provider} · ${h.country}`, value: r, sub: ` · ${STATE[h.state] || h.state} · ${h.latency_p95_ms != null ? h.latency_p95_ms + ' ms' : '—'}`, color: h.state !== 'CLOSED' ? 'var(--c-red)' : r >= 90 ? 'var(--c-teal)' : 'var(--c-yellow)' };
+        }), null).replace(/ <small>cas<\/small>/g, ' <small>% sans panne</small>') : '<div class="empty"><strong>Aucun appel observé</strong>depuis le dernier redémarrage du serveur.</div>'}</div>
+        <div class="foot">Pourcentage d’appels sans panne technique. Les refus des clients (solde insuffisant…) ne comptent pas comme des pannes.</div></section>
+      <section class="panel"><header><h2>Comptes d’Afripaie</h2></header>${acc(platform, false)}
+        <div class="foot">Tout marchand sans compte propre encaisse par ces comptes.</div></section>
+      <section class="panel"><header><h2>Comptes branchés par des marchands</h2></header>${acc(merchants, true)}</section>`;
+  }
+
   const RENDER = {
     overview: renderOverview,
     devoverview: renderDevOverview,
@@ -1702,7 +2352,12 @@
     reconciliation: renderReconciliation,
     payments: () => renderList('payments'),
     payouts: () => renderList('payouts'),
-    providers: renderProviders,
+    providers: renderAdmProviders,
+    adm_overview: renderAdmOverview,
+    adm_live: renderAdmLive,
+    adm_withdrawals: renderAdmWithdrawals,
+    adm_payments: renderAdmPayments,
+    adm_clients: renderAdmClients,
     webhooks: renderWebhooks,
     keys: renderKeys,
     live: renderLive,
@@ -1712,7 +2367,7 @@
 
   async function show(next) {
     if (next !== view) listFilter = 'ALL';
-    view = next === 'providers' && !session.user.platform_admin ? 'overview' : next;
+    view = (next === 'providers' || next.startsWith('adm_')) && !session.user.platform_admin ? 'overview' : next;
     const meta = VIEWS[view];
     $('title').textContent = meta.title;
     $('subtitle').textContent = meta.sub;
@@ -1779,6 +2434,43 @@
     // Tout clic hors du menu le referme : un panneau qui reste ouvert par
     // inadvertance masque la moitie de la barre laterale.
     if (!e.target.closest('#devmenu')) closeDevMenu();
+
+    // --- Administration ---------------------------------------------------
+    const aAct = e.target.closest('[data-adm-act]');
+    if (aAct) {
+      const id = aAct.dataset.id;
+      aAct.disabled = true;
+      await decideA(id, aAct.dataset.admAct, document.querySelector(`[data-adm-note="${CSS.escape(id)}"]`)?.value ?? '');
+      aAct.disabled = false;
+      return;
+    }
+    const aTog = e.target.closest('[data-adm-toggle]');
+    if (aTog) {
+      const id = aTog.dataset.admToggle;
+      const row = aTog.closest('.acl');
+      if (admOpen.has(id)) admOpen.delete(id); else { admOpen.add(id); loadSettlementsA(id); }
+      row.classList.toggle('open');
+      return;
+    }
+    const aKyb = e.target.closest('[data-adm-kyb]');
+    if (aKyb) { admKyb = aKyb.dataset.admKyb; await renderAdmClients(); return; }
+    const aWa = e.target.closest('[data-adm-wd-approve]');
+    if (aWa) { aWa.disabled = true; await approveWithdrawalA(aWa.dataset.admWdApprove); return; }
+    const aWr = e.target.closest('[data-adm-wd-reject]');
+    if (aWr) { await rejectWithdrawalA(aWr.dataset.admWdReject); return; }
+    if (e.target.closest('[data-adm-pin-save]')) { await savePinA(); return; }
+    const aSt = e.target.closest('[data-adm-s-target]');
+    if (aSt) { aSt.disabled = true; await saveTargetA(aSt.dataset.admSTarget); aSt.disabled = false; return; }
+    const aSs = e.target.closest('[data-adm-s-send]');
+    if (aSs) { aSs.disabled = true; await sendNowA(aSs); aSs.disabled = false; return; }
+    const aSr = e.target.closest('[data-adm-s-refresh]');
+    if (aSr) { await refreshOneA(aSr.dataset.admSRefresh, aSr.dataset.merchant); return; }
+    const aSv = e.target.closest('[data-adm-s-resolve]');
+    if (aSv) { await resolveOneA(aSv.dataset.admSResolve, aSv.dataset.merchant); return; }
+    const aSc = e.target.closest('[data-adm-s-cancel]');
+    if (aSc) { await cancelSettlementA(aSc.dataset.admSCancel, aSc.dataset.merchant); return; }
+    const aSrec = e.target.closest('[data-adm-s-record]');
+    if (aSrec) { aSrec.disabled = true; await recordSettlementA(aSrec.dataset.admSRecord); aSrec.disabled = false; return; }
 
     const lf = e.target.closest('[data-list-filter]');
     if (lf) { listFilter = lf.dataset.listFilter; await renderList(view); return; }
@@ -1862,6 +2554,12 @@
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDevMenu(); });
 
+  // Filtres de l'onglet « Paiements clients ».
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('[data-adm-tx-status]')) { admTxStatus = e.target.value; void renderAdmPayments(); }
+    if (e.target.matches('[data-adm-tx-merchant]')) { admTxMerchant = e.target.value; void renderAdmPayments(); }
+  });
+
   $('detail-close').onclick = () => { $('detail').close(); current = null; };
   $('detail-refresh').onclick = refreshDetail;
   $('detail-retry').onclick = async () => {
@@ -1899,10 +2597,12 @@
     });
 
     $('admin-link').hidden = !session.user.platform_admin;
-    $('admin-nav').hidden = !session.user.platform_admin;
-    // Quels agregateurs Afripaie utilise, et dans quel etat : l'affaire de la
-    // plateforme, pas du client.
-    $('providers-nav').hidden = !session.user.platform_admin;
+    // Les onglets d'administration n'apparaissent qu'aux administrateurs ; le
+    // serveur refuse de toute facon leurs routes a un marchand.
+    $('admin-group').hidden = !session.user.platform_admin;
+    if (session.user.platform_admin && !booted) view = 'adm_overview';
+    booted = true;
+    void refreshAdminBadges();
 
     const liveBadge = $('badge-live');
     liveBadge.hidden = session.merchant.kyb_status !== 'REJECTED';
